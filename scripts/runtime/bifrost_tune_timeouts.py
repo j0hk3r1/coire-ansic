@@ -10,7 +10,7 @@ GET masks key values, so raw keys are read from the container env vars.
 Env-var key tails are verified to match the masked tails in stored config
 before writing — bails on mismatch to avoid corrupting auth.
 
-Run on the host where the hermes-bifrost container is running.
+Run on the host where the coire-bifrost container is running.
 """
 import urllib.request, json, base64, subprocess, sys, os
 
@@ -28,7 +28,7 @@ if not PASS:
 if not PASS:
     print("FAIL: BIFROST_PASS not set in env or .env", file=sys.stderr)
     sys.exit(1)
-CONTAINER = os.environ.get("BIFROST_CONTAINER", "hermes-bifrost")
+CONTAINER = os.environ.get("BIFROST_CONTAINER", "coire-bifrost")
 AUTH = "Basic " + base64.b64encode(f"{USER}:{PASS}".encode()).decode()
 
 # provider name -> env var holding raw key (matches container env)

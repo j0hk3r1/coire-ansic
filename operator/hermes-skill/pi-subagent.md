@@ -1,11 +1,11 @@
 ---
 name: pi-subagent
-description: Delegate large coding/ops tasks to the pi-mono operator agent running on this host. Pi has its own tool harness (read/bash/edit/write/git), uses bifrost pools for inference, and maintains the hermes-free-cloud stack. Use this skill whenever a task involves >50 lines of code changes, multi-file refactors, test-and-iterate loops, repetitive shell work, or routine ops (provider onboarding, hermes patch reconciliation, weight rebalance). Reserve your own context for high-level orchestration.
+description: Delegate large coding/ops tasks to the pi-mono operator agent running on this host. Pi has its own tool harness (read/bash/edit/write/git), uses bifrost pools for inference, and maintains the coire-ansic stack. Use this skill whenever a task involves >50 lines of code changes, multi-file refactors, test-and-iterate loops, repetitive shell work, or routine ops (provider onboarding, hermes patch reconciliation, weight rebalance). Reserve your own context for high-level orchestration.
 ---
 
 # Pi-Subagent — Delegation Pattern
 
-The operator agent `pi` runs on this host. It is built on `@earendil-works/pi-coding-agent`, configured at `~/.pi/agent/`, and uses our own bifrost pools for inference (`hermes-bifrost` provider, defaults to `code` pool which routes deepseek-v4-pro / kimi-k2.6 / gpt-4.1).
+The operator agent `pi` runs on this host. It is built on `@earendil-works/pi-coding-agent`, configured at `~/.pi/agent/`, and uses our own bifrost pools for inference (`coire-bifrost` provider, defaults to `code` pool which routes deepseek-v4-pro / kimi-k2.6 / gpt-4.1).
 
 Pi handles:
 - Self-maintenance of this stack (CB health, patch reconcile, key onboarding)
@@ -19,7 +19,7 @@ Pi handles:
 | Single-file edit < 50 LoC | No — do it inline |
 | Multi-file refactor | **Yes** |
 | Test-and-iterate cycles (build, run, fix, repeat) | **Yes** |
-| New provider onboarding | **Yes** — drop key in `~/.hermes/operator/incoming_keys/` |
+| New provider onboarding | **Yes** — drop key in `~/.coire/operator/incoming_keys/` |
 | Hermes patch after upstream pull | **Yes** — auto-runs daily 02:00 |
 | Routine bifrost health check | **Yes** — auto-runs hourly |
 | Quick "what's the current state of X" | No — read state file directly |
@@ -33,7 +33,7 @@ For a single coding task — pi runs in `-p` (print, non-interactive) mode and e
 
 ```bash
 pi -p \
-  --provider hermes-bifrost \
+  --provider coire-bifrost \
   --model code \
   --append-system-prompt "<inline-system-instructions-or-path-to-md>" \
   --thinking high \
@@ -48,7 +48,7 @@ Output is plain text. Pi handles tool calls (file edit, bash, git) inside its ow
 For standard ops tasks (already documented), use the wrapper:
 
 ```bash
-~/hermes-free-cloud/operator/op-run.sh <template-name> [extra args]
+~/coire-ansic/operator/op-run.sh <template-name> [extra args]
 ```
 
 Templates available:
@@ -62,7 +62,7 @@ Templates available:
 For provider onboarding, write a key file:
 
 ```bash
-cat > ~/.hermes/operator/incoming_keys/<vendor>.txt <<EOF
+cat > ~/.coire/operator/incoming_keys/<vendor>.txt <<EOF
 KEY=<api-key>
 BASE_URL=<optional>
 MODELS=<optional>
@@ -86,9 +86,9 @@ Then check periodically or use `pi --resume`.
 ## What pi can/can't touch
 
 Allowed:
-- Anything in `~/hermes-free-cloud/` (repo)
-- `~/.hermes/operator/` (its queue/logs/done)
-- `~/.hermes/curator-pool/` (CB state — daemon must be stopped before writes)
+- Anything in `~/coire-ansic/` (repo)
+- `~/.coire/operator/` (its queue/logs/done)
+- `~/.coire/curator-pool/` (CB state — daemon must be stopped before writes)
 - `~/.hermes/config.yaml` (extract_backend reconcile only)
 - Restart docker services + systemd user units (bifrost, dashboard, hermes-gateway/dashboard, circuit-breaker)
 - `~/hermes-agent/` git operations (stash/pull) + patch script execution
@@ -101,12 +101,12 @@ Forbidden (documented in `~/.pi/agent/skills/bifrost-ops/SKILL.md`):
 
 ## Log inspection
 
-Pi writes to `~/.hermes/operator/logs/YYYY-MM-DD-<template>.log` (per run). Daily JSONL summary at `~/.hermes/operator/logs/YYYY-MM-DD.jsonl`.
+Pi writes to `~/.coire/operator/logs/YYYY-MM-DD-<template>.log` (per run). Daily JSONL summary at `~/.coire/operator/logs/YYYY-MM-DD.jsonl`.
 
 When investigating an autonomous action:
 ```bash
-tail -50 ~/.hermes/operator/logs/$(date +%Y-%m-%d)*.log
-jq -c '.' ~/.hermes/operator/logs/$(date +%Y-%m-%d).jsonl | tail -10
+tail -50 ~/.coire/operator/logs/$(date +%Y-%m-%d)*.log
+jq -c '.' ~/.coire/operator/logs/$(date +%Y-%m-%d).jsonl | tail -10
 ```
 
 ## Mutual maintenance contract
@@ -114,8 +114,8 @@ jq -c '.' ~/.hermes/operator/logs/$(date +%Y-%m-%d).jsonl | tail -10
 You maintain pi:
 - `npm install -g @earendil-works/pi-coding-agent` if pi is broken
 - Edit `~/.pi/agent/settings.json` / `models.json` if config drifts
-- Add new prompt templates to `~/hermes-free-cloud/operator/prompt-templates/` (committed)
-- Update `bifrost-ops` skill at `~/hermes-free-cloud/operator/skills/bifrost-ops/SKILL.md`
+- Add new prompt templates to `~/coire-ansic/operator/prompt-templates/` (committed)
+- Update `bifrost-ops` skill at `~/coire-ansic/operator/skills/bifrost-ops/SKILL.md`
 
 Pi maintains you:
 - Daily hermes patch reconcile (02:00 Lisbon)

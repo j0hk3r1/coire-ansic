@@ -33,7 +33,7 @@ Task:
 
 3. After EVERY target, log via the helper script (NOT raw heredoc, NOT echo):
    ```bash
-   ~/hermes-free-cloud/operator/bin/op-log react "<provider/model>" "<restore|probe|no-action|skip>" "<short reason>" "<outcome>"
+   ~/coire-ansic/operator/bin/op-log react "<provider/model>" "<restore|probe|no-action|skip>" "<short reason>" "<outcome>"
    ```
    The helper handles JSON-escaping for you. This is MANDATORY — even when
    you took no action. Skipping the helper and constructing your own JSONL
@@ -41,11 +41,11 @@ Task:
 
 4. Final stdout line MUST be EXACTLY this format (one line, no echo, no quotes):
    ```
-   SUMMARY actions=K deferred=M skipped=N log=~/.hermes/operator/logs/<UTC-date>.jsonl
+   SUMMARY actions=K deferred=M skipped=N log=~/.coire/operator/logs/<UTC-date>.jsonl
    ```
-   Use the literal absolute path under `~/.hermes/operator/logs/` — do NOT
+   Use the literal absolute path under `~/.coire/operator/logs/` — do NOT
    invent paths like `~/.pi/agent/logs/ops.log` or `operator/log/op.log`.
-   The canonical log file is `~/.hermes/operator/logs/$(date -u +%Y-%m-%d).jsonl`
+   The canonical log file is `~/.coire/operator/logs/$(date -u +%Y-%m-%d).jsonl`
    and the op-log helper echoes it on stdout for you (use that value).
 
 Hard rules (violating any = bug, file an issue):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Discover provider models not yet in pools. Writes findings to
-~/.hermes/operator/discoveries/<date>.md for human/pi review.
+~/.coire/operator/discoveries/<date>.md for human/pi review.
 
 For each verified-working provider, fetches /v1/models and diffs against
 current pool_weights.yaml memberships + fallback chains. Outputs a markdown
@@ -32,7 +32,7 @@ def fetch_models(url, key, prefix):
     req = urllib.request.Request(url)
     # Cloudflare-protected endpoints (groq, cerebras) return 403 error 1010
     # for the default Python-urllib UA — set a real-looking one.
-    req.add_header("User-Agent", "hermes-free-cloud/discover (curl/8)")
+    req.add_header("User-Agent", "coire-ansic/discover (curl/8)")
     if key:
         req.add_header("Authorization", f"{prefix} {key}")
     try:

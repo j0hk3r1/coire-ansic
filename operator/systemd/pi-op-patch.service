@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=%h/hermes-free-cloud/operator/op-run.sh op-patch-hermes
+ExecStart=%h/coire-ansic/operator/op-run.sh op-patch-hermes
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=600

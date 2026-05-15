@@ -7,8 +7,8 @@
 
 set -euo pipefail
 
-OP_DIR="${OP_DIR:-$HOME/hermes-free-cloud/operator}"
-QUEUE_DIR="${QUEUE_DIR:-$HOME/.hermes/operator/incoming_keys}"
+OP_DIR="${OP_DIR:-$HOME/coire-ansic/operator}"
+QUEUE_DIR="${QUEUE_DIR:-$HOME/.coire/operator/incoming_keys}"
 
 mkdir -p "$QUEUE_DIR"
 shopt -s nullglob

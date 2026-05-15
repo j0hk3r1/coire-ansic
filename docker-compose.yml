@@ -16,7 +16,7 @@
 services:
   bifrost:
     image: maximhq/bifrost
-    container_name: hermes-bifrost
+    container_name: coire-bifrost
     ports:
       - "0.0.0.0:4001:8080"  # LAN-accessible (admin auth required)
     volumes:
@@ -36,8 +36,8 @@ services:
   strip-shim:
     build:
       context: ./strip-shim
-    image: hermes-strip-shim:latest
-    container_name: hermes-strip-shim
+    image: coire-strip-shim:latest
+    container_name: coire-strip-shim
     ports:
       - "127.0.0.1:4002:4002"
     environment:
@@ -52,7 +52,7 @@ services:
   searxng:
     profiles: ["searxng"]
     image: searxng/searxng:latest
-    container_name: hermes-searxng
+    container_name: coire-searxng
     ports:
       - "127.0.0.1:8891:8080"
     volumes:
@@ -82,8 +82,8 @@ services:
     build:
       context: ./camofox/src
       dockerfile: Dockerfile.ci
-    image: hermes-camofox:latest
-    container_name: hermes-camofox
+    image: coire-camofox:latest
+    container_name: coire-camofox
     ports:
       - "127.0.0.1:9378:9377"
     restart: unless-stopped
@@ -97,21 +97,21 @@ services:
 
   # Pool monitor + circuit breaker UI. Optional — start with --profile dashboard.
   # Reads live data from bifrost (logs, routing rules, providers) and from the
-  # circuit_breaker daemon's cooldown_status.json (mounted via ~/.hermes).
+  # circuit_breaker daemon's cooldown_status.json (mounted via ~/.coire).
   dashboard:
     profiles: ["dashboard"]
     build:
       context: ./dashboard
-    image: hermes-dashboard:latest
-    container_name: hermes-dashboard
+    image: coire-dashboard:latest
+    container_name: coire-dashboard
     ports:
       - "0.0.0.0:9118:9118"
     volumes:
-      - ~/.hermes:/root/.hermes:ro
+      - ~/.coire:/root/.coire:ro
       # Curator-pool subdir is rw so dashboard action endpoints
       # (force-restore / prune) can update circuit_state.json. The
-      # parent /root/.hermes stays ro for everything else.
-      - ~/.hermes/curator-pool:/root/.hermes/curator-pool:rw
+      # parent /root/.coire stays ro for everything else.
+      - ~/.coire/curator-pool:/root/.coire/curator-pool:rw
       - /var/spool/cron/crontabs/${USER:-jkr}:/host_crontab:ro
       - ./bifrost/excluded_models.json:/app/bifrost/excluded_models.json:ro
       - ./bifrost/candidate_providers.json:/app/bifrost/candidate_providers.json:ro

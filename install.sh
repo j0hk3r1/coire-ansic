@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# hermes-free-cloud — installer
+# CoireAnsic — installer
 #
-# Default install gives you the CORE: a self-managing free-tier LLM router
+# Coire Ansic ("the un-dry cauldron") — self-managing free-tier LLM router
 # with adaptive routing, circuit breaker, and dashboard. Pair it with any
 # OpenAI-compatible client (yours, hermes-agent, OMP, anything).
 #
@@ -46,7 +46,7 @@ warn() { printf "  \033[1;33m!\033[0m %s\n" "$*"; }
 die()  { printf "  \033[1;31m✗\033[0m %s\n" "$*"; exit 1; }
 
 echo
-echo "hermes-free-cloud installer"
+echo "CoireAnsic installer"
 echo "  core: ✓ (always)"
 echo "  hermes-agent:  $([ $WITH_HERMES -eq 1 ] && echo on || echo off)"
 echo "  telegram:      $([ $WITH_TELEGRAM -eq 1 ] && echo on || echo off)"
@@ -86,7 +86,7 @@ ok ".env validated ($PROVIDER_COUNT provider key(s))"
 
 # ─── core 2. docker stack (bifrost + shim + dashboard) ────────────────────
 step "[core] docker compose up — bifrost + strip-shim + dashboard"
-mkdir -p "$HOME/.hermes" bifrost/data
+mkdir -p "$HOME/.coire" bifrost/data
 chmod 777 bifrost/data 2>/dev/null || true
 
 # Build docker compose profile list based on flags
@@ -97,7 +97,7 @@ PROFILES="dashboard"
 COMPOSE_PROFILES="$PROFILES" docker compose up -d --build
 # wait for bifrost healthy
 for i in {1..60}; do
-  [ "$(docker inspect hermes-bifrost --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] && break
+  [ "$(docker inspect coire-bifrost --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] && break
   sleep 2
 done
 ok "docker stack up (profiles: $PROFILES)"
@@ -172,8 +172,8 @@ if [ -d operator/systemd ]; then
   ok "operator timers enabled"
 fi
 
-mkdir -p "$HOME/.hermes/operator/incoming_keys" "$HOME/.hermes/operator/logs" \
-         "$HOME/.hermes/operator/discoveries" "$HOME/.hermes/curator-pool"
+mkdir -p "$HOME/.coire/operator/incoming_keys" "$HOME/.coire/operator/logs" \
+         "$HOME/.coire/operator/discoveries" "$HOME/.coire/curator-pool"
 ok "operator state dirs created"
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -274,7 +274,7 @@ step "verify"
 cat <<MSG
 
 ────────────────────────────────────────────────────────────────────
-hermes-free-cloud is up. Core services:
+CoireAnsic is up. Core services:
   • Bifrost AI gateway   http://localhost:4001  (admin / \$BIFROST_PASS)
   • Strip-shim proxy     http://localhost:4002  ← clients connect here
   • Dashboard            http://localhost:9118
@@ -289,7 +289,7 @@ $([ $WITH_CAMOFOX -eq 1 ] && echo "  • Camofox browser      http://localhost:9
 $([ $WITH_SEARXNG -eq 1 ] && echo "  • SearXNG search       http://localhost:8891")
 $([ $WITH_FIRECRAWL -eq 1 ] && echo "  • Firecrawl extract    http://localhost:3002")
 
-Drop new API keys in ~/.hermes/operator/incoming_keys/<name>.txt — pi-op-queue
+Drop new API keys in ~/.coire/operator/incoming_keys/<name>.txt — pi-op-queue
 auto-integrates them within 5 minutes.
 
 Pool topology source-of-truth: scripts/runtime/pool_weights.yaml

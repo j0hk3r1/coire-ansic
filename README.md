@@ -1,7 +1,11 @@
-# hermes-free-cloud
+# CoireAnsic
+
+> *Coire Ansic* — Irish: "the un-dry cauldron." The Dagda's magic cauldron
+> from the Tuatha Dé Danann mythology that never emptied; nobody left
+> hungry, no matter how many came to feast.
 
 A **self-managing free-tier LLM router**. Aggregates 10+ free-tier providers
-behind one OpenAI-compatible endpoint, with adaptive routing, circuit
+behind one OpenAI-compatible endpoint, with adaptive routing, a circuit
 breaker, and an autonomous operator layer that keeps the stack healthy
 without you babysitting it.
 
@@ -36,7 +40,7 @@ You add keys; it figures out the rest.
 | **cb-deadman** | systemd 2min | Restarts CB if it dies |
 | **pi-op-react** | systemd 60min | Pi-mono operator: recovers stuck demotes via dashboard API |
 | **pi-op-health** | systemd hourly | Read-only status audit → JSONL log |
-| **pi-op-queue** | systemd 5min | Auto-onboards keys dropped in `~/.hermes/operator/incoming_keys/` |
+| **pi-op-queue** | systemd 5min | Auto-onboards keys dropped in `~/.coire/operator/incoming_keys/` |
 | **pi-op-patch** | systemd daily | Reconciles upstream patches (e.g. hermes-agent updates) |
 | **op-rebalance** | systemd daily | Adaptive weights — saturated providers down, idle providers up |
 | **op-discover** | systemd weekly | Scans provider `/v1/models`, surfaces new candidates |
@@ -69,8 +73,8 @@ You add keys; it figures out the rest.
 ## Install
 
 ```bash
-git clone <this-repo> hermes-free-cloud
-cd hermes-free-cloud
+git clone <this-repo> coire-ansic
+cd coire-ansic
 cp .env.example .env
 $EDITOR .env                  # paste at least one provider key
 ./install.sh                   # core only
@@ -120,12 +124,12 @@ hermes -z "what's 2+2"
 ## Self-management — drop a key, walk away
 
 ```bash
-echo "KEY=sk-..." > ~/.hermes/operator/incoming_keys/newprovider.txt
+echo "KEY=sk-..." > ~/.coire/operator/incoming_keys/newprovider.txt
 ```
 
 Within 5 min, `pi-op-queue` probes the key, registers the provider in
 bifrost, syncs models, and adds appropriate pool entries. Logged to
-`~/.hermes/operator/logs/<date>.jsonl`.
+`~/.coire/operator/logs/<date>.jsonl`.
 
 ## Tear down
 
@@ -196,7 +200,7 @@ bifrost, syncs models, and adds appropriate pool entries. Logged to
   review (does *not* auto-add).
 - **pi-op-react** every 60min: force-restores pruned demotes >24h via the
   dashboard restore endpoint; lets CB re-evaluate cleanly.
-- **pi-op-queue** every 5min: scans `~/.hermes/operator/incoming_keys/`,
+- **pi-op-queue** every 5min: scans `~/.coire/operator/incoming_keys/`,
   dispatches each new key file to the `op-integrate` template (auto-probe,
   add provider, sync models, add to pools).
 - **`ops` pool isolation** — all pi-op timer traffic routes through the
@@ -207,10 +211,11 @@ bifrost, syncs models, and adds appropriate pool entries. Logged to
 
 This project does not phone home. No telemetry, no analytics, no
 auto-update checks. All state is local:
-- `~/.hermes/` — operator audit logs, CB state, queue dirs
+- `~/.coire/` — operator audit logs, CB state, queue dirs
 - `~/.pi/agent/` — pi-mono configs
 - `./bifrost/data/` — bifrost docker volume (provider keys, routing rules)
 - `./.env` — your API keys (gitignored)
+- `~/.hermes/` — only if `--with-hermes` is installed (hermes-agent's own dir)
 
 The only outbound network calls are: (a) to LLM providers when routing
 your requests, (b) one weekly `/v1/models` scan from `op-discover` per

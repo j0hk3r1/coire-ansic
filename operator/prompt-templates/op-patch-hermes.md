@@ -10,16 +10,16 @@ Workflow:
    b. Stash any uncommitted patches: `git stash push -m "operator: pre-update stash $(date -Iseconds)"`
    c. Fast-forward: `git pull --ff-only`
    d. Re-apply patches:
-      - `bash ~/hermes-free-cloud/scripts/install/patch_hermes_tui_model.sh`
-      - `bash ~/hermes-free-cloud/scripts/install/patch_hermes_jina_extract.sh`
+      - `bash ~/coire-ansic/scripts/install/patch_hermes_tui_model.sh`
+      - `bash ~/coire-ansic/scripts/install/patch_hermes_jina_extract.sh`
    e. Restore firecrawl as extract_backend (jina patch defaults it to jina, but we self-host firecrawl):
       - `sed -i 's|^\(\s*\)extract_backend: jina|\1extract_backend: firecrawl|' ~/.hermes/config.yaml`
    f. Restart services:
-      - `systemctl --user restart hermes-gateway hermes-dashboard`
+      - `systemctl --user restart hermes-gateway coire-dashboard`
       - Wait 8s, smoke-test: `curl -m 5 http://localhost:9120/` should return 200
    g. If smoke fails → roll back: `cd ~/hermes-agent && git reset --hard HEAD~$BEHIND_COUNT`, restart, log incident.
 
-Log to `~/.hermes/operator/logs/$(date +%Y-%m-%d).jsonl`:
+Log to `~/.coire/operator/logs/$(date +%Y-%m-%d).jsonl`:
 ```json
 {"ts":"<iso>","job":"patch_hermes","behind":<N>,"applied":<bool>,"smoke_passed":<bool>,"notes":"..."}
 ```

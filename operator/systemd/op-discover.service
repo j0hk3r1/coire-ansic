@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/hermes-free-cloud
-ExecStart=/usr/bin/python3 %h/hermes-free-cloud/scripts/runtime/discover_models.py
+WorkingDirectory=%h/coire-ansic
+ExecStart=/usr/bin/python3 %h/coire-ansic/scripts/runtime/discover_models.py
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=180

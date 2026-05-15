@@ -10,7 +10,7 @@ Rules:
 - Skip provider entries that aren't in PROVIDER_QUOTAS (no cap data)
 
 Idempotent. Writes pool_weights.yaml in place (backup .bak). Logs diff
-to ~/.hermes/curator-pool/rebalance_history.jsonl. Apply via
+to ~/.coire/curator-pool/rebalance_history.jsonl. Apply via
 apply_pool_weights.py.
 
 Designed to run as systemd timer (op-rebalance.timer, daily at ~01:30 UTC

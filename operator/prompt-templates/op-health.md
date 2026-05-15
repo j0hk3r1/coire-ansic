@@ -5,7 +5,7 @@ Task:
 2. GET http://localhost:9118/api/circuit_breaker — list demoted targets w/ flags
 3. GET http://localhost:9118/api/usage_estimates — per-provider 24h usage vs cap
 4. GET http://localhost:9118/api/latency — pool-grouped P50/P95 (look for any P95 > 10s)
-5. Read recent CB history: tail last 20 events from `~/.hermes/curator-pool/circuit_history.jsonl`
+5. Read recent CB history: tail last 20 events from `~/.coire/curator-pool/circuit_history.jsonl`
 
 Write a concise health report to stdout in this format:
 
@@ -27,7 +27,7 @@ Then append a one-line JSON summary using the op-log helper (NOT raw `echo
 >>` — that has produced concatenated objects without newlines):
 ```bash
 echo '{"job":"health","level":"<green|yellow|red>","demoted":<N>,"errs_24h":<N>,"notes":"<summary>"}' \
-  | ~/hermes-free-cloud/operator/bin/op-log -
+  | ~/coire-ansic/operator/bin/op-log -
 ```
 The helper injects `ts` automatically, validates JSON, appends with a
 trailing newline, and prints the canonical log file path on stdout.

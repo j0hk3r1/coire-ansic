@@ -7,12 +7,12 @@
 # Examples:
 #   op-run.sh op-health
 #   op-run.sh op-react
-#   op-run.sh op-integrate ~/.hermes/operator/incoming_keys/cohere.txt
+#   op-run.sh op-integrate ~/.coire/operator/incoming_keys/cohere.txt
 #   op-run.sh op-patch-hermes
 #
 # Sources .env so pi (and child curl probes) see provider keys + BIFROST_PASS.
 # Pipes through `pi -p` (non-interactive). Pool defaults to "code" (set in
-# ~/.pi/agent/settings.json). Logs to ~/.hermes/operator/logs/<date>.log.
+# ~/.pi/agent/settings.json). Logs to ~/.coire/operator/logs/<date>.log.
 
 set -euo pipefail
 
@@ -25,10 +25,10 @@ if [ -z "$TEMPLATE" ]; then
   exit 64
 fi
 
-HFC_DIR="${HFC_DIR:-$HOME/hermes-free-cloud}"
+HFC_DIR="${HFC_DIR:-$HOME/coire-ansic}"
 OP_DIR="${OP_DIR:-$HFC_DIR/operator}"
 PI_AGENT_DIR="${PI_AGENT_DIR:-$HOME/.pi/agent}"
-LOG_DIR="${LOG_DIR:-$HOME/.hermes/operator/logs}"
+LOG_DIR="${LOG_DIR:-$HOME/.coire/operator/logs}"
 
 TEMPLATE_PATH="$OP_DIR/prompt-templates/$TEMPLATE.md"
 SKILL_PATH="$OP_DIR/skills/bifrost-ops"
@@ -62,7 +62,7 @@ RUN_OUT=$(mktemp)
 START_EPOCH=$(date +%s)
 set +e
 pi -p \
-  --provider hermes-bifrost \
+  --provider coire-bifrost \
   --append-system-prompt "$TEMPLATE_PATH" \
   --skill "$SKILL_PATH" \
   --no-session \

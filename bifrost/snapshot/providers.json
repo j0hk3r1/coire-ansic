@@ -102,7 +102,7 @@
         "request_path_overrides": {
           "chat_completion": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions",
           "chat_completion_stream": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions",
-          "list_models": "http://hermes-strip-shim:4002/stub/models"
+          "list_models": "http://coire-strip-shim:4002/stub/models"
         }
       },
       "provider_status": "active",

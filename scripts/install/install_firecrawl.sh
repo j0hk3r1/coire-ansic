@@ -90,7 +90,7 @@ fi
 cat <<MSG
 
 Firecrawl is up. Next:
-  1. Add to ~/.hermes/.env (or ~/hermes-free-cloud/.env if symlinked):
+  1. Add to ~/.hermes/.env (or ~/coire-ansic/.env if symlinked):
        FIRECRAWL_API_URL=http://172.17.0.1:3002
        FIRECRAWL_API_KEY=local-no-auth
   2. Set in ~/.hermes/config.yaml:

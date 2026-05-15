@@ -27,7 +27,7 @@ CONFIG (env or constants):
 SAFETY:
   - Never reduces a pool below 1 active target (instead lowers weight to 0.05)
   - Smoke-tests before restoration
-  - Persists state across restarts (~/hermes-free-cloud/scripts/circuit_state.json)
+  - Persists state across restarts (~/coire-ansic/scripts/circuit_state.json)
   - Atomic state writes
   - Conservative defaults
 """

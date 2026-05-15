@@ -23,7 +23,7 @@ autonomous operator layer.
   - `pi-op-react` (60min) — recovers stuck demotes via dashboard API
   - `pi-op-health` (hourly) — read-only status audit → JSONL
   - `pi-op-queue` (5min) — auto-onboards keys dropped in
-    `~/.hermes/operator/incoming_keys/`
+    `~/.coire/operator/incoming_keys/`
   - `pi-op-patch` (daily) — reconciles upstream patches
   - `op-rebalance` (daily) — adaptive weights based on 24h util,
     saturation-aware via CB daily-quota state

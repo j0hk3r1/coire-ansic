@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy hermes-free-cloud from a dev workstation to a remote host running
+# Deploy coire-ansic from a dev workstation to a remote host running
 # the docker stack + operator. Most users won't need this — `install.sh`
 # runs locally and is sufficient. Use this only if you develop on one
 # machine and the bifrost stack runs on another.
@@ -12,11 +12,11 @@
 #
 # Env (REQUIRED — no defaults):
 #   DEPLOY_HOST=user@host                    SSH target running the stack
-#   DEPLOY_PATH=/home/user/hermes-free-cloud   Remote install path
+#   DEPLOY_PATH=/home/user/coire-ansic   Remote install path
 set -euo pipefail
 
 HOST="${DEPLOY_HOST:?set DEPLOY_HOST=user@host (e.g. DEPLOY_HOST=alice@10.0.0.5)}"
-RPATH="${DEPLOY_PATH:-/home/$(echo "$HOST" | cut -d@ -f1)/hermes-free-cloud}"
+RPATH="${DEPLOY_PATH:-/home/$(echo "$HOST" | cut -d@ -f1)/coire-ansic}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DRY=""
 NO_RESTART=""

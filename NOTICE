@@ -1,5 +1,5 @@
-hermes-free-cloud
-Copyright 2026 hermes-free-cloud contributors
+CoireAnsic
+Copyright 2026 CoireAnsic contributors
 
 This product is licensed under the MIT License (see LICENSE).
 
@@ -17,10 +17,9 @@ Bifrost
 hermes-agent
   https://github.com/NousResearch/hermes-agent
   See upstream LICENSE
-  Used as: host install via upstream installer (optional adapter)
-  Note: this project is NOT affiliated with or endorsed by Nous Research.
-  "Hermes" appears in this project's name because the stack is built to
-  integrate with hermes-agent; the projects are independent.
+  Used as: host install via upstream installer (optional adapter via
+  `--with-hermes`). This project is NOT affiliated with or endorsed by
+  Nous Research.
 
 pi-coding-agent (pi-mono)
   https://www.npmjs.com/package/@earendil-works/pi-coding-agent

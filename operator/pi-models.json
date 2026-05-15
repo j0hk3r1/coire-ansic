@@ -1,7 +1,7 @@
 {
-  "_doc": "Pi-mono provider config — points at hermes-free-cloud strip-shim (4002) which proxies to bifrost (4001). Strip-shim handles reasoning-content normalization + tool_call_id rewrites. Pi sees a flat OpenAI endpoint with our 7 pools as models (best/code/compress/fast/mid/vision/ops). Operator timers default to 'ops' pool so their tool-call bursts stay isolated from hermes user-facing pools.",
+  "_doc": "Pi-mono provider config — points at coire-ansic strip-shim (4002) which proxies to bifrost (4001). Strip-shim handles reasoning-content normalization + tool_call_id rewrites. Pi sees a flat OpenAI endpoint with our 7 pools as models (best/code/compress/fast/mid/vision/ops). Operator timers default to 'ops' pool so their tool-call bursts stay isolated from hermes user-facing pools.",
   "providers": {
-    "hermes-bifrost": {
+    "coire-bifrost": {
       "baseUrl": "http://localhost:4002/v1",
       "api": "openai-completions",
       "apiKey": "unused-shim-passthrough",

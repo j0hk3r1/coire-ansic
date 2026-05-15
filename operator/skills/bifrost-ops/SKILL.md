@@ -1,11 +1,11 @@
 ---
 name: bifrost-ops
-description: Ops knowledge for the hermes-free-cloud stack — bifrost (4001), strip-shim (4002), dashboard (9118), circuit-breaker daemon, hermes-agent (gateway/dashboard). Use this skill when checking system health, reacting to dashboard alerts, integrating new providers, or applying patches to hermes after upstream updates.
+description: Ops knowledge for the coire-ansic stack — bifrost (4001), strip-shim (4002), dashboard (9118), circuit-breaker daemon, hermes-agent (gateway/dashboard). Use this skill when checking system health, reacting to dashboard alerts, integrating new providers, or applying patches to hermes after upstream updates.
 ---
 
 # Bifrost-Ops — Operator Knowledge Base
 
-You operate the local hermes-free-cloud stack on this host. Read-only by default; mutate only when explicitly instructed.
+You operate the local coire-ansic stack on this host. Read-only by default; mutate only when explicitly instructed.
 
 ## Stack topology
 
@@ -17,20 +17,20 @@ You operate the local hermes-free-cloud stack on this host. Read-only by default
 | camofox | 9378 | Anti-detect Firefox browser |
 | dashboard | 9118 | Pool monitor + circuit breaker UI |
 | hermes-gateway | systemd user | Messaging integration |
-| hermes-dashboard | 9120 | Hermes web UI |
+| coire-dashboard | 9120 | Hermes web UI |
 | circuit-breaker | systemd user | CB daemon |
 
 ## Authoritative state files
 
 | Path | Purpose |
 |---|---|
-| `~/hermes-free-cloud/scripts/runtime/pool_weights.yaml` | Plan: weight per pool target |
-| `~/hermes-free-cloud/bifrost/excluded_models.json` | Permanent excludes (Qwen XML, $0-balance, tier-gated) |
-| `~/hermes-free-cloud/bifrost/candidate_providers.json` | Free-tier candidates w/ verified-2026-05-11 status |
-| `~/.hermes/curator-pool/circuit_state.json` | Live CB state (demoted, daily_quota, pruned) |
-| `~/.hermes/curator-pool/cooldown_status.json` | Dashboard-facing CB snapshot (read this, not state.json) |
-| `~/.hermes/curator-pool/live_rules.json` | Live bifrost routing rules snapshot |
-| `~/hermes-free-cloud/.env` | All provider API keys (use `set -a; source ...` to expose) |
+| `~/coire-ansic/scripts/runtime/pool_weights.yaml` | Plan: weight per pool target |
+| `~/coire-ansic/bifrost/excluded_models.json` | Permanent excludes (Qwen XML, $0-balance, tier-gated) |
+| `~/coire-ansic/bifrost/candidate_providers.json` | Free-tier candidates w/ verified-2026-05-11 status |
+| `~/.coire/curator-pool/circuit_state.json` | Live CB state (demoted, daily_quota, pruned) |
+| `~/.coire/curator-pool/cooldown_status.json` | Dashboard-facing CB snapshot (read this, not state.json) |
+| `~/.coire/curator-pool/live_rules.json` | Live bifrost routing rules snapshot |
+| `~/coire-ansic/.env` | All provider API keys (use `set -a; source ...` to expose) |
 
 ## Dashboard API (read-only)
 
@@ -55,7 +55,7 @@ Base: `http://localhost:9118`
 Base: `http://localhost:4001/api` — auth: basic, `admin` + `$BIFROST_PASS` from `.env`.
 
 ```bash
-set -a; source ~/hermes-free-cloud/.env; set +a
+set -a; source ~/coire-ansic/.env; set +a
 curl -s -u admin:$BIFROST_PASS http://127.0.0.1:4001/api/providers          # list providers
 curl -s -u admin:$BIFROST_PASS http://127.0.0.1:4001/api/providers/<name>   # provider detail
 curl -s -u admin:$BIFROST_PASS http://127.0.0.1:4001/api/governance/routing-rules  # pools
@@ -72,7 +72,7 @@ curl -s -u admin:$BIFROST_PASS "http://127.0.0.1:4001/api/logs?limit=100&order=d
    - Plain cooldown (no flags) → leave alone, CB daemon will tick
 3. If a quota-deferred model already past `restore_at` but not restored → daemon stuck, run `--restore-quota`
 
-### When new key arrives in `~/.hermes/operator/incoming_keys/`
+### When new key arrives in `~/.coire/operator/incoming_keys/`
 Format: filename = `provider-name.txt`, contents = `KEY=<value>` plus optional `BASE_URL=<url>` and `MODELS=<comma list>`.
 
 Workflow:
@@ -83,11 +83,11 @@ Workflow:
 5. Decide: standard bifrost provider (groq/gemini/mistral/cohere/etc — built-in) or custom (cf-openai-style request_path_overrides)
 6. Register via `POST /api/providers` then `PUT /api/providers/<name>` w/ keys (see existing seed.sh + integration commits for patterns)
 7. Update `.env` to persist
-8. Update `~/hermes-free-cloud/dashboard/app.py` PROVIDER_QUOTAS w/ real caps
+8. Update `~/coire-ansic/dashboard/app.py` PROVIDER_QUOTAS w/ real caps
 9. Append low-weight target to `pool_weights.yaml` (start at 0.03-0.05 floor, 20 RPD providers always conc=1)
 10. Run `apply_pool_weights.py`
 11. Live-test via 5 calls to relevant pool
-12. Move incoming file to `~/.hermes/operator/done/`
+12. Move incoming file to `~/.coire/operator/done/`
 
 ### When hermes-agent has upstream updates
 Check via `cd ~/hermes-agent && git fetch && git log HEAD..origin/main --oneline`.
@@ -95,10 +95,10 @@ Check via `cd ~/hermes-agent && git fetch && git log HEAD..origin/main --oneline
 If updates present:
 1. `git stash` (saves our patches)
 2. `git pull --ff-only`
-3. Run `bash ~/hermes-free-cloud/scripts/install/patch_hermes_tui_model.sh`
-4. Run `bash ~/hermes-free-cloud/scripts/install/patch_hermes_jina_extract.sh`
+3. Run `bash ~/coire-ansic/scripts/install/patch_hermes_tui_model.sh`
+4. Run `bash ~/coire-ansic/scripts/install/patch_hermes_jina_extract.sh`
 5. Verify `extract_backend` in `~/.hermes/config.yaml` (we want `firecrawl`, NOT `jina` — patch overwrites)
-6. `systemctl --user restart hermes-gateway hermes-dashboard`
+6. `systemctl --user restart hermes-gateway coire-dashboard`
 7. Smoke-test gateway via `curl -m 5 http://127.0.0.1:9120/`
 
 ## Hard rules (do NOT do)
@@ -112,7 +112,7 @@ If updates present:
 
 ## Logging contract
 
-Each ops run writes a one-line JSON to `~/.hermes/operator/logs/YYYY-MM-DD.jsonl`:
+Each ops run writes a one-line JSON to `~/.coire/operator/logs/YYYY-MM-DD.jsonl`:
 ```json
 {"ts":"2026-05-12T01:00:00Z","job":"health","level":"green","actions":[],"notes":"..."}
 ```
