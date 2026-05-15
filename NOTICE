@@ -1,0 +1,56 @@
+hermes-free-cloud
+Copyright 2026 hermes-free-cloud contributors
+
+This product is licensed under the MIT License (see LICENSE).
+
+It depends on, but does not bundle source code from, the following
+third-party projects. Each is installed at runtime via its own
+distribution channel (docker, npm, pip, curl-installer) and remains
+governed by its upstream license:
+
+────────────────────────────────────────────────────────────────────
+Bifrost
+  https://github.com/maximhq/bifrost
+  Apache License 2.0
+  Used as: docker image (maximhq/bifrost)
+
+hermes-agent
+  https://github.com/NousResearch/hermes-agent
+  See upstream LICENSE
+  Used as: host install via upstream installer (optional adapter)
+  Note: this project is NOT affiliated with or endorsed by Nous Research.
+  "Hermes" appears in this project's name because the stack is built to
+  integrate with hermes-agent; the projects are independent.
+
+pi-coding-agent (pi-mono)
+  https://www.npmjs.com/package/@earendil-works/pi-coding-agent
+  See upstream LICENSE
+  Used as: npm install of @earendil-works/pi-coding-agent
+
+SearXNG
+  https://github.com/searxng/searxng
+  GNU Affero General Public License v3.0
+  Used as: docker image (searxng/searxng) — opt-in adapter
+  This project ships ONLY a configuration file (`searxng/settings.yml`)
+  authored by this project's contributors. No SearXNG source is copied
+  or modified.
+
+Camoufox
+  https://github.com/jo-inc/camofox-browser
+  See upstream LICENSE
+  Used as: source cloned at install time by adapter; opt-in
+  This project does not bundle Camoufox source.
+
+Firecrawl
+  https://github.com/mendableai/firecrawl
+  GNU Affero General Public License v3.0
+  Used as: docker stack installed via upstream script; opt-in adapter
+  This project does not bundle Firecrawl source.
+
+LLM provider names (Groq, NVIDIA, Mistral, Cerebras, Gemini, Cloudflare,
+OpenRouter, SambaNova, GitHub Models, Cohere, OpenAI, Anthropic, etc.)
+are trademarks of their respective owners. Their appearance in this
+project's code, comments, and documentation is nominative — used solely
+to identify the provider being addressed by the router — and does not
+imply endorsement, sponsorship, or affiliation.
+────────────────────────────────────────────────────────────────────

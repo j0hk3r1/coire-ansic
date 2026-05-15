@@ -203,6 +203,40 @@ bifrost, syncs models, and adds appropriate pool entries. Logged to
   `ops` pool (cerebras+groq+nvidia 8b/70b) which has zero overlap with the
   user-facing pools. Maintenance can't accidentally eat your daily budget.
 
+## Privacy
+
+This project does not phone home. No telemetry, no analytics, no
+auto-update checks. All state is local:
+- `~/.hermes/` — operator audit logs, CB state, queue dirs
+- `~/.pi/agent/` — pi-mono configs
+- `./bifrost/data/` — bifrost docker volume (provider keys, routing rules)
+- `./.env` — your API keys (gitignored)
+
+The only outbound network calls are: (a) to LLM providers when routing
+your requests, (b) one weekly `/v1/models` scan from `op-discover` per
+configured provider, (c) optional firecrawl/searxng/camoufox traffic if
+those adapters are installed, (d) `pi-op-patch` daily `git fetch` for
+hermes-agent updates if `--with-hermes`.
+
+## Disclaimer
+
+- **No warranty.** MIT license; software is provided "as is."
+- **Not affiliated** with Nous Research, Maxim AI (bifrost), earendil-works
+  (pi-mono), or any LLM provider listed above. Their trademarks are used
+  nominatively to identify what this router talks to.
+- **You are responsible** for complying with each LLM provider's terms of
+  service in your jurisdiction. This project respects per-provider rate
+  limits as documented but aggregates traffic across multiple free tiers;
+  review each provider's ToS to confirm that's permitted for your use case.
+- **Adapters are opt-in for a reason.** `--with-camofox` ships an
+  anti-detect browser commonly used for automated browsing. Some websites
+  forbid automation in their ToS — that's between you and the destination
+  site, not us. Use responsibly.
+- **Free-tier landscape shifts.** The 10 providers listed above had free
+  tiers when this README was written. Caps, model availability, and
+  free-tier policy can change without notice. `op-discover` weekly + the
+  dashboard's usage panel help you stay current.
+
 ## Notes
 
 - `~/.hermes/.env` is symlinked to `./.env` — single source of truth for both
@@ -216,4 +250,4 @@ bifrost, syncs models, and adds appropriate pool entries. Logged to
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Third-party attributions in [NOTICE](NOTICE).
