@@ -71,12 +71,25 @@ def load_demoted_keys() -> set:
     except Exception:
         return set()
 
+def load_configured_providers() -> set:
+    """Providers actually registered in bifrost. Pool targets / fallbacks
+    referencing a not-yet-configured provider are skipped — otherwise
+    bifrost cheerfully creates rules with missing-provider targets, then
+    500s when traffic gets routed to them."""
+    try:
+        return {p["name"] for p in req("GET", "/providers").get("providers", [])}
+    except Exception:
+        return set()
+
 def apply(plan, dry_run=False):
     rules = {r["name"]: r for r in req("GET", "/governance/routing-rules").get("rules", [])}
     demoted = load_demoted_keys()
+    configured = load_configured_providers()
     if demoted:
         print(f"  [info] circuit-breaker has {len(demoted)} demoted target(s) — they will be filtered from this plan:")
         for k in sorted(demoted): print(f"    skip: {k}")
+    if configured:
+        print(f"  [info] {len(configured)} provider(s) configured in bifrost: {sorted(configured)}")
     changed = 0
     created = 0
     for pool_name, pool_plan in plan.get("pools", {}).items():
@@ -113,12 +126,28 @@ def apply(plan, dry_run=False):
             key = f"{t['provider']}/{t['model']}"
             if key in demoted:
                 continue  # CB has this demoted — skip, daemon will re-add when smoke passes
+            if configured and t["provider"] not in configured:
+                continue  # provider not registered in bifrost (no key in .env) — skip
             new_targets.append({"provider": t["provider"], "model": t["model"], "weight": float(t["weight"])})
         if not new_targets:
-            print(f"  [SKIP] pool '{pool_name}' — all planned targets are CB-demoted", file=sys.stderr)
+            reason = "no configured-provider targets" if configured else "all planned targets are CB-demoted"
+            # If an EXISTING rule has no valid targets after filter, delete it
+            # so routing fails fast instead of 500-ing on missing-provider targets.
+            if rule and rule.get("id") and not dry_run:
+                try:
+                    req("DELETE", f"/governance/routing-rules/{rule['id']}")
+                    print(f"  [DELETED] pool '{pool_name}' — {reason}", file=sys.stderr)
+                except urllib.error.HTTPError as e:
+                    print(f"  [SKIP] pool '{pool_name}' — {reason} (delete failed: HTTP {e.code})", file=sys.stderr)
+            else:
+                print(f"  [SKIP] pool '{pool_name}' — {reason}", file=sys.stderr)
             continue
         new_targets = normalize(new_targets)
-        new_fallbacks = [fb for fb in (pool_plan.get("fallbacks") or rule.get("fallbacks", [])) if fb not in demoted]
+        new_fallbacks = [
+            fb for fb in (pool_plan.get("fallbacks") or rule.get("fallbacks", []))
+            if fb not in demoted
+            and (not configured or ("/" in fb and fb.split("/", 1)[0] in configured))
+        ]
 
         # Compare as sets — bifrost stores numeric weights with reduced
         # precision (0.30 → 0.3) and reorders ties by internal heuristics.

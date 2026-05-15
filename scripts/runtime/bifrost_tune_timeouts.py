@@ -84,7 +84,18 @@ def main():
     env_out = subprocess.check_output(["docker", "exec", CONTAINER, "env"]).decode()
     env = dict(line.split("=", 1) for line in env_out.strip().split("\n") if "=" in line)
 
+    # Get list of providers actually configured in bifrost — skip plan
+    # entries for providers user didn't set up (no key in .env → seed.sh
+    # didn't register the provider → GET /providers/<name> returns 404).
+    try:
+        configured = {p["name"] for p in req("GET", "/providers").get("providers", [])}
+    except Exception as e:
+        sys.exit(f"FAIL: cannot list providers: {e}")
+
     for name, timeout, retries, concurrency in PLAN:
+        if name not in configured:
+            print(f"SKIP {name}: not configured in bifrost (no key in .env)")
+            continue
         cur = req("GET", f"/providers/{name}")
         raw_key = env.get(KEY_ENV[name], "").strip()
         if not raw_key:
