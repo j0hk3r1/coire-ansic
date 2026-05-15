@@ -1,0 +1,13 @@
+[Unit]
+Description=Op rebalance — adaptive pool weights based on 24h utilization
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/hermes-free-cloud
+ExecStart=/usr/bin/python3 %h/hermes-free-cloud/scripts/runtime/auto_rebalance_weights.py
+ExecStartPost=/usr/bin/python3 %h/hermes-free-cloud/scripts/runtime/apply_pool_weights.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=120
+Nice=10

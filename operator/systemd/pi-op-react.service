@@ -1,0 +1,11 @@
+[Unit]
+Description=Pi-operator reactive ops (CB stuck-restore, every 60min)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/hermes-free-cloud/operator/op-run.sh op-react
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=600
+Nice=10

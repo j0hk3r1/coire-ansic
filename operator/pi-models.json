@@ -1,0 +1,83 @@
+{
+  "_doc": "Pi-mono provider config — points at hermes-free-cloud strip-shim (4002) which proxies to bifrost (4001). Strip-shim handles reasoning-content normalization + tool_call_id rewrites. Pi sees a flat OpenAI endpoint with our 7 pools as models (best/code/compress/fast/mid/vision/ops). Operator timers default to 'ops' pool so their tool-call bursts stay isolated from hermes user-facing pools.",
+  "providers": {
+    "hermes-bifrost": {
+      "baseUrl": "http://localhost:4002/v1",
+      "api": "openai-completions",
+      "apiKey": "unused-shim-passthrough",
+      "authHeader": false,
+      "models": [
+        {
+          "id": "best",
+          "name": "best pool — kimi-k2.6, deepseek-v4-pro, gpt-4.1, mistral-medium",
+          "reasoning": true,
+          "contextWindow": 131072,
+          "maxTokens": 16384,
+          "input": ["text"],
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"thinkingFormat": "deepseek", "supportsReasoningEffort": false, "maxTokensField": "max_tokens"}
+        },
+        {
+          "id": "code",
+          "name": "code pool — deepseek-v4-pro, kimi-k2.6, gpt-4.1, mistral, codestral",
+          "reasoning": true,
+          "contextWindow": 131072,
+          "maxTokens": 16384,
+          "input": ["text"],
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"thinkingFormat": "deepseek", "supportsReasoningEffort": false, "maxTokensField": "max_tokens"}
+        },
+        {
+          "id": "compress",
+          "name": "compress pool — long-context summarization (nvidia llama-3.3-70b, mistral, gemini-flash)",
+          "reasoning": false,
+          "contextWindow": 131072,
+          "maxTokens": 8192,
+          "input": ["text"],
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"maxTokensField": "max_tokens"}
+        },
+        {
+          "id": "fast",
+          "name": "fast pool — cerebras llama-8b, groq, gpt-4o-mini",
+          "reasoning": false,
+          "contextWindow": 131072,
+          "maxTokens": 4096,
+          "input": ["text"],
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"maxTokensField": "max_tokens"}
+        },
+        {
+          "id": "mid",
+          "name": "mid pool — gpt-4.1-mini, gemini-3-flash, mistral-small",
+          "reasoning": false,
+          "contextWindow": 131072,
+          "maxTokens": 8192,
+          "input": ["text"],
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"maxTokensField": "max_tokens"}
+        },
+        {
+          "id": "vision",
+          "name": "vision pool — gemini-2.5-flash, nvidia/llama-3.2-vision, pixtral",
+          "reasoning": false,
+          "contextWindow": 131072,
+          "maxTokens": 4096,
+          "input": ["text", "image"],
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"maxTokensField": "max_tokens"}
+        },
+        {
+          "id": "ops",
+          "name": "ops pool — pi-op operator-agent traffic only (cerebras+groq 8b, isolated from hermes pools)",
+          "reasoning": false,
+          "contextWindow": 131072,
+          "maxTokens": 4096,
+          "input": ["text"],
+          "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
+          "compat": {"maxTokensField": "max_tokens"}
+        }
+      ]
+    }
+  }
+}

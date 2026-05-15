@@ -1,0 +1,12 @@
+[Unit]
+Description=Run pi-op-queue every 5min
+Requires=pi-op-queue.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=pi-op-queue.service
+
+[Install]
+WantedBy=timers.target

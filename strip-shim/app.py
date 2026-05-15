@@ -1,0 +1,304 @@
+"""OpenAI-compat proxy that strips reasoning_content from assistant messages
+before forwarding to Bifrost. Handles streaming + non-streaming.
+
+Tool-id rewrite: ALL tool_call_ids rewritten to 9-char hex unconditionally.
+Mistral requires ^[a-zA-Z0-9]{9}$ — and since hermes uses pool names
+("best"/"code") in the model field, the shim cannot tell which provider
+Bifrost will pick. 9-char hex is alphanumeric and accepted by every
+OpenAI-compat provider, so unconditional rewrite is safe.
+"""
+import hashlib
+import json
+import logging
+import os
+import re
+import secrets
+from contextlib import asynccontextmanager
+
+import httpx
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse, Response, JSONResponse
+
+BIFROST_URL = os.environ.get("BIFROST_URL", "http://bifrost:8080")
+PORT = int(os.environ.get("PORT", "4002"))
+
+log = logging.getLogger("shim")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.client = httpx.AsyncClient(
+        timeout=httpx.Timeout(connect=10, read=400, write=30, pool=30),
+        limits=httpx.Limits(max_keepalive_connections=50, max_connections=200),
+    )
+    yield
+    await app.state.client.aclose()
+
+
+app = FastAPI(title="bifrost-strip-shim", lifespan=lifespan)
+
+
+@app.get("/health")
+async def health(request: Request):
+    try:
+        r = await request.app.state.client.get(f"{BIFROST_URL}/api/providers", timeout=3)
+        upstream_ok = r.status_code in (200, 401)
+    except Exception as e:
+        return JSONResponse({"shim": "ok", "bifrost": f"error: {e}"}, status_code=503)
+    return {"shim": "ok", "bifrost": "ok" if upstream_ok else f"http {r.status_code}"}
+
+
+@app.get("/stub/models")
+@app.get("/api/v1/models")
+@app.get("/api/tags")
+async def stub_models():
+    return {"object": "list", "data": []}
+
+
+@app.get("/version")
+async def stub_version():
+    return {"version": "shim-1.0"}
+
+
+def strip_reasoning(messages: list) -> list:
+    cleaned = []
+    for m in messages:
+        if isinstance(m, dict) and m.get("role") == "assistant":
+            m = {k: v for k, v in m.items() if k not in (
+                "reasoning_content", "reasoning", "reasoning_details",
+                "provider_specific_fields",
+            )}
+        cleaned.append(m)
+    return cleaned
+
+
+def _short_id(old: str) -> str:
+    return hashlib.sha1(old.encode()).hexdigest()[:9]
+
+
+# Qwen-style tool calls embed in assistant content as XML:
+#   <tool_call>
+#     <function=name>
+#     <parameter=key>value</parameter>
+#   </tool_call>
+# Hermes parser only accepts OpenAI tool_calls JSON. Normalize before returning.
+_QWEN_TOOL_CALL = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
+_QWEN_FUNC = re.compile(r"<function=([^>\s]+)>")
+_QWEN_PARAM = re.compile(r"<parameter=([^>\s]+)>\s*(.*?)\s*</parameter>", re.DOTALL)
+
+
+def normalize_qwen_tool_calls(content: str):
+    """Extract Qwen-style <tool_call> blocks. Return (cleaned_content, tool_calls_list).
+    cleaned_content has tool_call blocks removed. Empty list if none found."""
+    matches = _QWEN_TOOL_CALL.findall(content)
+    if not matches:
+        return content, []
+    tool_calls = []
+    for block in matches:
+        fname_m = _QWEN_FUNC.search(block)
+        if not fname_m:
+            continue
+        args = {}
+        for pname, pval in _QWEN_PARAM.findall(block):
+            args[pname.strip()] = pval.strip()
+        tool_calls.append({
+            "id": secrets.token_hex(5)[:9],
+            "type": "function",
+            "function": {"name": fname_m.group(1).strip(), "arguments": json.dumps(args)},
+        })
+    cleaned = _QWEN_TOOL_CALL.sub("", content).strip()
+    return cleaned, tool_calls
+
+
+def normalize_json_tool_call(content: str):
+    """Llama-3 / smaller-model style: bare JSON object with `name` + `parameters`/
+    `arguments` keys posted directly in content. Examples:
+        {"name": "execute_code", "parameters": {"code": "print(2+2)"}}
+        {"name": "search", "arguments": {"q": "..."}}
+    Returns (cleaned_content, tool_calls_list)."""
+    s = content.strip()
+    if not (s.startswith("{") and s.endswith("}")):
+        return content, []
+    try:
+        obj = json.loads(s)
+    except json.JSONDecodeError:
+        return content, []
+    if not isinstance(obj, dict) or "name" not in obj:
+        return content, []
+    args = obj.get("arguments") or obj.get("parameters") or {}
+    if not isinstance(args, (dict, str)):
+        return content, []
+    if isinstance(args, dict):
+        args_str = json.dumps(args)
+    else:
+        args_str = args
+    return "", [{
+        "id": secrets.token_hex(5)[:9],
+        "type": "function",
+        "function": {"name": str(obj["name"]), "arguments": args_str},
+    }]
+
+
+# Reasoning-model thinking trace can leak into content. Strip <think>...</think>
+# blocks (deepseek, kimi, qwen reasoning all use this convention).
+_THINK_BLOCK = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
+
+
+def _annotate_sse_event(event: bytes) -> bytes:
+    """Rewrite SSE 'data: {...}' line so chunk.model = 'provider · model'."""
+    if not event.startswith(b"data: ") or event == b"data: [DONE]":
+        return event
+    try:
+        payload = json.loads(event[6:])
+    except (json.JSONDecodeError, ValueError):
+        return event
+    if not isinstance(payload, dict):
+        return event
+    ef = payload.get("extra_fields") or {}
+    provider = ef.get("provider")
+    model_in = payload.get("model") or ""
+    if provider and model_in and " · " not in model_in:
+        model_short = model_in.rsplit("/", 1)[-1]
+        payload["model"] = f"{provider} · {model_short}"
+        return b"data: " + json.dumps(payload).encode()
+    return event
+
+
+def normalize_response(payload: dict) -> dict:
+    """Strip leaked reasoning, lift Qwen XML tool calls to tool_calls array,
+    annotate model with provider so hermes runtime_footer shows both."""
+    if not isinstance(payload, dict) or "choices" not in payload:
+        return payload
+    # Annotate model field so runtime_footer shows provider+model.
+    # Use " · " (no slash) so hermes _model_short().rsplit('/',1)[-1] keeps it whole.
+    ef = payload.get("extra_fields") or {}
+    provider = ef.get("provider")
+    model_in = payload.get("model") or ef.get("resolved_model_used") or ""
+    if provider and model_in and " · " not in model_in:
+        # strip provider prefix if upstream already included it (e.g. "deepseek-ai/...")
+        model_short = model_in.rsplit("/", 1)[-1]
+        payload["model"] = f"{provider} · {model_short}"
+    for ch in payload.get("choices", []):
+        msg = ch.get("message")
+        if not isinstance(msg, dict):
+            continue
+        # NOTE: do NOT strip reasoning_content / reasoning from RESPONSES.
+        # Hermes uses the presence of structured reasoning to take the
+        # "thinking-only prefill" recovery path. If we wipe it, hermes sees
+        # an empty response and triggers the brittle nudge-retry loop. We
+        # only strip reasoning from REQUEST messages (the strip_reasoning
+        # function in the request path); the response is hermes' problem.
+        # Strip <think>...</think> block from content (still safe — that's
+        # in-band leakage, not the structured reasoning field).
+        content = msg.get("content") or ""
+        if "<think>" in content.lower():
+            content = _THINK_BLOCK.sub("", content).strip()
+            msg["content"] = content or None
+        # Skip tool-call normalization if proper tool_calls already present
+        if msg.get("tool_calls"):
+            continue
+        if not content:
+            continue
+        if "<tool_call>" in content:
+            cleaned, tcs = normalize_qwen_tool_calls(content)
+        else:
+            cleaned, tcs = normalize_json_tool_call(content)
+        if tcs:
+            msg["content"] = cleaned or None
+            msg["tool_calls"] = tcs
+            ch["finish_reason"] = "tool_calls"
+            log.warning("normalized %d tool_call(s) from content", len(tcs))
+    return payload
+
+
+def rewrite_tool_ids(messages: list) -> list:
+    out = []
+    for m in messages:
+        if not isinstance(m, dict):
+            out.append(m)
+            continue
+        if m.get("role") == "assistant" and isinstance(m.get("tool_calls"), list):
+            new_calls = []
+            for tc in m["tool_calls"]:
+                if isinstance(tc, dict) and isinstance(tc.get("id"), str) and len(tc["id"]) != 9:
+                    tc = {**tc, "id": _short_id(tc["id"])}
+                new_calls.append(tc)
+            m = {**m, "tool_calls": new_calls}
+        elif m.get("role") == "tool" and isinstance(m.get("tool_call_id"), str):
+            if len(m["tool_call_id"]) != 9:
+                m = {**m, "tool_call_id": _short_id(m["tool_call_id"])}
+        out.append(m)
+    return out
+
+
+@app.api_route("/v1/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy(path: str, request: Request):
+    body = await request.body()
+    headers = {k: v for k, v in request.headers.items()
+               if k.lower() not in ("host", "content-length")}
+
+    is_stream = False
+    if body:
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError as e:
+            log.warning("malformed JSON body: %s", e)
+            data = None
+        if isinstance(data, dict) and "messages" in data:
+            data["messages"] = strip_reasoning(data["messages"])
+            data["messages"] = rewrite_tool_ids(data["messages"])
+            # deepseek-v4-pro on NIM hangs without enable_thinking=true.
+            # Scoped to that model only — kimi-k2 breaks when extras injected.
+            model = data.get("model", "")
+            if "deepseek-v4-pro" in model:
+                ctk = data.setdefault("chat_template_kwargs", {})
+                ctk.setdefault("enable_thinking", True)
+                ctk.setdefault("thinking", True)
+            is_stream = bool(data.get("stream"))
+            body = json.dumps(data).encode()
+            headers["content-length"] = str(len(body))
+        elif isinstance(data, dict):
+            is_stream = bool(data.get("stream"))
+
+    target = f"{BIFROST_URL}/v1/{path}"
+    client: httpx.AsyncClient = request.app.state.client
+
+    if is_stream:
+        async def gen():
+            async with client.stream(
+                request.method, target, content=body, headers=headers,
+                params=dict(request.query_params),
+            ) as r:
+                buf = b""
+                async for chunk in r.aiter_raw():
+                    buf += chunk
+                    # Process complete SSE events (separated by \n\n)
+                    while b"\n\n" in buf:
+                        event, buf = buf.split(b"\n\n", 1)
+                        yield _annotate_sse_event(event) + b"\n\n"
+                if buf:
+                    yield _annotate_sse_event(buf)
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
+    r = await client.request(
+        request.method, target, content=body, headers=headers,
+        params=dict(request.query_params),
+    )
+
+    out_content = r.content
+    out_ct = r.headers.get("content-type", "")
+    if r.status_code == 200 and "application/json" in out_ct and path.endswith("chat/completions"):
+        try:
+            payload = json.loads(r.content)
+            normalize_response(payload)
+            out_content = json.dumps(payload).encode()
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return Response(
+        content=out_content,
+        status_code=r.status_code,
+        headers={k: v for k, v in r.headers.items()
+                 if k.lower() not in ("content-length", "transfer-encoding", "content-encoding")},
+        media_type=out_ct or None,
+    )

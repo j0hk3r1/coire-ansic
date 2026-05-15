@@ -1,0 +1,257 @@
+# Pool weight plan — capacity-aware routing.
+#
+# Live-verified rate limits (2026-05-12 via x-ratelimit-* / x-trial-* headers):
+#   groq:         14400 RPD/model, 6000 TPM (TPM tight, RPD massive headroom)
+#   cerebras:     14400 RPD, 30 RPM, 60k TPM, 1M TPD/model
+#   gemini:       250 RPD flash, 25-50 RPD pro (no rate-limit headers; 429s only)
+#   mistral:      50 RPM small, 4 RPM large, 5 RPM magistral (header-verified)
+#   cohere:       20 RPM trial, 1000 monthly-call ceiling
+#   github-models 20000 RPM, 2M TPM, 60s renewal — massive headroom
+#   sambanova:    20 RPD (header-verified)
+#   nvidia-nim:   no rate-limit headers; 10k credits/month dev preview
+#   cf-openai:    no rate-limit headers; 10k neurons/day total across CF models
+#   openrouter:   50 RPD pooled across all :free models on $0 credit account
+#
+# 2026-05-12 rebalance — close the OpenRouter overrun, redirect to cf-openai
+# (0.2% utilized of 10k cap) + groq (0.014% utilized of 14400 RPD/model) +
+# cerebras (capped fast pool slot only — 30 RPM tight). Targets ordered by
+# weight desc. Sum per pool = 1.0.
+
+pools:
+  best:
+    targets:
+    - provider: nvidia-nim
+      model: moonshotai/kimi-k2.6
+      weight: 0.248
+    - provider: github-models
+      model: openai/gpt-4.1
+      weight: 0.2182
+    - provider: groq
+      model: openai/gpt-oss-120b
+      weight: 0.164
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.1191
+    - provider: cohere
+      model: command-a-03-2025
+      weight: 0.0793
+    - provider: groq
+      model: llama-3.3-70b-versatile
+      weight: 0.0656
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.0322
+    - provider: cf-openai
+      model: '@cf/nvidia/nemotron-3-120b-a12b'
+      weight: 0.0241
+    - provider: sambanova
+      model: DeepSeek-V3.1
+      weight: 0.0298
+    - provider: gemini
+      model: gemini-3-pro-preview
+      weight: 0.0198
+    fallbacks:
+    - github-models/openai/gpt-4o
+    - cohere/command-a-reasoning-08-2025
+    - gemini/gemini-3.1-pro-preview
+    - openrouter/openai/gpt-oss-120b:free
+    - cf-openai/@cf/moonshotai/kimi-k2.5
+    - sambanova/DeepSeek-V3.2
+  code:
+    targets:
+    - provider: nvidia-nim
+      model: moonshotai/kimi-k2.6
+      weight: 0.2197
+    - provider: github-models
+      model: openai/gpt-4.1
+      weight: 0.1997
+    - provider: groq
+      model: openai/gpt-oss-120b
+      weight: 0.1652
+    - provider: mistral
+      model: codestral-latest
+      weight: 0.1198
+    - provider: cf-openai
+      model: '@cf/qwen/qwen2.5-coder-32b-instruct'
+      weight: 0.0404
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.0404
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.0699
+    - provider: github-models
+      model: openai/gpt-4.1-mini
+      weight: 0.0499
+    - provider: groq
+      model: llama-3.3-70b-versatile
+      weight: 0.055
+    - provider: cohere
+      model: command-a-03-2025
+      weight: 0.02
+    - provider: sambanova
+      model: DeepSeek-V3.1
+      weight: 0.02
+    fallbacks:
+    - github-models/openai/gpt-4o
+    - cohere/command-a-reasoning-08-2025
+    - openrouter/openai/gpt-oss-120b:free
+    - openrouter/meta-llama/llama-3.3-70b-instruct:free
+    - cf-openai/@cf/moonshotai/kimi-k2.5
+    - gemini/gemini-2.5-flash
+    - sambanova/Llama-4-Maverick-17B-128E-Instruct
+  compress:
+    targets:
+    - provider: nvidia-nim
+      model: meta/llama-3.3-70b-instruct
+      weight: 0.3114
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.1682
+    - provider: groq
+      model: llama-3.3-70b-versatile
+      weight: 0.206
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.135
+    - provider: cf-openai
+      model: '@cf/google/gemma-4-26b-a4b-it'
+      weight: 0.042
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.0336
+    - provider: mistral
+      model: mistral-medium-latest
+      weight: 0.0519
+    - provider: mistral
+      model: mistral-large-latest
+      weight: 0.0519
+    fallbacks:
+    - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
+    - openrouter/meta-llama/llama-3.3-70b-instruct:free
+    - cf-openai/@cf/moonshotai/kimi-k2.5
+    - groq/qwen/qwen3-32b
+  fast:
+    targets:
+    - provider: cerebras
+      model: llama3.1-8b
+      weight: 0.2111
+    - provider: github-models
+      model: openai/gpt-4o-mini
+      weight: 0.1723
+    - provider: groq
+      model: llama-3.1-8b-instant
+      weight: 0.19
+    - provider: groq
+      model: openai/gpt-oss-20b
+      weight: 0.1267
+    - provider: mistral
+      model: mistral-small-latest
+      weight: 0.0957
+    - provider: gemini
+      model: gemini-3.1-flash-lite-preview
+      weight: 0.0775
+    - provider: groq
+      model: llama-3.3-70b-versatile
+      weight: 0.0739
+    - provider: groq
+      model: qwen/qwen3-32b
+      weight: 0.0528
+    fallbacks:
+    - github-models/openai/gpt-4.1-nano
+    - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
+    - nvidia-nim/meta/llama-3.3-70b-instruct
+    - mistral/codestral-latest
+    - gemini/gemini-flash-lite-latest
+  mid:
+    targets:
+    - provider: github-models
+      model: openai/gpt-4.1-mini
+      weight: 0.2671
+    - provider: mistral
+      model: mistral-small-latest
+      weight: 0.1604
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.1559
+    - provider: gemini
+      model: gemini-2.5-flash-lite
+      weight: 0.104
+    - provider: groq
+      model: qwen/qwen3-32b
+      weight: 0.0944
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.0749
+    - provider: cf-openai
+      model: '@cf/qwen/qwen2.5-coder-32b-instruct'
+      weight: 0.0433
+    - provider: cf-openai
+      model: '@cf/google/gemma-4-26b-a4b-it'
+      weight: 0.0433
+    - provider: groq
+      model: llama-3.3-70b-versatile
+      weight: 0.0353
+    - provider: cohere
+      model: command-r7b-12-2024
+      weight: 0.0214
+    fallbacks:
+    - github-models/openai/gpt-4o-mini
+    - cohere/command-r-08-2024
+    - openrouter/google/gemma-4-26b-a4b-it:free
+    - nvidia-nim/meta/llama-3.3-70b-instruct
+    - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
+  vision:
+    targets:
+    - provider: gemini
+      model: gemini-2.5-flash
+      weight: 0.2895
+    - provider: nvidia-nim
+      model: meta/llama-3.2-90b-vision-instruct
+      weight: 0.201
+    - provider: mistral
+      model: pixtral-large-latest
+      weight: 0.1675
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.1176
+    - provider: gemini
+      model: gemini-flash-latest
+      weight: 0.0904
+    - provider: cohere
+      model: command-a-vision-07-2025
+      weight: 0.0782
+    - provider: nvidia-nim
+      model: meta/llama-3.2-11b-vision-instruct
+      weight: 0.0558
+    fallbacks:
+    - openrouter/nvidia/nemotron-nano-12b-v2-vl:free
+    - cohere/c4ai-aya-vision-32b
+    - mistral/pixtral-12b-latest
+    - gemini/gemini-2.5-flash-lite
+
+  ops:
+    # Operator-agent (pi-op-react / pi-op-health) traffic ONLY. Designed to
+    # absorb pi-mono's ~30 internal-tool-call bursts per run WITHOUT eating
+    # the user-facing pools' (best/code/mid/fast) provider budgets.
+    # Picks: huge-headroom small models. cerebras + groq /8b at 14400 RPD
+    # each; nvidia-nim llama-70b as last-resort (unmetered preview).
+    # No cf-openai (neuron-budget shared globally), no gemini (250 RPD shared
+    # globally), no openrouter (50 RPD pool budget shared globally), no
+    # github-models (hermes uses gpt-4.1-mini in mid pool).
+    targets:
+    - provider: cerebras
+      model: llama3.1-8b
+      weight: 0.40
+    - provider: groq
+      model: llama-3.1-8b-instant
+      weight: 0.35
+    - provider: groq
+      model: openai/gpt-oss-20b
+      weight: 0.15
+    - provider: nvidia-nim
+      model: meta/llama-3.3-70b-instruct
+      weight: 0.10
+    fallbacks:
+    - nvidia-nim/meta/llama-3.3-70b-instruct
+    - mistral/mistral-small-latest

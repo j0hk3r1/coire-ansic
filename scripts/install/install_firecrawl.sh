@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Install Firecrawl OSS self-hosted as the local web_extract backend.
+#
+# Hermes-agent ships a firecrawl backend; we just need a Firecrawl API
+# reachable at FIRECRAWL_API_URL. Their official compose stands up 5
+# services (api, worker, playwright, redis, rabbitmq, postgres) — heavy
+# but drop-in. Idempotent: skip clone/setup if already running.
+#
+# RAM ~2GB while idle, peaks ~3GB during heavy crawls. Disk ~4GB.
+#
+# Run after install.sh's main stack is up.
+
+set -euo pipefail
+
+FIRECRAWL_DIR="${FIRECRAWL_DIR:-$HOME/firecrawl}"
+COMPOSE_URL="https://raw.githubusercontent.com/mendableai/firecrawl/main/docker-compose.yaml"
+ENV_URL="https://raw.githubusercontent.com/mendableai/firecrawl/main/apps/api/.env.example"
+
+step() { printf "\n\033[1;36m▶ %s\033[0m\n" "$*"; }
+ok()   { printf "  \033[1;32m✓\033[0m %s\n" "$*"; }
+warn() { printf "  \033[1;33m!\033[0m %s\n" "$*"; }
+
+# Idempotency check — already running?
+if docker ps --filter name=firecrawl-api --format '{{.Names}}' | grep -q firecrawl-api; then
+  ok "firecrawl already running"
+  exit 0
+fi
+
+step "fetch firecrawl compose"
+mkdir -p "$FIRECRAWL_DIR"
+cd "$FIRECRAWL_DIR"
+[ -f docker-compose.yaml ] || curl -sSL -o docker-compose.yaml "$COMPOSE_URL"
+[ -f .env ] || curl -sSL -o .env "$ENV_URL"
+ok "compose fetched"
+
+step "configure"
+sed -i "s/USE_DB_AUTHENTICATION=true/USE_DB_AUTHENTICATION=false/" .env
+# Switch from local-build to prebuilt images (smaller, faster)
+sed -i 's|^  build: apps/api$|#  build: apps/api\n  image: ghcr.io/firecrawl/firecrawl:latest|' docker-compose.yaml
+sed -i 's|^    build: apps/playwright-service-ts$|#    build: apps/playwright-service-ts\n    image: ghcr.io/firecrawl/playwright-service:latest|' docker-compose.yaml
+sed -i 's|^    build: apps/nuq-postgres$|#    build: apps/nuq-postgres\n    image: ghcr.io/firecrawl/nuq-postgres:latest|' docker-compose.yaml
+
+# Rabbitmq needs an explicit volume w/ correct ownership (uid 999) — the
+# default anonymous volume gets created with root:root mode 700 on first
+# run, then rabbitmq (uid 999) can't read .erlang.cookie next launch.
+mkdir -p ./rabbit_data
+sudo chown -R 999:999 ./rabbit_data
+sudo chmod 700 ./rabbit_data
+if ! grep -q "./rabbit_data:/var/lib/rabbitmq" docker-compose.yaml; then
+  python3 - <<'PY'
+p="docker-compose.yaml"
+s=open(p).read()
+s=s.replace(
+    """  rabbitmq:
+    image: rabbitmq:3-management
+    networks:
+      - backend
+    command: rabbitmq-server""",
+    """  rabbitmq:
+    image: rabbitmq:3-management
+    networks:
+      - backend
+    volumes:
+      - ./rabbit_data:/var/lib/rabbitmq
+    command: rabbitmq-server"""
+)
+open(p,"w").write(s)
+PY
+fi
+ok "configured"
+
+step "pull images (~3GB)"
+docker compose pull 2>&1 | tail -3
+ok "pulled"
+
+step "bring up"
+docker compose up -d
+sleep 12
+docker ps --filter name=firecrawl --format "  {{.Names}}: {{.Status}}"
+ok "up"
+
+step "smoke test"
+sleep 4
+if curl -sf -o /dev/null http://localhost:3002/; then
+  ok "firecrawl API @ http://localhost:3002 ready"
+else
+  warn "API not responding yet — give it 30s more then check 'docker logs firecrawl-api-1'"
+fi
+
+cat <<MSG
+
+Firecrawl is up. Next:
+  1. Add to ~/.hermes/.env (or ~/hermes-free-cloud/.env if symlinked):
+       FIRECRAWL_API_URL=http://172.17.0.1:3002
+       FIRECRAWL_API_KEY=local-no-auth
+  2. Set in ~/.hermes/config.yaml:
+       web:
+         extract_backend: firecrawl
+  3. Restart hermes-gateway:
+       systemctl --user restart hermes-gateway
+MSG

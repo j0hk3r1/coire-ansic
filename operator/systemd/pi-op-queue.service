@@ -1,0 +1,11 @@
+[Unit]
+Description=Pi-operator queue processor (incoming_keys/, every 5min)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/hermes-free-cloud/operator/op-queue.sh
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=600
+Nice=10

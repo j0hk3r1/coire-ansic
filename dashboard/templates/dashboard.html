@@ -1,0 +1,1147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BIFROST · Pool Monitor</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="/static/dashboard.js"></script>
+<script defer src="/static/boot.js"></script>
+<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+<div class="max-w-[1400px] mx-auto px-5 py-6 space-y-5" x-data="bifrostApp()" x-init="init()">
+
+  <!-- STATUS BANNER -->
+  <div class="status-banner" :class="'status-' + (status?.level || 'green')" x-show="status" x-cloak>
+    <span class="dot"></span>
+    <span class="label" x-text="(status?.level || 'green').toUpperCase()"></span>
+    <span class="reason" x-text="(status?.reasons || []).join(' · ')"></span>
+    <span class="ml-auto text-slate-500 text-xs" x-text="state?.now || ''"></span>
+  </div>
+
+
+  <!-- HEADER -->
+  <header class="panel px-6 py-5 flex items-center justify-between">
+    <div class="flex-1">
+      <div class="display-font text-3xl font-black neon-pink">BIFROST</div>
+      <div class="text-xs tracking-[0.3em] text-violet-300/60 uppercase mt-1">Pool Monitor · Circuit Breaker · Curator</div>
+      <svg x-show="state?.requests_per_minute" x-cloak viewBox="0 0 240 24" class="mt-2 h-6 w-60">
+        <template x-for="(v, i) in (state?.requests_per_minute || [])" :key="i">
+          <rect :x="i * 4" :y="24 - Math.min(22, v * 3)" width="3" :height="Math.min(22, v * 3)" fill="var(--neon-cyan)" opacity="0.6"></rect>
+        </template>
+        <text x="0" y="22" font-size="6" fill="rgba(226,232,255,0.4)" font-family="JetBrains Mono">req/min · 60m</text>
+      </svg>
+    </div>
+    <div class="text-right flex items-center gap-4">
+      <button class="text-xs px-2 py-1 rounded"
+              @click="compact = !compact; document.body.classList.toggle('compact', compact); STORAGE.set('compact', compact)"
+              x-text="compact ? 'COMPACT' : 'FULL'"></button>
+      <button class="text-xs px-2 py-1 rounded"
+              @click="toggleTheme()" x-text="theme === 'clean' ? 'LIGHT' : 'DARK'"></button>
+      <div class="flex items-center gap-1 text-xs">
+        <span class="text-slate-500 uppercase tracking-widest mr-1">range</span>
+        <template x-for="h in [1, 6, 24, 168]" :key="h">
+          <button class="px-2 py-1 rounded text-xs"
+                  :class="timeRange === h ? 'tab-active' : ''"
+                  @click="setTimeRange(h)"
+                  x-text="h === 168 ? '7d' : h + 'h'"></button>
+        </template>
+      </div>
+      <div>
+        <div class="flex items-center gap-2 justify-end">
+          <span class="live-dot" :class="{ 'dot-warn': !online }"></span>
+          <span class="text-xs uppercase tracking-widest" :class="online ? 'text-emerald-300' : 'text-amber-300'" x-text="online ? 'live' : 'reconn'"></span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1" x-text="(state && state.now) || '{{ now }}'"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="ticker" x-show="state" x-cloak>
+    <div class="ticker-track">
+      <template x-for="i in 2" :key="i">
+        <div class="inline-flex gap-12">
+          <template x-for="item in tickerItems()" :key="item[0] + i">
+            <span class="ticker-item"><span class="label" x-text="item[0]"></span><span x-text="item[1]"></span></span>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- TOP STATS -->
+  <section class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="panel p-4">
+      <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">Pools</div>
+      <div class="text-3xl stat-value neon-cyan" x-text="state ? (state.pool_targets?.rules?.length || 0) : {{ pool_targets.rules|length if pool_targets.rules else 0 }}"></div>
+    </div>
+    <div class="panel p-4">
+      <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">Providers</div>
+      <div class="text-3xl stat-value neon-purple" x-text="state ? (state.provider_status?.providers?.length || 0) : {{ provider_status.providers|length if provider_status.providers else 0 }}"></div>
+    </div>
+    <div class="panel p-4"
+         :class="(state?.circuit_breaker?.demoted_count ?? {{ circuit_breaker.demoted_count or 0 }}) > 0 ? 'panel-alert' : ''">
+      <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">On Cooldown</div>
+      <div class="text-3xl stat-value"
+           :class="(state?.circuit_breaker?.demoted_count ?? {{ circuit_breaker.demoted_count or 0 }}) > 0 ? 'neon-amber' : 'text-slate-600'"
+           x-text="state?.circuit_breaker?.demoted_count ?? {{ circuit_breaker.demoted_count or 0 }}"></div>
+    </div>
+    <div class="panel p-4">
+      <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">Events 24h</div>
+      <div class="text-3xl stat-value neon-lime" x-text="state ? (state.pool_health?.total || 0) : {{ pool_health.total or 0 }}"></div>
+    </div>
+    <div class="panel p-4">
+      <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">AA Models</div>
+      <div class="text-3xl stat-value neon-pink" x-text="state ? (state.curator_recommendations?.total_models || 0) : {{ curator_recommendations.total_models or 0 }}"></div>
+    </div>
+  </section>
+
+  <!-- TAB NAV -->
+  <nav class="tab-nav flex gap-1 border-b border-white/10 mb-3">
+    <template x-for="tab in [['overview','OVERVIEW'],['stream','STREAM'],['pools','POOLS'],['providers','PROVIDERS'],['latency','LATENCY'],['curator','CURATOR']]" :key="tab[0]">
+      <button class="tab-btn px-4 py-2 text-xs uppercase tracking-widest"
+              :class="activeTab === tab[0] ? 'tab-active' : 'text-slate-500 hover:text-violet-300'"
+              @click="setTab(tab[0])"
+              x-text="tab[1]"></button>
+    </template>
+  </nav>
+
+  <!-- FREE-TIER USAGE -->
+  <section x-show="activeTab === 'overview' && usageEstimates" x-cloak class="panel p-5">
+    <div class="section-header"><span>Free-Tier Usage (24h)</span><span class="ml-auto text-xs text-slate-600 normal-case tracking-normal" x-text="usageEstimates?.note || ''"></span></div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+      <template x-for="e in (usageEstimates?.estimates || [])" :key="e.provider">
+        <div class="flex items-center gap-2">
+          <span class="w-24 text-slate-400 font-mono" x-text="e.provider"></span>
+          <div class="flex-1 h-2 bg-slate-800/60 rounded overflow-hidden">
+            <div class="h-full transition-all"
+                 :class="e.pct_of_rpd >= 80 ? 'bg-rose-500' : e.pct_of_rpd >= 50 ? 'bg-amber-400' : 'bg-emerald-400'"
+                 :style="`width: ${Math.min(100, e.pct_of_rpd || 0)}%`"></div>
+          </div>
+          <span class="w-44 text-right text-slate-500 font-mono"
+                x-text="e.used_24h + ' / ' + (e.rpd_cap ? e.rpd_cap + ' RPD' : '∞') + (e.rpd_cap ? ' (' + e.pct_of_rpd + '%)' : '')"></span>
+          <span class="w-28 text-slate-600 truncate font-mono text-[10px]" x-text="(e.rpm_cap ? e.rpm_cap+' RPM' : '') + (e.tpm_cap ? ' ' + (e.tpm_cap/1000)+'k TPM' : '')"></span>
+          <span class="info-icon" :title="e.note || ''" x-show="e.note" x-cloak>ⓘ</span>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- CIRCUIT BREAKER -->
+  <section x-show="activeTab === 'overview'" x-cloak class="panel {% if circuit_breaker.demoted_count and circuit_breaker.demoted_count > 0 %}panel-alert{% endif %} p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('circuit_breaker')">
+      <span :class="{ 'rotate-90': isCollapsed('circuit_breaker') }" class="inline-block transition-transform">▸</span>
+      <span>Circuit Breaker</span>
+      {% if circuit_breaker.error %}
+        <span class="badge badge-fail">{{ circuit_breaker.error }}</span>
+      {% elif circuit_breaker.demoted_count and circuit_breaker.demoted_count > 0 %}
+        <span class="badge badge-warn">{{ circuit_breaker.demoted_count }} demoted</span>
+      {% else %}
+        <span class="badge badge-ok">all clear</span>
+      {% endif %}
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">429-only · sync {{ circuit_breaker.updated_at[:19] if circuit_breaker.updated_at else '—' }}</span>
+    </div>
+    <div x-show="!isCollapsed('circuit_breaker')">
+    {% if not circuit_breaker.error and circuit_breaker.demoted_count == 0 %}
+      <p class="text-slate-500 text-sm">No targets on cooldown. All providers responding.</p>
+    {% elif circuit_breaker.demoted %}
+      <table>
+        <thead><tr><th>Target</th><th>Pools</th><th class="text-right">Demoted</th><th class="text-right">Cooldown</th><th class="text-right">Next Check</th><th class="text-right">Actions</th></tr></thead>
+        <tbody x-show="!state" x-cloak>
+        {% for d in circuit_breaker.demoted %}
+          <tr>
+            <td><span class="neon-amber">{{ d.provider }}</span><span class="text-slate-600">/</span>{{ d.model }}</td>
+            <td class="text-slate-400 text-xs">{{ d.pools|join(', ') }}</td>
+            <td class="text-right text-slate-500 text-xs">{{ d.first_demoted_at[:19] }}</td>
+            <td class="text-right num">{{ d.cooldown_s }}s</td>
+            <td class="text-right neon-cyan stat-value">
+              {% if d.seconds_until_check < 60 %}{{ d.seconds_until_check }}s
+              {% elif d.seconds_until_check < 3600 %}{{ d.seconds_until_check // 60 }}m{{ '%02d'|format(d.seconds_until_check % 60) }}s
+              {% else %}{{ d.seconds_until_check // 3600 }}h{{ '%02d'|format((d.seconds_until_check % 3600) // 60) }}m{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        <tbody x-show="state" x-cloak>
+          <template x-for="d in (state?.circuit_breaker?.demoted || [])" :key="d.provider + d.model">
+            <tr>
+              <td>
+                <span class="neon-amber" x-text="d.provider"></span><span class="text-slate-600">/</span><span x-text="d.model"></span>
+                <span class="ml-2 cb-badge" :class="cbBadge(d).cls" x-text="cbBadge(d).label"></span>
+              </td>
+              <td class="text-slate-400 text-xs" x-text="(d.pools || []).join(', ')"></td>
+              <td class="text-right text-slate-500 text-xs" x-text="(d.first_demoted_at || '').slice(0,19)"></td>
+              <td class="text-right num" x-text="d.cooldown_s + 's'"></td>
+              <td class="text-right">
+                <div class="cooldown-ring inline-flex"
+                     :class="{ critical: d.seconds_until_check < 60 }"
+                     :style="`--pct: ${d.cooldown_s ? Math.max(0, 100 - (d.seconds_until_check / d.cooldown_s) * 100) : 0}`">
+                  <span x-text="d.seconds_until_check < 60 ? d.seconds_until_check + 's' : (d.seconds_until_check < 3600 ? Math.floor(d.seconds_until_check/60) + 'm' : Math.floor(d.seconds_until_check/3600) + 'h')"></span>
+                </div>
+              </td>
+              <td class="text-right">
+                <button class="btn-action btn-restore" @click="restoreTarget(d.provider, d.model)" title="schedule restore on next CB tick">restore</button>
+                <button class="btn-action btn-prune ml-1" @click="pruneTarget(d.provider, d.model)" title="permanently prune">prune</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- POOL HEALTH -->
+  <section x-show="activeTab === 'pools'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('pool_health')">
+      <span :class="{ 'rotate-90': isCollapsed('pool_health') }" class="inline-block transition-transform">▸</span>
+      <span>Pool Health</span>
+      <div class="ml-auto flex items-center gap-3">
+        <span class="text-xs text-slate-600 normal-case tracking-normal">live · last {{ pool_health.window_hours or 24 }}h · {{ pool_health.total or 0 }} events</span>
+        <div class="flex gap-2">
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.pool_health?.pools, 'pool_health', 'csv')">CSV</button>
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.pool_health?.pools, 'pool_health', 'json')">JSON</button>
+        </div>
+      </div>
+    </div>
+    <div x-show="!isCollapsed('pool_health')">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4" x-show="state?.pool_health?.pools" x-cloak>
+      <template x-for="p in sortPools(state?.pool_health?.pools || [])" :key="p.pool">
+        <div class="pool-card text-center cursor-pointer" @click="openDrawer('pool', p.pool)">
+          <div class="display-font neon-cyan text-sm mb-1" x-text="p.pool"></div>
+          <svg viewBox="0 0 80 80" class="w-20 h-20 mx-auto">
+            <polygon points="40,12 68,40 40,68 12,40" fill="none" stroke="rgba(0,240,255,0.15)" stroke-width="0.5"/>
+            <polygon :points="poolRadarPoints(p)" fill="rgba(255,45,146,0.25)" stroke="var(--neon-pink)" stroke-width="1.2"/>
+          </svg>
+          <div class="text-xs text-slate-400 mt-1">
+            <span x-text="p.rate_pct + '%'" class="num"></span> ·
+            <span x-text="p.p50 + 's'" class="num"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+    {% if pool_health.error %}
+      <p class="neon-rose text-sm">{{ pool_health.error }}</p>
+    {% else %}
+      <table>
+        <thead><tr><th>Pool</th><th class="text-right">OK%</th><th class="text-right">P50</th><th class="text-right">P95</th><th>Latency Trend</th><th>Top Model</th><th class="text-right col-low-prio">FB Rescue</th><th class="text-right">Events</th></tr></thead>
+        <tbody x-show="!state" x-cloak>
+        {% for p in pool_health.pools %}
+          <tr>
+            <td class="display-font neon-cyan">{{ p.pool }}</td>
+            <td class="text-right">
+              <span class="{% if p.rate_pct >= 90 %}neon-lime{% elif p.rate_pct >= 60 %}neon-amber{% else %}neon-rose{% endif %} stat-value">{{ p.rate_pct }}%</span>
+            </td>
+            <td class="text-right num">{{ p.p50 }}s</td>
+            <td class="text-right num">{{ p.p95 }}s</td>
+            <td class="w-44"><span class="spark">{{ p.sparkline_24h }}</span></td>
+            <td class="text-xs text-slate-300 truncate max-w-xs">{{ p.top_model }}</td>
+            <td class="text-right text-slate-500 col-low-prio">{{ p.fallback_rescues }}</td>
+            <td class="text-right text-slate-500">{{ p.total }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        <tbody x-show="state" x-cloak>
+          <template x-for="p in sortPools(state?.pool_health?.pools || [])" :key="p.pool">
+            <tr>
+              <td class="display-font neon-cyan">
+                <span class="cursor-pointer hover:underline" @click="openDrawer('pool', p.pool)" x-text="p.pool"></span>
+                <button class="ml-2 text-xs"
+                        :class="starredPools.includes(p.pool) ? 'text-yellow-300' : 'text-slate-600 hover:text-yellow-300'"
+                        @click.stop="toggleStar(p.pool)">★</button>
+                <button class="ml-1 text-xs"
+                        :class="mutedPools.includes(p.pool) ? 'text-rose-400' : 'text-slate-600 hover:text-rose-400'"
+                        @click.stop="toggleMute(p.pool)">∅</button>
+              </td>
+              <td class="text-right">
+                <span class="stat-value"
+                      :class="p.rate_pct >= 90 ? 'neon-lime' : (p.rate_pct >= 60 ? 'neon-amber' : 'neon-rose')"
+                      x-text="p.rate_pct + '%'"></span>
+              </td>
+              <td class="text-right num" x-text="p.p50 + 's'"></td>
+              <td class="text-right num" x-text="p.p95 + 's'"></td>
+              <td class="w-44">
+                <svg viewBox="0 0 96 18" class="w-44 h-5">
+                  <template x-for="(v, i) in (p.hourly_p50 || [])" :key="i">
+                    <rect :x="i * 4"
+                          :y="v === null ? 17 : (18 - 16 * (v / Math.max(...p.hourly_p50.filter(x=>x!=null), 1)))"
+                          width="3"
+                          :height="v === null ? 1 : 16 * (v / Math.max(...p.hourly_p50.filter(x=>x!=null), 1))"
+                          :fill="v === null ? '#1e293b' : '#00f0ff'"
+                          opacity="0.85"></rect>
+                  </template>
+                </svg>
+              </td>
+              <td class="text-xs text-slate-300 truncate max-w-xs" x-text="p.top_model"></td>
+              <td class="text-right text-slate-500 col-low-prio" x-text="p.fallback_rescues"></td>
+              <td class="text-right text-slate-500" x-text="p.total"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- WEIGHT DRIFT (planned vs live) — moved above heatmap so it's visible without scroll -->
+  <section x-show="activeTab === 'pools'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('weight_drift')">
+      <span :class="{ 'rotate-90': isCollapsed('weight_drift') }" class="inline-block transition-transform">▸</span>
+      <span>Plan vs Live Weights</span>
+      <span class="ml-3 flex items-center gap-2 text-[10px] tracking-widest uppercase" x-show="weightDrift?.pools" x-cloak>
+        <template x-for="p in (weightDrift?.pools || [])" :key="'sum-'+p.pool">
+          <span class="drift-pool-chip"
+                :class="(driftSummary(p).drifted + driftSummary(p).missing + driftSummary(p).extra) > 0 ? 'drift-chip-warn' : 'drift-chip-ok'"
+                :title="`${driftSummary(p).ok} ok · ${driftSummary(p).drifted} drifted · ${driftSummary(p).missing} missing · ${driftSummary(p).extra} extra`">
+            <span x-text="p.pool"></span>
+            <span x-show="driftSummary(p).drifted + driftSummary(p).missing + driftSummary(p).extra > 0"
+                  x-text="(driftSummary(p).drifted + driftSummary(p).missing + driftSummary(p).extra)"></span>
+          </span>
+        </template>
+      </span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">
+        from <span x-text="weightDrift?.source?.split('/').pop() || 'pool_weights.yaml'"></span>
+        · re-applied 01:15 UTC daily
+      </span>
+    </div>
+    <div x-show="!isCollapsed('weight_drift')">
+      <template x-if="weightDrift?.error">
+        <p class="neon-rose text-sm" x-text="weightDrift.error"></p>
+      </template>
+      <div class="grid md:grid-cols-2 gap-4" x-show="weightDrift?.pools" x-cloak>
+        <template x-for="p in (weightDrift?.pools || [])" :key="p.pool">
+          <div class="pool-card">
+            <h4 class="neon-cyan mb-2 flex items-baseline gap-2">
+              <span x-text="p.pool.toUpperCase()"></span>
+              <span class="text-[10px] text-slate-600 normal-case tracking-normal"
+                    x-text="driftSummary(p).ok + ' ok · ' + (driftSummary(p).drifted + driftSummary(p).missing + driftSummary(p).extra) + ' drift'"></span>
+            </h4>
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="text-slate-600">
+                  <th class="text-left font-normal pb-1">target</th>
+                  <th class="text-right font-normal pb-1 w-14">plan</th>
+                  <th class="text-right font-normal pb-1 w-14">live</th>
+                  <th class="text-right font-normal pb-1 w-12">Δ</th>
+                  <th class="text-left font-normal pb-1 pl-2 w-20">status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="t in p.targets" :key="t.key">
+                  <tr :class="driftClass(t.status)" :title="t.status">
+                    <td class="truncate">
+                      <span class="text-rose-300" x-text="t.provider"></span><span class="text-slate-600">/</span><span x-text="t.model"></span>
+                    </td>
+                    <td class="text-right num" x-text="t.planned.toFixed(2)"></td>
+                    <td class="text-right num" x-text="t.live.toFixed(2)"></td>
+                    <td class="text-right num" :class="Math.abs(t.delta) > 0.05 ? 'text-amber-400 font-semibold' : 'text-slate-600'" x-text="(t.delta > 0 ? '+' : '') + t.delta.toFixed(2)"></td>
+                    <td class="pl-2 text-[10px] uppercase tracking-wide truncate"
+                        x-text="t.status === 'ok' ? '' : (t.status.startsWith('MISSING') ? 'missing' : (t.status === 'extra (not in plan)' ? 'extra' : t.status.split(' ')[0]))"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel p-5" x-show="state?.activity_heatmap?.pools && activeTab === 'pools'" x-cloak>
+    <div class="section-header cursor-pointer" @click="toggleCollapse('activity_heatmap')">
+      <span :class="{ 'rotate-90': isCollapsed('activity_heatmap') }" class="inline-block transition-transform">▸</span>
+      <span>Activity Heatmap · 7d</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal" x-show="state?.activity_heatmap?.truncated">approximate (≥1000 events)</span>
+    </div>
+    <div x-show="!isCollapsed('activity_heatmap')">
+    <template x-for="(grid, pool) in (state?.activity_heatmap?.pools || {})" :key="pool">
+      <div class="mb-4">
+        <div class="display-font neon-cyan text-sm mb-1 cursor-pointer hover:underline"
+             @click="openDrawer('pool', pool)" x-text="pool"></div>
+        <template x-for="(row, day) in grid" :key="day">
+          <div class="grid items-center mb-[2px]" style="grid-template-columns: 32px 1fr">
+            <div class="heatmap-day-label" x-text="day === 0 ? 'now' : '-' + day + 'd'"></div>
+            <div class="heatmap">
+              <template x-for="(count, hour) in row" :key="hour">
+                <div class="heatmap-cell"
+                     :style="`--intensity: ${count > 0 ? Math.min(1, Math.log(count + 1) / Math.log(20)) : 0}`"
+                     :title="`d-${day} h${hour}: ${count} req`"
+                     @click="openDrawer('pool', pool)"></div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </template>
+    </div>
+  </section>
+
+  <!-- BIFROST METRICS (Prometheus, cumulative since boot) -->
+  <section x-show="activeTab === 'pools'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('token_usage')">
+      <span :class="{ 'rotate-90': isCollapsed('token_usage') }" class="inline-block transition-transform">▸</span>
+      <span>Token Usage</span>
+      <div class="ml-auto flex items-center gap-3">
+        <span class="text-xs text-slate-600 normal-case tracking-normal">cumulative since bifrost boot · /metrics</span>
+        <div class="flex gap-2">
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.bifrost_metrics?.by_pool, 'tokens_by_pool', 'csv')">CSV</button>
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.bifrost_metrics?.by_pool, 'tokens_by_pool', 'json')">JSON</button>
+        </div>
+      </div>
+    </div>
+    <div x-show="!isCollapsed('token_usage')">
+    {% if bifrost_metrics.error %}
+      <p class="neon-rose text-sm">{{ bifrost_metrics.error }}</p>
+    {% else %}
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <h4 class="text-xs uppercase tracking-widest text-slate-500 mb-2">By Pool</h4>
+          <table>
+            <thead><tr><th>Pool</th><th class="text-right">In</th><th class="text-right">Out</th><th class="text-right">OK</th><th class="text-right">Err</th></tr></thead>
+            <tbody x-show="!state" x-cloak>
+            {% for r in bifrost_metrics.by_pool %}
+              <tr>
+                <td class="display-font neon-cyan">{{ r.pool }}</td>
+                <td class="text-right num">{{ "{:,}".format(r.input) }}</td>
+                <td class="text-right num">{{ "{:,}".format(r.output) }}</td>
+                <td class="text-right neon-lime">{{ r.success }}</td>
+                <td class="text-right {% if r.errors > 0 %}neon-rose{% else %}text-slate-500{% endif %}">{{ r.errors }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+            <tbody x-show="state" x-cloak>
+              <template x-for="r in (state?.bifrost_metrics?.by_pool || [])" :key="r.pool">
+                <tr class="cursor-pointer hover:bg-white/5" @click="openDrawer('pool', r.pool)">
+                  <td class="display-font neon-cyan" x-text="r.pool"></td>
+                  <td class="text-right num" x-text="r.input.toLocaleString()"></td>
+                  <td class="text-right num" x-text="r.output.toLocaleString()"></td>
+                  <td class="text-right neon-lime" x-text="r.success"></td>
+                  <td class="text-right" :class="r.errors > 0 ? 'neon-rose' : 'text-slate-500'" x-text="r.errors"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h4 class="text-xs uppercase tracking-widest text-slate-500 mb-2">By Provider</h4>
+          <div class="flex gap-4 items-center">
+            <svg viewBox="0 0 100 100" class="w-28 h-28 shrink-0" x-show="providerDonut().total > 0" x-cloak>
+              <template x-for="s in providerDonut().slices" :key="s.name">
+                <path :d="arcPath(50, 50, 45, s.start, s.end)" :fill="s.color" opacity="0.85"
+                      class="cursor-pointer" @click="openDrawer('provider', s.name)"></path>
+              </template>
+              <circle cx="50" cy="50" r="22" fill="var(--bg-base)"></circle>
+              <text x="50" y="48" text-anchor="middle" font-size="6" fill="#e2e8ff" font-family="Inter">tokens</text>
+              <text x="50" y="58" text-anchor="middle" font-size="8" fill="var(--neon-cyan)" font-family="Inter"
+                    x-text="providerDonut().total > 1000000 ? Math.round(providerDonut().total/1000000) + 'M' : Math.round(providerDonut().total/1000) + 'K'"></text>
+            </svg>
+            <table class="flex-1">
+              <thead><tr><th>Provider</th><th class="text-right">In</th><th class="text-right">Out</th><th class="text-right">OK</th><th class="text-right">Err</th></tr></thead>
+              <tbody x-show="!state" x-cloak>
+                {% for r in bifrost_metrics.by_provider %}
+                  <tr>
+                    <td class="display-font">{{ r.provider }}</td>
+                    <td class="text-right num">{{ "{:,}".format(r.input) }}</td>
+                    <td class="text-right num">{{ "{:,}".format(r.output) }}</td>
+                    <td class="text-right neon-lime">{{ r.success }}</td>
+                    <td class="text-right {% if r.errors > 0 %}neon-rose{% else %}text-slate-500{% endif %}">{{ r.errors }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+              <tbody x-show="state" x-cloak>
+                <template x-for="r in (state?.bifrost_metrics?.by_provider || [])" :key="r.provider">
+                  <tr class="cursor-pointer hover:bg-white/5" @click="openDrawer('provider', r.provider)">
+                    <td class="display-font" x-text="r.provider"></td>
+                    <td class="text-right num" x-text="r.input.toLocaleString()"></td>
+                    <td class="text-right num" x-text="r.output.toLocaleString()"></td>
+                    <td class="text-right neon-lime" x-text="r.success"></td>
+                    <td class="text-right" :class="r.errors > 0 ? 'neon-rose' : 'text-slate-500'" x-text="r.errors"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- CURATOR — TOP MODELS BY POOL -->
+  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('curator')">
+      <span :class="{ 'rotate-90': isCollapsed('curator') }" class="inline-block transition-transform">▸</span>
+      <span>Curator · Top Free Models</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">live AA scores · {{ curator_recommendations.total_models or 0 }} tracked</span>
+    </div>
+    <div x-show="!isCollapsed('curator')">
+    {% if curator_recommendations.error %}
+      <p class="neon-rose text-sm">{{ curator_recommendations.error }}</p>
+    {% else %}
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% for pool_name in ['best','code','mid','fast'] %}
+          {% set pool_data = curator_recommendations[pool_name] %}
+          <div class="pool-card">
+            <h4 class="neon-pink mb-3">{{ pool_name|upper }}</h4>
+            <ol class="space-y-1.5 text-xs">
+            {% for m in pool_data[:8] %}
+              <li class="flex justify-between gap-2">
+                <span class="truncate flex-1">
+                  <span class="text-slate-500">{{ loop.index }}.</span>
+                  <span class="text-rose-300">{{ m.provider }}</span>/<span>{{ m.model[:25] }}{% if m.model|length > 25 %}…{% endif %}</span>
+                </span>
+                <span class="num shrink-0">
+                  {% if pool_name == 'code' and m.code %}{{ m.code }}
+                  {% elif m.iq %}{{ m.iq }}
+                  {% else %}—{% endif %}
+                </span>
+              </li>
+            {% endfor %}
+            </ol>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- EXCLUDED MODELS -->
+  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('excluded_models')">
+      <span :class="{ 'rotate-90': isCollapsed('excluded_models') }" class="inline-block transition-transform">▸</span>
+      <span>Curator Excludes</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">{{ excluded_models.excluded|length }} permanent · plus circuit-breaker cooldowns</span>
+    </div>
+    <div x-show="!isCollapsed('excluded_models')">
+    {% if excluded_models.error %}
+      <p class="neon-rose text-sm">{{ excluded_models.error }}</p>
+    {% elif not excluded_models.excluded %}
+      <p class="text-sm text-slate-500">No permanent excludes configured.</p>
+    {% else %}
+      <p class="text-xs text-slate-500 mb-3">Permanent — these won't be re-proposed by the auto-curator. Distinct from circuit-breaker cooldowns (transient quota/error). Edit <code class="neon-cyan">{{ excluded_models.source or 'bifrost/excluded_models.json' }}</code> to update.</p>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700/40">
+            <th class="py-1 pr-3">Model</th>
+            <th class="py-1 pr-3">Reason</th>
+            <th class="py-1 pr-3">Scope</th>
+            <th class="py-1 pr-3">Added</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for e in excluded_models.excluded %}
+          <tr class="border-b border-slate-800/50">
+            <td class="py-2 pr-3 font-mono text-xs neon-pink">{{ e.id }}</td>
+            <td class="py-2 pr-3 text-slate-300">{{ e.reason }}</td>
+            <td class="py-2 pr-3 text-xs text-slate-500">{{ e.scope or 'all pools' }}</td>
+            <td class="py-2 pr-3 text-xs text-slate-500">{{ e.added_at }}{% if e.added_by %} · {{ e.added_by }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- ACTIVE POOL CONFIG -->
+  <section x-show="activeTab === 'pools'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('pool_targets')">
+      <span :class="{ 'rotate-90': isCollapsed('pool_targets') }" class="inline-block transition-transform">▸</span>
+      <span>Active Pool Config</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">live Bifrost routing rules</span>
+    </div>
+    <div x-show="!isCollapsed('pool_targets')">
+    {% if pool_targets.error %}
+      <p class="neon-rose text-sm">{{ pool_targets.error }}</p>
+    {% else %}
+      <div class="grid md:grid-cols-2 gap-4">
+      {% for r in pool_targets.rules %}
+        <div class="pool-card">
+          <div class="flex justify-between items-baseline mb-2">
+            <h4 class="neon-cyan">{{ r.name|upper }}</h4>
+            <span class="text-xs text-slate-500">{{ r.targets|length }} primary · {{ (r.fallbacks or [])|length }} fb</span>
+          </div>
+          <ul class="space-y-1 text-xs">
+          {% for t in r.targets %}
+            <li class="flex justify-between gap-2 border-l-2 border-violet-500/40 pl-2 py-0.5">
+              <span class="truncate"><span class="text-rose-300">{{ t.provider }}</span><span class="text-slate-600">/</span>{{ t.model }}</span>
+              <span class="num shrink-0">{{ t.weight }}</span>
+            </li>
+          {% endfor %}
+          </ul>
+          {% if r.fallbacks %}
+            <details class="mt-2">
+              <summary class="text-xs text-slate-600 hover:text-slate-300">{{ r.fallbacks|length }} fallback chain</summary>
+              <ul class="mt-1.5 space-y-0.5 text-xs">
+              {% for fb in r.fallbacks %}
+                <li class="border-l-2 border-violet-400/30 pl-2 py-0.5 text-slate-400">{{ loop.index }}. {{ fb }}</li>
+              {% endfor %}
+              </ul>
+            </details>
+          {% endif %}
+        </div>
+      {% endfor %}
+      </div>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- LATENCY TAB -->
+  <section x-show="activeTab === 'latency'" x-cloak class="panel p-5">
+    <div class="section-header">
+      <span>Per-Target Latency</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">
+        <span x-text="(latency?.with_data || 0) + ' / ' + (latency?.total_targets || 0) + ' targets active'"></span>
+        · rolling <span x-text="((latency?.window_sec || 600) / 60).toFixed(0)"></span>min ·
+        updated <span x-text="(latency?.updated_at || '').slice(11, 19)"></span> UTC
+      </span>
+    </div>
+    <div class="text-xs text-slate-500 mb-4 flex items-center gap-3 flex-wrap">
+      P50/P95 from successful bifrost requests, grouped by pool.
+      <span class="lat-legend-chip lat-fast"></span> &lt; 1s
+      <span class="lat-legend-chip lat-ok"></span> 1-3s
+      <span class="lat-legend-chip lat-warn"></span> 3-10s
+      <span class="lat-legend-chip lat-bad"></span> &gt; 10s
+      <span class="text-slate-700">— targets with no recent samples show "—"</span>
+    </div>
+    <div class="space-y-4">
+      <template x-for="p in (latency?.pools || [])" :key="p.pool">
+        <div class="latency-pool">
+          <h4 class="neon-cyan mb-2 flex items-baseline gap-2">
+            <span x-text="p.pool.toUpperCase()"></span>
+            <span class="text-xs text-slate-600 normal-case tracking-normal"
+                  x-text="p.targets.filter(t=>t.samples).length + ' / ' + p.targets.length + ' active'"></span>
+          </h4>
+          <table class="w-full text-sm font-mono">
+            <thead>
+              <tr class="text-[10px] text-slate-600 uppercase tracking-widest">
+                <th class="text-left pb-1">target</th>
+                <th class="text-right pb-1 w-14">w</th>
+                <th class="text-right pb-1 w-12">n</th>
+                <th class="text-right pb-1 w-16">p50</th>
+                <th class="text-right pb-1 w-16">p95</th>
+                <th class="text-right pb-1 w-16">max</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="r in p.targets" :key="r.target">
+                <tr :class="r.samples ? latencyClass(r.p95_ms) : 'lat-empty'">
+                  <td class="py-1">
+                    <span class="text-rose-300" x-text="r.provider"></span><span class="text-slate-600">/</span><span x-text="r.model"></span>
+                  </td>
+                  <td class="text-right text-slate-600 text-xs" x-text="r.weight != null ? r.weight.toFixed(2) : '-'"></td>
+                  <td class="text-right text-slate-500" x-text="r.samples || '-'"></td>
+                  <td class="text-right" x-text="fmtMs(r.p50_ms)"></td>
+                  <td class="text-right" x-text="fmtMs(r.p95_ms)"></td>
+                  <td class="text-right text-slate-500" x-text="fmtMs(r.max_ms)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </template>
+      <div x-show="!latency?.pools?.length" x-cloak class="text-center text-slate-600 py-6">
+        no latency data yet — wait for next CB tick (30s)
+      </div>
+    </div>
+  </section>
+
+  <!-- PROVIDER CANDIDATES (scouted free-inference opportunities) -->
+  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('candidates')">
+      <span :class="{ 'rotate-90': isCollapsed('candidates') }" class="inline-block transition-transform">▸</span>
+      <span>Provider Candidates</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">{{ candidates.count }} discovered · scout cron weekly</span>
+    </div>
+    <div x-show="!isCollapsed('candidates')">
+    {% if candidates.error %}
+      <p class="neon-rose text-sm">{{ candidates.error }}</p>
+    {% elif candidates.count == 0 %}
+      <p class="text-sm text-slate-500">No new candidates yet. The scout runs Mondays 04:00 — or trigger manually with <code class="neon-cyan">python3 scripts/scout_free_providers.py</code>.</p>
+    {% else %}
+      <p class="text-xs text-slate-500 mb-3">Free-inference providers + new free models discovered by <code>scripts/scout_free_providers.py</code>. Review → sign up → add key to <code>.env</code> → append provider to <code>bifrost/seed.sh</code> + <code>bifrost/snapshot/routing-rules.json</code>.</p>
+      <div class="grid md:grid-cols-2 gap-4">
+      {% for c in candidates.candidates %}
+        <div class="pool-card">
+          <div class="flex justify-between items-baseline mb-1">
+            <h4 class="neon-pink">{{ c.provider }}</h4>
+            <span class="text-xs text-slate-500">{{ c.discovered_via }}</span>
+          </div>
+          {% if c.signup_url %}<p class="text-xs mb-2"><a href="{{ c.signup_url }}" target="_blank" class="neon-cyan hover:underline">{{ c.signup_url }}</a></p>{% endif %}
+          {% if c.notes %}<p class="text-sm text-slate-300 mb-2">{{ c.notes }}</p>{% endif %}
+          {% if c.free_tier %}<p class="text-xs text-slate-500 mb-2"><span class="text-slate-400">free-tier:</span> {{ c.free_tier }}</p>{% endif %}
+          {% if c.models %}
+          <div class="text-xs">
+            <div class="text-slate-500 mb-1">{{ c.models|length }} model(s):</div>
+            <ul class="space-y-0.5">
+            {% for m in c.models[:6] %}
+              <li class="font-mono text-slate-300">{{ m.name }}{% if m.iq is not none %} <span class="text-slate-500">· iq {{ m.iq }}</span>{% endif %}{% if m.code is not none %} <span class="text-slate-500">· code {{ m.code }}</span>{% endif %}</li>
+            {% endfor %}
+            {% if c.models|length > 6 %}<li class="text-slate-600">… +{{ c.models|length - 6 }} more</li>{% endif %}
+            </ul>
+          </div>
+          {% endif %}
+          <div class="text-xs text-slate-600 mt-3">discovered {{ c.discovered_at }}</div>
+        </div>
+      {% endfor %}
+      </div>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- PROVIDER ERRORS -->
+  <section x-show="activeTab === 'providers'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('provider_errors')">
+      <span :class="{ 'rotate-90': isCollapsed('provider_errors') }" class="inline-block transition-transform">▸</span>
+      <span>Provider Errors</span>
+      <div class="ml-auto flex items-center gap-3">
+        <span class="text-xs text-slate-600 normal-case tracking-normal">last {{ provider_errors.window_hours or 24 }}h · by HTTP status</span>
+        <div class="flex gap-2">
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.provider_errors?.providers, 'provider_errors', 'csv')">CSV</button>
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.provider_errors?.providers, 'provider_errors', 'json')">JSON</button>
+        </div>
+      </div>
+    </div>
+    <div x-show="!isCollapsed('provider_errors')">
+    {% if provider_errors.error %}
+      <p class="neon-rose text-sm">{{ provider_errors.error }}</p>
+    {% else %}
+      <table>
+        <thead><tr><th>Provider</th><th class="text-right">OK</th><th class="text-right">429</th><th class="text-right">504 TO</th><th class="text-right">400</th><th class="text-right col-low-prio">Other</th><th class="text-right">Total</th><th class="text-right">Health</th></tr></thead>
+        <tbody x-show="!state" x-cloak>
+        {% for p in provider_errors.providers %}
+          <tr>
+            <td class="display-font">{{ p.provider }}</td>
+            <td class="text-right num">{{ p.ok }}</td>
+            <td class="text-right {% if p['429'] > 0 %}neon-amber{% else %}text-slate-600{% endif %}">{{ p['429'] }}</td>
+            <td class="text-right {% if p.timeout > 0 %}neon-rose{% else %}text-slate-600{% endif %}">{{ p.timeout }}</td>
+            <td class="text-right {% if p['400'] > 0 %}neon-rose{% else %}text-slate-600{% endif %}">{{ p['400'] }}</td>
+            <td class="text-right text-slate-500 col-low-prio">{{ p.other }}</td>
+            <td class="text-right text-slate-300">{{ p.total }}</td>
+            <td class="text-right">
+              <span class="{% if p.ok_rate >= 90 %}badge badge-ok{% elif p.ok_rate >= 60 %}badge badge-warn{% else %}badge badge-fail{% endif %}">{{ p.ok_rate }}%</span>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+        <tbody x-show="state" x-cloak>
+          <template x-for="p in (state?.provider_errors?.providers || [])" :key="p.provider">
+            <tr class="cursor-pointer hover:bg-white/5" @click="openDrawer('provider', p.provider)">
+              <td class="display-font" x-text="p.provider"></td>
+              <td class="text-right num" x-text="p.ok"></td>
+              <td class="text-right" :class="p['429'] > 0 ? 'neon-amber' : 'text-slate-600'" x-text="p['429']"></td>
+              <td class="text-right" :class="p.timeout > 0 ? 'neon-rose' : 'text-slate-600'" x-text="p.timeout"></td>
+              <td class="text-right" :class="p['400'] > 0 ? 'neon-rose' : 'text-slate-600'" x-text="p['400']"></td>
+              <td class="text-right text-slate-500 col-low-prio" x-text="p.other"></td>
+              <td class="text-right text-slate-300" x-text="p.total"></td>
+              <td class="text-right">
+                <span class="badge"
+                      :class="p.ok_rate >= 90 ? 'badge-ok' : (p.ok_rate >= 60 ? 'badge-warn' : 'badge-fail')"
+                      x-text="p.ok_rate + '%'"></span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- LIVE ERROR FEED (errors only) -->
+  <section x-show="activeTab === 'stream'" x-cloak class="panel {% if recent_errors.errors|length > 50 %}panel-error{% elif recent_errors.errors|length > 0 %}panel-alert{% endif %} p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('errors_feed')">
+      <span :class="{ 'rotate-90': isCollapsed('errors_feed') }" class="inline-block transition-transform">▸</span>
+      <span>Error / Cancelled Feed</span>
+      {% set cnc_count = recent_errors.errors | selectattr('cancelled') | list | length %}
+      {% set err_count = recent_errors.errors|length - cnc_count %}
+      {% if recent_errors.errors|length == 0 %}
+        <span class="badge badge-ok">all clean</span>
+      {% else %}
+        {% if err_count > 0 %}<span class="badge {% if err_count > 50 %}badge-fail{% else %}badge-warn{% endif %}">{{ err_count }} errors</span>{% endif %}
+        {% if cnc_count > 0 %}<span class="badge badge-info">{{ cnc_count }} cancelled</span>{% endif %}
+      {% endif %}
+      <div class="ml-auto flex items-center gap-3">
+        <span class="text-xs text-slate-600 normal-case tracking-normal">last {{ recent_errors.window_hours or 24 }}h</span>
+        <div class="flex gap-2">
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(filteredFeed('errors'), 'errors', 'csv')">CSV</button>
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(filteredFeed('errors'), 'errors', 'json')">JSON</button>
+        </div>
+      </div>
+    </div>
+    <div x-show="!isCollapsed('errors_feed')">
+    {% if recent_errors.error %}
+      <p class="neon-rose text-sm">{{ recent_errors.error }}</p>
+    {% elif recent_errors.errors %}
+      <div class="mb-3 flex flex-wrap items-center gap-2 text-xs" x-show="state" x-cloak>
+        <input type="text" placeholder="search…" data-filter-active
+               x-model="feedFilters.errors.text"
+               class="bg-slate-900/60 border border-white/10 rounded px-2 py-1 w-48 focus:border-violet-500/60 outline-none">
+        <template x-for="p in chipSet('errors').pools" :key="'pool:' + p">
+          <button @click="toggleChip('errors', 'pool:' + p)"
+                  :class="feedFilters.errors.chips['pool:' + p] ? 'bg-violet-500/30 text-violet-200' : 'bg-slate-800/40 text-slate-400'"
+                  class="px-2 py-0.5 rounded border border-white/10" x-text="p"></button>
+        </template>
+        <template x-for="p in chipSet('errors').providers" :key="'provider:' + p">
+          <button @click="toggleChip('errors', 'provider:' + p)"
+                  :class="feedFilters.errors.chips['provider:' + p] ? 'bg-rose-500/30 text-rose-200' : 'bg-slate-800/40 text-slate-400'"
+                  class="px-2 py-0.5 rounded border border-rose-500/20" x-text="p"></button>
+        </template>
+        <template x-for="s in chipSet('errors').statuses" :key="'status:' + s">
+          <button @click="toggleChip('errors', 'status:' + s)"
+                  :class="feedFilters.errors.chips['status:' + s] ? 'bg-amber-500/30 text-amber-200' : 'bg-slate-800/40 text-slate-400'"
+                  class="px-2 py-0.5 rounded border border-amber-500/20" x-text="s"></button>
+        </template>
+      </div>
+      <div class="overflow-auto max-h-[500px] scroll-fade">
+      <table>
+        <thead class="sticky top-0 bg-slate-950/95 backdrop-blur"><tr><th>Time</th><th>Pool</th><th>Target</th><th class="text-right">FB</th><th class="text-right">Lat</th><th>Code</th><th>Error</th></tr></thead>
+        <tbody x-show="!state" x-cloak>
+          {% for r in recent_errors.errors %}
+            <tr>
+              <td class="text-slate-500 text-xs font-mono">{{ r.ts }}</td>
+              <td class="neon-cyan text-xs">{{ r.pool }}</td>
+              <td class="text-xs"><span class="text-rose-300">{{ r.provider }}</span><span class="text-slate-600">/</span>{{ r.model[:30] }}{% if r.model|length > 30 %}…{% endif %}</td>
+              <td class="text-right text-slate-500 text-xs">{% if r.fb > 0 %}#{{ r.fb }}{% else %}—{% endif %}</td>
+              <td class="text-right num text-xs">{{ r.latency_s }}s</td>
+              <td>
+                {% if r.cancelled %}<span class="badge badge-info">cancel</span>
+                {% elif r.status_code == 429 %}<span class="badge badge-warn">429</span>
+                {% elif r.status_code == 504 %}<span class="badge badge-fail">504</span>
+                {% elif r.status_code == 400 %}<span class="badge badge-fail">400</span>
+                {% elif r.status_code == 413 %}<span class="badge badge-fail">413</span>
+                {% else %}<span class="badge badge-fail">{{ r.status_code or 'ERR' }}</span>{% endif %}
+              </td>
+              <td class="text-xs text-slate-400 max-w-md truncate">{{ r.err }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tbody x-show="state" x-cloak>
+          <template x-for="r in filteredFeed('errors')" :key="r.ts + r.pool + r.provider + r.model">
+            <tr :class="r._fresh ? 'row-new' : ''">
+              <td class="text-slate-500 text-xs font-mono" x-text="r.ts"></td>
+              <td class="neon-cyan text-xs" x-text="r.pool"></td>
+              <td class="text-xs">
+                <span class="text-rose-300 cursor-pointer hover:underline" x-text="r.provider" @click="openDrawer('provider', r.provider)"></span>
+                <span class="text-slate-600">/</span>
+                <span x-text="r.model && r.model.length > 30 ? r.model.slice(0,30) + '…' : r.model"></span>
+              </td>
+              <td class="text-right text-slate-500 text-xs"><span x-text="r.fb > 0 ? '#' + r.fb : '—'"></span></td>
+              <td class="text-right num text-xs"><span x-text="r.latency_s + 's'"></span></td>
+              <td>
+                <span class="badge"
+                      :class="{
+                        'badge-info': r.cancelled,
+                        'badge-warn': !r.cancelled && r.status_code === 429,
+                        'badge-fail': !r.cancelled && r.status_code !== 429
+                      }"
+                      x-text="r.cancelled ? 'cancel' : (r.status_code || 'ERR')"></span>
+              </td>
+              <td class="text-xs text-slate-400 max-w-md truncate" x-text="r.err"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      </div>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- SUCCESS FEED -->
+  <section x-show="activeTab === 'stream'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('successes_feed')">
+      <span :class="{ 'rotate-90': isCollapsed('successes_feed') }" class="inline-block transition-transform">▸</span>
+      <span>Success Feed</span>
+      {% if recent_successes.successes|length == 0 %}
+        <span class="badge badge-warn">no traffic</span>
+      {% else %}
+        <span class="badge badge-ok">{{ recent_successes.successes|length }} ok</span>
+      {% endif %}
+      <div class="ml-auto flex items-center gap-3">
+        <span class="text-xs text-slate-600 normal-case tracking-normal">last {{ recent_successes.window_hours or 24 }}h · pool-routed only</span>
+        <div class="flex gap-2">
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(filteredFeed('successes'), 'successes', 'csv')">CSV</button>
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(filteredFeed('successes'), 'successes', 'json')">JSON</button>
+        </div>
+      </div>
+    </div>
+    <div x-show="!isCollapsed('successes_feed')">
+    {% if recent_successes.error %}
+      <p class="neon-rose text-sm">{{ recent_successes.error }}</p>
+    {% elif recent_successes.successes %}
+      <div class="mb-3 flex flex-wrap items-center gap-2 text-xs" x-show="state" x-cloak>
+        <input type="text" placeholder="search…" data-filter-active
+               x-model="feedFilters.successes.text"
+               class="bg-slate-900/60 border border-white/10 rounded px-2 py-1 w-48 focus:border-violet-500/60 outline-none">
+        <template x-for="p in chipSet('successes').pools" :key="'pool:' + p">
+          <button @click="toggleChip('successes', 'pool:' + p)"
+                  :class="feedFilters.successes.chips['pool:' + p] ? 'bg-violet-500/30 text-violet-200' : 'bg-slate-800/40 text-slate-400'"
+                  class="px-2 py-0.5 rounded border border-white/10" x-text="p"></button>
+        </template>
+        <template x-for="p in chipSet('successes').providers" :key="'provider:' + p">
+          <button @click="toggleChip('successes', 'provider:' + p)"
+                  :class="feedFilters.successes.chips['provider:' + p] ? 'bg-rose-500/30 text-rose-200' : 'bg-slate-800/40 text-slate-400'"
+                  class="px-2 py-0.5 rounded border border-rose-500/20" x-text="p"></button>
+        </template>
+        <template x-for="s in chipSet('successes').statuses" :key="'status:' + s">
+          <button @click="toggleChip('successes', 'status:' + s)"
+                  :class="feedFilters.successes.chips['status:' + s] ? 'bg-amber-500/30 text-amber-200' : 'bg-slate-800/40 text-slate-400'"
+                  class="px-2 py-0.5 rounded border border-amber-500/20" x-text="s"></button>
+        </template>
+      </div>
+      <div class="overflow-auto max-h-[500px] scroll-fade">
+      <table>
+        <thead class="sticky top-0 bg-slate-950/95 backdrop-blur"><tr><th>Time</th><th>Pool</th><th>Target</th><th class="text-right">FB</th><th class="text-right">Lat</th><th class="col-low-prio">Stream</th></tr></thead>
+        <tbody x-show="!state" x-cloak>
+          {% for r in recent_successes.successes %}
+            <tr>
+              <td class="text-slate-500 text-xs font-mono">{{ r.ts }}</td>
+              <td class="neon-cyan text-xs">{{ r.pool }}</td>
+              <td class="text-xs"><span class="text-rose-300">{{ r.provider }}</span><span class="text-slate-600">/</span>{{ r.model[:32] }}{% if r.model|length > 32 %}…{% endif %}</td>
+              <td class="text-right text-slate-500 text-xs">
+                {% if r.fb > 0 %}<span class="text-amber-300">#{{ r.fb }}</span>{% else %}<span class="text-emerald-400">prim</span>{% endif %}
+              </td>
+              <td class="text-right num text-xs {% if r.latency_s > 30 %}neon-rose{% elif r.latency_s > 10 %}neon-amber{% else %}neon-lime{% endif %}">{{ r.latency_s }}s</td>
+              <td class="text-xs text-slate-500 col-low-prio">{% if r.stream %}sse{% else %}batch{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tbody x-show="state" x-cloak>
+          <template x-for="r in filteredFeed('successes')" :key="r.ts + r.pool + r.provider + r.model">
+            <tr :class="r._fresh ? 'row-new' : ''">
+              <td class="text-slate-500 text-xs font-mono" x-text="r.ts"></td>
+              <td class="neon-cyan text-xs" x-text="r.pool"></td>
+              <td class="text-xs">
+                <span class="text-rose-300 cursor-pointer hover:underline" x-text="r.provider" @click="openDrawer('provider', r.provider)"></span>
+                <span class="text-slate-600">/</span>
+                <span x-text="r.model && r.model.length > 32 ? r.model.slice(0,32) + '…' : r.model"></span>
+              </td>
+              <td class="text-right text-slate-500 text-xs">
+                <span x-show="r.fb > 0" class="text-amber-300" x-text="'#' + r.fb"></span>
+                <span x-show="r.fb === 0" class="text-emerald-400">prim</span>
+              </td>
+              <td class="text-right num text-xs"
+                  :class="r.latency_s > 30 ? 'neon-rose' : (r.latency_s > 10 ? 'neon-amber' : 'neon-lime')"
+                  x-text="r.latency_s + 's'"></td>
+              <td class="text-xs text-slate-500 col-low-prio" x-text="r.stream ? 'sse' : 'batch'"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      </div>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- CURATOR HISTORY -->
+  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('curator_history')">
+      <span :class="{ 'rotate-90': isCollapsed('curator_history') }" class="inline-block transition-transform">▸</span>
+      <span>Curator + Breaker History</span>
+      <div class="ml-auto flex items-center gap-3">
+        <span class="text-xs text-slate-600 normal-case tracking-normal">last {{ curator_history.events|length if curator_history.events else 0 }} events</span>
+        <div class="flex gap-2">
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.curator_history?.events, 'curator_history', 'csv')">CSV</button>
+          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
+                  @click="exportSection(state?.curator_history?.events, 'curator_history', 'json')">JSON</button>
+        </div>
+      </div>
+    </div>
+    <div x-show="!isCollapsed('curator_history')">
+    <div class="overflow-auto max-h-80 scroll-fade">
+    <table>
+      <thead><tr><th>Time</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+      <tbody x-show="!state" x-cloak>
+      {% for e in curator_history.events or [] %}
+        <tr>
+          <td class="text-slate-500 text-xs font-mono">{{ (e.ts or e.timestamp or '')[:19] }}</td>
+          <td>
+            {% if e.action == 'demote' %}<span class="badge badge-warn">demote</span>
+            {% elif e.action == 'restored' %}<span class="badge badge-ok">restored</span>
+            {% elif e.action == 'restore_failed' %}<span class="badge badge-fail">restore fail</span>
+            {% elif e.action == 'applied' %}<span class="badge badge-info">curator apply</span>
+            {% elif e.action == 'demote_failed' %}<span class="badge badge-fail">demote fail</span>
+            {% elif e.action == 'tick_error' %}<span class="badge badge-fail">tick err</span>
+            {% else %}<span class="badge">{{ e.action }}</span>{% endif %}
+          </td>
+          <td class="text-xs">{% if e.provider %}<span class="text-rose-300">{{ e.provider }}</span><span class="text-slate-600">/</span>{{ e.model }}{% else %}{{ e.pool or '—' }}{% endif %}</td>
+          <td class="text-xs text-slate-400">{{ e.reason or e.error or (e.next_cooldown_s and (e.next_cooldown_s|string + 's next')) or '' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+      <tbody x-show="state" x-cloak>
+        <template x-for="e in (state?.curator_history?.events || [])" :key="(e.ts || e.timestamp || '') + (e.action || '') + (e.provider || e.pool || '')">
+          <tr>
+            <td class="text-slate-500 text-xs font-mono" x-text="(e.ts || e.timestamp || '').slice(0,19)"></td>
+            <td>
+              <span class="badge"
+                    :class="e.action === 'demote' ? 'badge-warn' :
+                            e.action === 'restored' ? 'badge-ok' :
+                            e.action === 'restore_failed' ? 'badge-fail' :
+                            e.action === 'applied' ? 'badge-info' :
+                            e.action === 'demote_failed' ? 'badge-fail' :
+                            e.action === 'tick_error' ? 'badge-fail' : ''"
+                    x-text="e.action"></span>
+            </td>
+            <td class="text-xs">
+              <template x-if="e.provider">
+                <span><span class="text-rose-300" x-text="e.provider"></span><span class="text-slate-600">/</span><span x-text="e.model"></span></span>
+              </template>
+              <template x-if="!e.provider">
+                <span x-text="e.pool || '—'"></span>
+              </template>
+            </td>
+            <td class="text-xs text-slate-400" x-text="e.reason || e.error || (e.next_cooldown_s ? e.next_cooldown_s + 's next' : '')"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    </div>
+    </div>
+  </section>
+
+  <!-- PROVIDERS -->
+  <section x-show="activeTab === 'providers'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('providers')">
+      <span :class="{ 'rotate-90': isCollapsed('providers') }" class="inline-block transition-transform">▸</span>
+      <span>Providers</span>
+    </div>
+    <div x-show="!isCollapsed('providers')">
+    {% if provider_status.error %}
+      <p class="neon-rose text-sm">{{ provider_status.error }}</p>
+    {% else %}
+      <table>
+        <thead><tr><th>Provider</th><th class="text-right">Timeout</th><th class="text-right">Retries</th><th class="text-right">Keys</th><th class="text-right">Status</th></tr></thead>
+        <tbody>
+        {% for p in provider_status.providers %}
+          <tr>
+            <td class="display-font">{{ p.name }}</td>
+            <td class="text-right num">{{ p.timeout_s }}s</td>
+            <td class="text-right num">{{ p.max_retries }}</td>
+            <td class="text-right num">{{ p.keys }}</td>
+            <td class="text-right">
+              <span class="{% if p.status == 'active' %}badge badge-ok{% else %}badge badge-warn{% endif %}">{{ p.status }}</span>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    </div>
+  </section>
+
+  <!-- CRON -->
+  {% if cron_status.jobs %}
+  <section x-show="activeTab === 'overview'" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('cron')">
+      <span :class="{ 'rotate-90': isCollapsed('cron') }" class="inline-block transition-transform">▸</span>
+      <span>Scheduled Tasks</span>
+    </div>
+    <div x-show="!isCollapsed('cron')">
+    <table>
+      <thead><tr><th>Schedule</th><th>Command</th></tr></thead>
+      <tbody>
+      {% for cmd, info in cron_status.jobs.items() %}
+        <tr>
+          <td class="neon-cyan text-xs font-mono">{{ info.schedule }}</td>
+          <td class="text-slate-400 text-xs truncate">{{ cmd }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <footer class="text-center text-xs text-slate-700 pt-4 pb-2">
+    <span class="display-font tracking-widest">BIFROST</span> · {{ now }} ·
+    <a href="/api/circuit_breaker" class="hover:text-violet-400 transition">cb api</a> ·
+    <a href="/api/recent_errors" class="hover:text-violet-400 transition">errors api</a> ·
+    <a href="/api/curator_recommendations" class="hover:text-violet-400 transition">curator api</a>
+  </footer>
+
+  <div class="toast-container" x-cloak>
+    <template x-for="t in toasts" :key="t.id">
+      <div class="toast" :class="t.level === 'error' ? 'toast-error' : ''">
+        <div class="toast-title" x-text="t.title"></div>
+        <div class="toast-body" x-text="t.body"></div>
+      </div>
+    </template>
+  </div>
+
+  <div x-show="helpOpen" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center" @click="helpOpen = false">
+    <div class="panel max-w-md w-full p-6" @click.stop>
+      <h3 class="display-font neon-cyan text-lg mb-4">Shortcuts</h3>
+      <table class="text-sm">
+        <tbody class="space-y-1">
+          <tr><td class="num pr-4">r</td><td class="text-slate-400">refresh now</td></tr>
+          <tr><td class="num pr-4">1–9</td><td class="text-slate-400">jump to section</td></tr>
+          <tr><td class="num pr-4">/</td><td class="text-slate-400">focus filter</td></tr>
+          <tr><td class="num pr-4">c</td><td class="text-slate-400">toggle compact</td></tr>
+          <tr><td class="num pr-4">t</td><td class="text-slate-400">cycle time range</td></tr>
+          <tr><td class="num pr-4">?</td><td class="text-slate-400">this help</td></tr>
+          <tr><td class="num pr-4">Esc</td><td class="text-slate-400">close drawer / overlay</td></tr>
+        </tbody>
+      </table>
+      <button class="mt-4 text-xs text-slate-500 hover:text-violet-300" @click="helpOpen = false">close (Esc)</button>
+    </div>
+  </div>
+
+  <aside x-show="drawer.open" x-cloak
+         class="fixed top-0 right-0 h-full w-full md:w-[420px] z-40 panel rounded-none border-l border-violet-500/40 overflow-y-auto"
+         x-transition:enter="transition transform ease-out duration-200"
+         x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition transform ease-in duration-150"
+         x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="display-font neon-cyan text-lg">
+          <span x-text="drawer.kind"></span><span class="text-slate-600"> · </span><span x-text="drawer.key"></span>
+        </h3>
+        <button class="text-slate-500 hover:text-rose-400 text-xl" @click="closeDrawer()">×</button>
+      </div>
+
+      <h4 class="text-xs uppercase tracking-widest text-slate-500 mb-2">recent events</h4>
+      <table class="text-xs">
+        <thead><tr><th>time</th><th>pool</th><th>target</th><th class="text-right">lat</th><th>status</th></tr></thead>
+        <tbody>
+          <template x-for="r in drawerEvents()" :key="r.ts + r.provider + r.model">
+            <tr>
+              <td class="text-slate-500 font-mono" x-text="r.ts"></td>
+              <td class="neon-cyan" x-text="r.pool"></td>
+              <td><span class="text-rose-300" x-text="r.provider"></span><span class="text-slate-600">/</span><span x-text="r.model"></span></td>
+              <td class="text-right num" x-text="r.latency_s + 's'"></td>
+              <td>
+                <span class="badge" :class="r.status === 'ok' ? 'badge-ok' : (r.status_code === 429 ? 'badge-warn' : 'badge-fail')"
+                      x-text="r.status === 'ok' ? 'ok' : (r.cancelled ? 'cancel' : (r.status_code || 'err'))"></span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </aside>
+
+</div>
+<script>
+  window.__BIFROST_INITIAL__ = {{ {
+    "pool_health": pool_health, "circuit_breaker": circuit_breaker, "pool_targets": pool_targets,
+    "provider_status": provider_status, "bifrost_metrics": bifrost_metrics, "provider_errors": provider_errors,
+    "recent_errors": recent_errors, "recent_successes": recent_successes, "curator_recommendations": curator_recommendations,
+    "curator_history": curator_history, "cron_status": cron_status, "now": now,
+  } | tojson }};
+</script>
+</body>
+</html>

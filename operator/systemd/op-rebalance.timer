@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily adaptive rebalance at 01:30 UTC (after midnight quota resets settle)
+
+[Timer]
+OnCalendar=*-*-* 01:30:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

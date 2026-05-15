@@ -1,0 +1,11 @@
+[Unit]
+Description=Pi-operator hourly health check (bifrost stack)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/hermes-free-cloud/operator/op-run.sh op-health
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=600
+Nice=10

@@ -1,0 +1,11 @@
+[Unit]
+Description=Pi-operator daily hermes-agent patch reconciler
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/hermes-free-cloud/operator/op-run.sh op-patch-hermes
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=600
+Nice=10

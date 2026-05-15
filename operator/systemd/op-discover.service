@@ -1,0 +1,12 @@
+[Unit]
+Description=Op discover — weekly scan for new provider models
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/hermes-free-cloud
+ExecStart=/usr/bin/python3 %h/hermes-free-cloud/scripts/runtime/discover_models.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=180
+Nice=15

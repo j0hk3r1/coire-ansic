@@ -1,0 +1,45 @@
+# SearXNG config — minimal, JSON API enabled for Hermes.
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "hermes-searxng"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "all"
+  formats:
+    - html
+    - json                   # required for Hermes/MCP queries
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "REPLACE_ME_IN_ENV"   # overridden by SEARXNG_SECRET env
+  limiter: false                    # disable rate-limit for internal use
+  image_proxy: false
+  http_protocol_version: "1.0"
+
+ui:
+  static_use_hash: true
+  default_theme: simple
+  query_in_title: true
+  infinite_scroll: false
+
+# Engines — keep defaults but enable some that are good for agent
+engines:
+  - name: duckduckgo
+    disabled: false
+  - name: google
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: brave
+    disabled: false
+  - name: github
+    disabled: false
+  - name: stackoverflow
+    disabled: false
+  - name: wikipedia
+    disabled: false

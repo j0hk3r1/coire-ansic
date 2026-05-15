@@ -1,0 +1,18 @@
+Above is the current scout snapshot. Goal: ADD 1-3 NEW free-inference providers via the add_candidate helper, then telegram a 1-line status.
+
+OUTPUT BUDGET (HARD): keep ALL assistant text under 400 chars total across the run. No echoing pages. No multi-paragraph reasoning in content. Tool-first, terse.
+
+PROCESS:
+1. ONE web_search: "free LLM inference API 2026 site:github.com awesome-free-llm-apis"
+2. ONE web_extract(["https://github.com/cheahjs/free-llm-api-resources"]) — curated list of PERMANENT free tiers; trust it.
+3. From the markdown, pick up to 3 provider names that are NOT in CONFIGURED, NOT in already-DISCOVERED, NOT Qwen/gpt-oss-20b family.
+4. For EACH pick (max 3), call:
+     terminal(command="python3 ~/.hermes/scripts/add_candidate.py '<json>'")
+   Where <json> is ONE compact candidate object: {"provider":"<slug>","signup_url":"<url>","free_tier":"<short blurb>","models":[{"name":"<m>","iq":null,"code":null}],"notes":"<gotchas>"}
+   The script appends idempotently. Don't read or rewrite the JSON file.
+5. Final assistant message MUST be exactly one line, one of:
+
+   ✅ Scout: added <comma-separated names> → http://localhost:9118
+   ⚪ Scout done. 0 added (all known/trial-only). → http://localhost:9118
+
+DO NOT skip step 4. The job is not "complete" without a file write. The awesome-list ALWAYS has at least one provider you don't have — if you find zero, look harder at lower-ranked entries.

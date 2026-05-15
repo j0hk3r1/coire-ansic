@@ -1,0 +1,262 @@
+{
+  "rules": [
+    {
+      "name": "compress",
+      "description": "Dedicated pool for context compression. High-TPM mistral primary, openrouter fallbacks. No groq (TPM caps too tight for big summaries).",
+      "enabled": true,
+      "cel_expression": "model == \"compress\"",
+      "targets": [
+        {
+          "provider": "mistral",
+          "model": "mistral-medium-3.5",
+          "weight": 0.28
+        },
+        {
+          "provider": "mistral",
+          "model": "mistral-medium-latest",
+          "weight": 0.22
+        },
+        {
+          "provider": "openrouter",
+          "model": "meta-llama/llama-3.3-70b-instruct:free",
+          "weight": 0.18
+        },
+        {
+          "provider": "openrouter",
+          "model": "qwen/qwen3-next-80b-a3b-instruct:free",
+          "weight": 0.13
+        },
+        {
+          "provider": "nvidia-nim",
+          "model": "meta/llama-3.3-70b-instruct",
+          "weight": 0.1
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3-flash-preview",
+          "weight": 0.09
+        }
+      ],
+      "fallbacks": [
+        "openrouter/google/gemma-4-26b-a4b-it:free",
+        "cf-openai/@cf/moonshotai/kimi-k2.5",
+        "cf-openai/@cf/moonshotai/kimi-k2.6",
+        "groq/llama-3.3-70b-versatile"
+      ],
+      "scope": "global",
+      "scope_id": null,
+      "priority": 10
+    },
+    {
+      "name": "best",
+      "description": "Top-IQ pool. Qwen models removed — XML tool-call format breaks Hermes parser (AA scores below 25 anyway).",
+      "enabled": true,
+      "cel_expression": "model == \"best\"",
+      "targets": [
+        {
+          "provider": "mistral",
+          "model": "mistral-medium-3.5",
+          "weight": 0.35
+        },
+        {
+          "provider": "nvidia-nim",
+          "model": "moonshotai/kimi-k2.6",
+          "weight": 0.21
+        },
+        {
+          "provider": "nvidia-nim",
+          "model": "deepseek-ai/deepseek-v4-pro",
+          "weight": 0.18
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3-pro-preview",
+          "weight": 0.14
+        },
+        {
+          "provider": "openrouter",
+          "model": "openai/gpt-oss-120b:free",
+          "weight": 0.12
+        }
+      ],
+      "fallbacks": [
+        "gemini/gemini-3.1-pro-preview",
+        "cf-openai/@cf/moonshotai/kimi-k2.6",
+        "cf-openai/@cf/moonshotai/kimi-k2.5",
+        "cf-openai/@cf/nvidia/nemotron-3-120b-a12b"
+      ],
+      "scope": "global",
+      "scope_id": null,
+      "priority": 11
+    },
+    {
+      "name": "code",
+      "description": "Code+reasoning pool. Qwen models (235b + coder-480b) removed — XML tool-call format breaks Hermes parser.",
+      "enabled": true,
+      "cel_expression": "model == \"code\"",
+      "targets": [
+        {
+          "provider": "mistral",
+          "model": "mistral-medium-3.5",
+          "weight": 0.32
+        },
+        {
+          "provider": "nvidia-nim",
+          "model": "deepseek-ai/deepseek-v4-pro",
+          "weight": 0.22
+        },
+        {
+          "provider": "mistral",
+          "model": "codestral-latest",
+          "weight": 0.18
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3-pro-preview",
+          "weight": 0.15
+        },
+        {
+          "provider": "openrouter",
+          "model": "openai/gpt-oss-120b:free",
+          "weight": 0.13
+        }
+      ],
+      "fallbacks": [
+        "gemini/gemini-3.1-pro-preview",
+        "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+        "cf-openai/@cf/moonshotai/kimi-k2.6",
+        "cf-openai/@cf/moonshotai/kimi-k2.5",
+        "gemini/gemini-2.5-flash"
+      ],
+      "scope": "global",
+      "scope_id": null,
+      "priority": 12
+    },
+    {
+      "name": "fast",
+      "description": "",
+      "enabled": true,
+      "cel_expression": "model == \"fast\"",
+      "targets": [
+        {
+          "provider": "groq",
+          "model": "llama-3.1-8b-instant",
+          "weight": 0.28
+        },
+        {
+          "provider": "cerebras",
+          "model": "llama3.1-8b",
+          "weight": 0.22
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-lite-preview",
+          "weight": 0.18
+        },
+        {
+          "provider": "groq",
+          "model": "openai/gpt-oss-20b",
+          "weight": 0.13
+        },
+        {
+          "provider": "mistral",
+          "model": "mistral-small-latest",
+          "weight": 0.1
+        },
+        {
+          "provider": "openrouter",
+          "model": "meta-llama/llama-3.3-70b-instruct:free",
+          "weight": 0.09
+        }
+      ],
+      "fallbacks": [
+        "cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8",
+        "nvidia-nim/meta/llama-3.3-70b-instruct",
+        "mistral/codestral-latest",
+        "gemini/gemini-flash-lite-latest"
+      ],
+      "scope": "global",
+      "scope_id": null,
+      "priority": 14
+    },
+    {
+      "name": "mid",
+      "description": "",
+      "enabled": true,
+      "cel_expression": "model == \"mid\"",
+      "targets": [
+        {
+          "provider": "mistral",
+          "model": "mistral-small-latest",
+          "weight": 0.25
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3-flash-preview",
+          "weight": 0.2
+        },
+        {
+          "provider": "openrouter",
+          "model": "google/gemma-4-26b-a4b-it:free",
+          "weight": 0.18
+        },
+        {
+          "provider": "mistral",
+          "model": "mistral-medium-3.5",
+          "weight": 0.15
+        },
+        {
+          "provider": "cf-openai",
+          "model": "@cf/google/gemma-4-26b-a4b-it",
+          "weight": 0.12
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash-lite",
+          "weight": 0.1
+        }
+      ],
+      "fallbacks": [
+        "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+        "nvidia-nim/meta/llama-3.3-70b-instruct",
+        "cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8",
+        "groq/llama-3.3-70b-versatile"
+      ],
+      "scope": "global",
+      "scope_id": null,
+      "priority": 15
+    },
+    {
+      "name": "vision",
+      "description": "",
+      "enabled": true,
+      "cel_expression": "model == \"vision\"",
+      "targets": [
+        {
+          "provider": "gemini",
+          "model": "gemini-2.5-flash",
+          "weight": 0.5
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-flash-latest",
+          "weight": 0.3
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3-flash-preview",
+          "weight": 0.2
+        }
+      ],
+      "fallbacks": [
+        "openrouter/nvidia/nemotron-nano-12b-v2-vl:free",
+        "nvidia-nim/meta/llama-3.2-90b-vision-instruct",
+        "mistral/pixtral-large-latest",
+        "nvidia-nim/meta/llama-3.2-11b-vision-instruct"
+      ],
+      "scope": "global",
+      "scope_id": null,
+      "priority": 17
+    }
+  ]
+}
