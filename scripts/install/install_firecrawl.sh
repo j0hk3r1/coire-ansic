@@ -71,12 +71,15 @@ docker compose pull 2>&1 | tail -3
 ok "pulled"
 
 step "bring up"
-docker compose up -d
-# Firecrawl's API container depends on rabbitmq+postgres healthchecks. On
-# fresh installs those take 30-60s to go healthy, and any service whose
-# deps weren't ready at startup time stays in 'Created' state. Re-run
-# `compose up -d` after deps stabilize so dependents actually start.
-for i in $(seq 1 12); do
+# First attempt often fails with 'dependency rabbitmq failed to start:
+# unhealthy' because rabbitmq takes 30-60s to pass its healthcheck on
+# cold boot. Tolerate the failure — retry loop below picks up the
+# pieces. The `|| true` is necessary because of `set -e` at top.
+docker compose up -d 2>&1 | tail -5 || true
+
+# Re-run `compose up -d` until no containers stuck in 'created' state.
+# Each retry waits for any deps that have come healthy since last try.
+for i in $(seq 1 18); do
   sleep 5
   PENDING=$(docker compose ps --status created -q 2>/dev/null | wc -l)
   if [ "$PENDING" -gt 0 ]; then
