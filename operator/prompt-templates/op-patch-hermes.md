@@ -10,13 +10,14 @@ Workflow:
    b. Stash any uncommitted patches: `git stash push -m "operator: pre-update stash $(date -Iseconds)"`
    c. Fast-forward: `git pull --ff-only`
    d. Re-apply patches:
-      - `bash ~/coire-ansic/scripts/install/patch_hermes_tui_model.sh`
-      - `bash ~/coire-ansic/scripts/install/patch_hermes_jina_extract.sh`
-   e. Restore firecrawl as extract_backend (jina patch defaults it to jina, but we self-host firecrawl):
-      - `sed -i 's|^\(\s*\)extract_backend: jina|\1extract_backend: firecrawl|' ~/.hermes/config.yaml`
-   f. Restart services:
-      - `systemctl --user restart hermes-gateway coire-dashboard`
-      - Wait 8s, smoke-test: `curl -m 5 http://localhost:9120/` should return 200
+      - `bash ~/coire-ansic/adapters/hermes/patch_hermes_tui_model.sh`
+   e. Verify firecrawl is the extract_backend (some hermes-agent updates flip this to jina):
+      - `grep '^[[:space:]]*extract_backend:' ~/.hermes/config.yaml` should show `firecrawl`
+      - If it shows `jina`: `sed -i 's|^\(\s*\)extract_backend: jina|\1extract_backend: firecrawl|' ~/.hermes/config.yaml`
+   f. Restart hermes-gateway only (NOT the coire stack):
+      - `systemctl --user restart hermes-gateway`
+      - Wait 5s
+      - Smoke: `systemctl --user is-active hermes-gateway` must print `active`
    g. If smoke fails → roll back: `cd ~/hermes-agent && git reset --hard HEAD~$BEHIND_COUNT`, restart, log incident.
 
 Log to `~/.coire/operator/logs/$(date +%Y-%m-%d).jsonl`:

@@ -17,12 +17,12 @@
 # Both modes:
 #  - JSON-escape via python3 json.dumps (so no parens/newlines break the line)
 #  - Always end with newline (fixes the {...}{...} concat bug)
-#  - Always write to ~/.hermes/operator/logs/$(date -u +%Y-%m-%d).jsonl
+#  - Always write to ~/.coire/operator/logs/$(date -u +%Y-%m-%d).jsonl
 #  - Print the canonical log path on stdout so callers can echo it in SUMMARY
 
 set -euo pipefail
 
-LOG_DIR="${LOG_DIR:-$HOME/.hermes/operator/logs}"
+LOG_DIR="${LOG_DIR:-$HOME/.coire/operator/logs}"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/$(date -u +%Y-%m-%d).jsonl"
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)

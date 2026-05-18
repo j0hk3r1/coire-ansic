@@ -1001,7 +1001,9 @@ async def api_cb_restore(request: Request):
                 info.pop("pruned", None)
                 _cb_state_atomic_write(state)
                 return {"ok": True, "scheduled": "next CB tick (~30s)"}
-            return JSONResponse({"ok": False, "error": f"{key} not currently demoted"}, status_code=404)
+            # 'not demoted' is a soft no-op, not an error — pi-op-react
+            # parses non-200 as failure and loops/spams. Return 200 + ok=False.
+            return {"ok": False, "error": f"{key} not currently demoted"}
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
