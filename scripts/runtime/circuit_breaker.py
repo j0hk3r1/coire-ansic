@@ -513,10 +513,24 @@ def restore_target(provider: str, model: str, info: dict, pools: dict, state: di
         if info["fail_count"] >= PRUNE_AFTER_FAILS:
             info["pruned"] = True
             info["cooldown_s"] = COOLDOWN_MAX
-            info["restore_at"] = now_ts() + 86400  # check once a day in case provider revives
-            print(f"PRUNED after {info['fail_count']} consecutive failures (model likely dead): {err_text[:100]}")
+            # Track how many times this target has been pruned. After 3 prune
+            # cycles in <24h, treat as "structurally dead" — back off harder
+            # (3 days) and ignore /restore calls until that window expires.
+            # Prevents pi-op-react from re-restoring a dead model every hour
+            # and re-burning ~75 requests per cycle proving it's still dead.
+            info["prune_count"] = info.get("prune_count", 0) + 1
+            info["last_pruned_at"] = now_ts()
+            if info["prune_count"] >= 3:
+                info["restore_at"] = now_ts() + 3 * 86400
+                info["structurally_dead"] = True
+                print(f"PRUNED (cycle {info['prune_count']}) — marking structurally_dead, defer 3 days: {err_text[:80]}")
+            else:
+                info["restore_at"] = now_ts() + 86400  # check once a day in case provider revives
+                print(f"PRUNED after {info['fail_count']} consecutive failures (model likely dead): {err_text[:100]}")
             log_event({"action": "pruned", "provider": provider, "model": model,
-                       "fail_count": info["fail_count"], "last_error": err_text[:200]})
+                       "fail_count": info["fail_count"], "prune_count": info["prune_count"],
+                       "structurally_dead": info.get("structurally_dead", False),
+                       "last_error": err_text[:200]})
         else:
             info["cooldown_s"] = min(info["cooldown_s"] * 2, COOLDOWN_MAX)
             info["restore_at"] = now_ts() + info["cooldown_s"]
@@ -716,6 +730,17 @@ def tick(state, error_window, once_mode=False):
             log_event({"action": "demote", "provider": prov, "model": model,
                        "reason": reason, "daily_quota": is_daily_quota})
             n = demote_target(prov, model, pools, state, is_daily_quota=is_daily_quota)
+            if n == 0:
+                # Virtual model variant (e.g. gemini-3.1-pro-preview-customtools)
+                # surfaced in bifrost logs but absent from any routing rule —
+                # nothing to demote. Clear in-memory window + skip dashboard
+                # update. Without this guard the subsequent state lookup
+                # raises KeyError every tick (~30s) for the variant.
+                print(f"  skip: {prov}/{model} not in any routing rule")
+                log_event({"action": "demote_skipped", "provider": prov, "model": model,
+                           "reason": "not in any routing rule (virtual variant?)"})
+                error_window.pop(key, None)
+                continue
             until = state["demoted"][f"{prov}/{model}"]["restore_at"]
             until_iso = dt.datetime.fromtimestamp(until, dt.timezone.utc).isoformat()
             print(f"  removed from {n} pool(s) — restore at {until_iso}")
@@ -770,6 +795,13 @@ def restore_all(state, only_quota=False):
         pools = fetch_pools()
         for key, info in list(state["demoted"].items()):
             if only_quota and not info.get("daily_quota"):
+                continue
+            # Refuse to restore structurally-dead targets — those have been
+            # pruned 3+ times. Otherwise pi-op-react burns ~75 requests/cycle
+            # proving the model is still broken.
+            if info.get("structurally_dead") and (now_ts() - info.get("last_pruned_at", 0)) < 3 * 86400:
+                eta_h = int((3 * 86400 - (now_ts() - info.get("last_pruned_at", 0))) / 3600)
+                print(f"skip {key}: structurally_dead (pruned {info.get('prune_count')}x) — retry in {eta_h}h")
                 continue
             prov, model = key.split("/", 1)
             # Clear prune+fail_count so smoke can succeed

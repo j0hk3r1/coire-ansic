@@ -98,6 +98,42 @@ $EDITOR .env                  # paste at least one provider key
 
 Idempotent — re-run safely.
 
+### Remote install
+
+`install.sh` runs locally on the box that will host the stack. To install
+on a remote server, ssh in and clone there:
+
+```bash
+ssh user@server
+git clone https://github.com/<owner>/coire-ansic
+cd coire-ansic && cp .env.example .env && $EDITOR .env
+./install.sh --all
+```
+
+No special remote-deploy flag — the stack assumes Docker + systemd-user on
+the local host, so installing remotely just means logging in first.
+
+### Updating
+
+`install.sh` is idempotent and safe to re-run. To pull upstream changes:
+
+```bash
+cd ~/coire-ansic
+git pull
+./install.sh [--with-... flags]   # same flags you used originally
+```
+
+What re-running touches:
+- `bifrost/seed.sh` no-ops for already-registered providers
+- `apply_pool_weights.py` diff-compares + PUTs only changed pools
+- `docker compose up -d --build` rebuilds only changed images
+- systemd unit files re-installed (services restarted only if changed)
+- pi-mono + hermes-agent install steps are idempotent (clone if missing, else pull)
+
+The daily `pi-op-patch` timer already auto-pulls upstream `hermes-agent` if
+`--with-hermes` is installed; it does NOT auto-pull this repo. Run the
+update flow above when you want to apply changes to the router itself.
+
 ## Required keys
 
 At least one provider key + `BIFROST_API_KEY`. All free-tier:
@@ -178,7 +214,7 @@ in [CONTRIBUTING.md](CONTRIBUTING.md)):
 ```
 .
 ├── docker-compose.yml             # bifrost/shim/dashboard + camofox+searxng profiles
-├── install.sh / uninstall.sh / deploy.sh
+├── install.sh / uninstall.sh
 ├── bifrost/
 │   ├── seed.sh                    # initial provider+rule POST
 │   ├── apply_snapshot.py          # apply routing-rules.json snapshot

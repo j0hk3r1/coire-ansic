@@ -933,42 +933,86 @@ def _bifrost_put_rule(rule_id: str, body: dict):
     return json.loads(urllib.request.urlopen(req, timeout=15).read())
 
 
+async def _parse_target_payload(request: Request) -> tuple[str | None, str | None, str | None]:
+    """Parse {provider, model} OR {target: 'p/m'} from request body.
+
+    Tolerates empty body, plain text body, and missing Content-Type
+    (agents calling via plain `curl -d '...'` without -H sometimes drop
+    the Content-Type). Returns (provider, model, error_message).
+    """
+    try:
+        raw = await request.body()
+    except Exception as e:
+        return None, None, f"failed to read body: {e}"
+    if not raw:
+        return None, None, "empty body — expected JSON {provider, model} or {target: 'p/m'}"
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as e:
+        return None, None, f"invalid JSON: {e.msg} — expected {{provider, model}} or {{target: 'p/m'}}"
+    if not isinstance(payload, dict):
+        return None, None, f"expected JSON object, got {type(payload).__name__}"
+    provider = payload.get("provider")
+    model = payload.get("model")
+    if not (provider and model) and payload.get("target"):
+        t = payload["target"]
+        if "/" in t:
+            provider, model = t.split("/", 1)
+    if not (provider and model):
+        return None, None, "missing provider+model (or target='provider/model')"
+    return provider, model, None
+
+
 @app.post("/api/circuit_breaker/restore")
-async def api_cb_restore(payload: dict):
-    """Force-restore a demoted target. Body: {provider: str, model: str}.
+async def api_cb_restore(request: Request):
+    """Force-restore a demoted target.
+
+    Accepts:
+      {"provider": "p", "model": "m"}
+      {"target": "p/m"}
 
     Removes from circuit_state.json's "demoted" map. The CB daemon will
     pick this up on its next tick and add the target back to the pools
     it was demoted from. Lighter than PUT-ing live bifrost rules from here.
     """
-    provider = payload.get("provider")
-    model = payload.get("model")
-    if not (provider and model):
-        return JSONResponse({"error": "provider+model required"}, status_code=400)
+    provider, model, err = await _parse_target_payload(request)
+    if err:
+        return JSONResponse({"ok": False, "error": err}, status_code=400)
     try:
         with cb_state_lock():
             with open(CB_STATE_FILE) as f:
                 state = json.load(f)
             key = f"{provider}/{model}"
             if key in state.get("demoted", {}):
+                info = state["demoted"][key]
+                # Refuse to restore structurally-dead targets; matches CB daemon
+                # restore_all() guard so dashboard + daemon agree on what's
+                # permanently dead. Caller (pi-op-react) can move on.
+                if info.get("structurally_dead") and (time.time() - info.get("last_pruned_at", 0)) < 3 * 86400:
+                    eta_h = int((3 * 86400 - (time.time() - info.get("last_pruned_at", 0))) / 3600)
+                    return JSONResponse({
+                        "ok": False,
+                        "error": f"{key} marked structurally_dead (pruned {info.get('prune_count')}x); retry in {eta_h}h",
+                        "structurally_dead": True,
+                        "retry_in_hours": eta_h,
+                    }, status_code=409)
                 # Set restore_at to now so CB picks up on next poll
-                state["demoted"][key]["restore_at"] = time.time()
-                state["demoted"][key].pop("pruned", None)
+                info["restore_at"] = time.time()
+                info.pop("pruned", None)
                 _cb_state_atomic_write(state)
                 return {"ok": True, "scheduled": "next CB tick (~30s)"}
-            return {"ok": False, "error": f"{key} not currently demoted"}
+            return JSONResponse({"ok": False, "error": f"{key} not currently demoted"}, status_code=404)
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 @app.post("/api/circuit_breaker/prune")
-async def api_cb_prune(payload: dict):
+async def api_cb_prune(request: Request):
     """Mark a demoted target as permanently pruned (CB stops trying to
-    restore until manually unpruned). Body: {provider, model}."""
-    provider = payload.get("provider")
-    model = payload.get("model")
-    if not (provider and model):
-        return JSONResponse({"error": "provider+model required"}, status_code=400)
+    restore until manually unpruned). Accepts {provider, model} OR {target}."""
+    provider, model, err = await _parse_target_payload(request)
+    if err:
+        return JSONResponse({"ok": False, "error": err}, status_code=400)
     try:
         with cb_state_lock():
             with open(CB_STATE_FILE) as f:

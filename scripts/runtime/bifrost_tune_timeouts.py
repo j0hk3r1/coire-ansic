@@ -66,7 +66,7 @@ PLAN = [
     ("mistral",       120, 1, 2),
     ("gemini",        120, 1, 3),
     ("cf-openai",     120, 1, 4),
-    ("openrouter",    300, 1, 1),
+    ("openrouter",    600, 1, 1),  # 600s — :free 70b models routinely take >300s
     ("nvidia-nim",    300, 1, 8),
     ("sambanova",     60,  1, 1),  # 20 RPD free tier — strict conc=1
     ("github-models", 60,  1, 3),  # 20k/60s burst headroom per probe
