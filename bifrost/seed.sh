@@ -154,6 +154,59 @@ if [ -n "${CLOUDFLARE_API_KEY:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
   post_provider cf-openai "$body" "$(simple_key cf-1 "$CLOUDFLARE_API_KEY")"
 fi
 
+# github-models — GitHub-hosted Azure inference; massive free tier (20k RPM, 2M TPM)
+# Endpoint: https://models.github.ai/inference  (NO trailing /v1)
+# Auth header: Authorization: Bearer <PAT-with-models-scope>
+if [ -n "${GITHUB_MODELS_TOKEN:-}" ]; then
+  GH_BASE="https://models.github.ai/inference"
+  body=$(jq -n --arg k "$GITHUB_MODELS_TOKEN" --arg b "$GH_BASE" '{
+    provider:"github-models",
+    network_config:{
+      base_url:$b,
+      extra_headers:{"Authorization":("Bearer "+$k)},
+      default_request_timeout_in_seconds:120
+    },
+    custom_provider_config:{
+      base_provider_type:"openai",
+      allowed_requests:{chat_completion:true,chat_completion_stream:true},
+      request_path_overrides:{
+        chat_completion:($b+"/chat/completions"),
+        chat_completion_stream:($b+"/chat/completions")
+      }
+    }
+  }')
+  post_provider github-models "$body" "$(simple_key gh-1 "$GITHUB_MODELS_TOKEN")"
+fi
+
+# cohere — bifrost has native cohere provider; cannot use custom_provider_config.
+# Free trial: 20 RPM, 1000 calls/month per endpoint.
+if [ -n "${COHERE_API_KEY:-}" ]; then
+  post_provider cohere '{"provider":"cohere"}' "$(simple_key cohere-1 "$COHERE_API_KEY")"
+fi
+
+# sambanova — OpenAI-compat at api.sambanova.ai/v1
+# Free tier: 20 RPD hard cap. Tiny but still useful as a fallback.
+if [ -n "${SAMBANOVA_API_KEY:-}" ]; then
+  SN_BASE="https://api.sambanova.ai/v1"
+  body=$(jq -n --arg k "$SAMBANOVA_API_KEY" --arg b "$SN_BASE" '{
+    provider:"sambanova",
+    network_config:{
+      base_url:$b,
+      extra_headers:{"Authorization":("Bearer "+$k)},
+      default_request_timeout_in_seconds:60
+    },
+    custom_provider_config:{
+      base_provider_type:"openai",
+      allowed_requests:{chat_completion:true,chat_completion_stream:true},
+      request_path_overrides:{
+        chat_completion:($b+"/chat/completions"),
+        chat_completion_stream:($b+"/chat/completions")
+      }
+    }
+  }')
+  post_provider sambanova "$body" "$(simple_key sn-1 "$SAMBANOVA_API_KEY")"
+fi
+
 # deepseek — DeepSeek's own OpenAI-compat API (api.deepseek.com)
 # Models: deepseek-chat (V4-Pro non-reasoning), deepseek-reasoner (V4-Pro reasoning).
 # Free credit on signup; paid after credit exhausts. Cheaper than NIM-hosted.
