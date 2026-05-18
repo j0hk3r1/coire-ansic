@@ -41,7 +41,7 @@ Task:
 
 4. Final stdout line MUST be EXACTLY this format (one line, no echo, no quotes):
    ```
-   SUMMARY actions=K deferred=M skipped=N log=~/.coire/operator/logs/<UTC-date>.jsonl
+   SUMMARY actions=K deferred=M skipped=N log=$HOME/.coire/operator/logs/<UTC-date>.jsonl
    ```
    Use the literal absolute path under `~/.coire/operator/logs/` — do NOT
    invent paths like `~/.pi/agent/logs/ops.log` or `operator/log/op.log`.
