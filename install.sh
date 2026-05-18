@@ -86,7 +86,12 @@ ok ".env validated ($PROVIDER_COUNT provider key(s))"
 
 # ─── core 2. docker stack (bifrost + shim + dashboard) ────────────────────
 step "[core] docker compose up — bifrost + strip-shim + dashboard"
-mkdir -p "$HOME/.coire" bifrost/data
+# Pre-create all ~/.coire subdirs that docker-compose mounts BEFORE docker
+# starts — otherwise docker creates them root-owned, and the host-side
+# systemd-user circuit-breaker daemon can't write to its own state dir.
+mkdir -p "$HOME/.coire/curator-pool" "$HOME/.coire/operator/incoming_keys" \
+         "$HOME/.coire/operator/logs" "$HOME/.coire/operator/discoveries" \
+         bifrost/data
 chmod 777 bifrost/data 2>/dev/null || true
 
 # Build docker compose profile list based on flags
