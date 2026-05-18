@@ -2,6 +2,12 @@
 
 Bug reports + PRs welcome.
 
+> Looking for the **5-min recipe** for adding a provider/pool/adapter to your
+> own install? See [README → Extending](README.md#extending--add-your-own-provider--pool--adapter).
+> The sections below are the **upstream-PR checklist** — same steps, but with
+> the full file-by-file rigor reviewers expect (header probes, weight
+> bounds, quota constants, idempotency).
+
 ## Filing a bug
 
 Include:

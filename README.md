@@ -29,6 +29,19 @@ This project routes across all of them, fails over automatically when one
 saturates, and adapts its own weights daily based on what actually worked.
 You add keys; it figures out the rest.
 
+## Dashboard
+
+Pool health, per-provider free-tier usage (RPD/TPM), live circuit-breaker
+state with restore/prune actions, latency P50/P95 per pool, and a curator
+view of which models are excluded and why.
+
+![Dashboard overview — pool health, free-tier usage bars, circuit-breaker cooldowns](docs/screenshots/dashboard.png)
+
+![Curator tab — top free models per pool + exclusion reasons](docs/screenshots/dashboard2.png)
+
+`http://localhost:9118` after `./install.sh`. Profile-gated — start with
+`docker compose --profile dashboard up -d` if you stopped it.
+
 ## Core (always installed)
 
 | Component | Port | Role |
@@ -130,6 +143,28 @@ echo "KEY=sk-..." > ~/.coire/operator/incoming_keys/newprovider.txt
 Within 5 min, `pi-op-queue` probes the key, registers the provider in
 bifrost, syncs models, and adds appropriate pool entries. Logged to
 `~/.coire/operator/logs/<date>.jsonl`.
+
+## Extending — add your own provider / pool / adapter
+
+The 5-min recipes (full PR-grade checklist with file-by-file ordering lives
+in [CONTRIBUTING.md](CONTRIBUTING.md)):
+
+**Add a provider** (manual route, if you don't want to use the `incoming_keys/` auto-onboard):
+1. Header-probe the upstream to confirm free-tier caps (`curl -D /tmp/h.txt … ; grep -i x-ratelimit /tmp/h.txt`)
+2. Add env var to `.env` + `.env.example`
+3. Register in `bifrost/seed.sh` (provider POST + first routing-rule entry)
+4. Add to `scripts/runtime/pool_weights.yaml` (start with weight 0.03-0.05)
+5. Add to `auto_rebalance_weights.py:PROVIDER_TO_ENV` + `dashboard/app.py:PROVIDER_QUOTAS`
+
+**Add a pool:**
+1. Add the pool block to `scripts/runtime/pool_weights.yaml` (weights sum to 1.0)
+2. `python3 scripts/runtime/apply_pool_weights.py` — auto-creates the bifrost routing rule
+3. (Optional) Add entry to `operator/pi-models.json` if pi-op should use it
+
+**Add an adapter** (`--with-<name>` install flag):
+1. Create `adapters/<name>/` with install fragment + helpers
+2. Add `--with-<name>` flag to `install.sh`
+3. Add a row to the "Optional adapters" table above
 
 ## Tear down
 
