@@ -32,33 +32,50 @@ provider_has_key() {
 }
 
 post_provider() {
-  local name=$1; local body=$2
+  local name=$1; local body=$2; local key_body=$3
+  # Bifrost upstream no longer accepts POST /api/providers/<name>/keys
+  # (returns 405). Keys must be embedded in the initial provider CREATE
+  # body, or PUT alongside full provider config on update.
   if [ "$(provider_exists "$name")" = "True" ]; then
-    echo "  $name: provider exists"
-  else
-    local code
-    code=$(curl -s -X POST "$HOST/api/providers" -H "Content-Type: application/json" -d "$body" -o /tmp/bifrost-$name.out -w "%{http_code}")
-    if [ "$code" = "200" ]; then
-      echo "  $name: provider created (HTTP 200)"
-    else
-      echo "  $name: provider FAILED HTTP $code"
-      cat /tmp/bifrost-$name.out
+    if [ "$(provider_has_key "$name")" = "True" ]; then
+      echo "  $name: provider exists with key — skipping"
       return
     fi
-  fi
-  # Add key (skip if already has one).
-  if [ "$(provider_has_key "$name")" = "True" ]; then
-    echo "  $name: key already present"
+    # Provider exists but is keyless — update via PUT.
+    local current; current=$(curl -sf -u "admin:${BIFROST_PASS:-}" "$HOST/api/providers/$name" 2>/dev/null)
+    [ -z "$current" ] && { echo "  $name: cannot fetch current config"; return; }
+    local merged; merged=$(python3 -c '
+import json, sys
+cur = json.loads(sys.argv[1])
+key = json.loads(sys.argv[2])
+cur["keys"] = [key]
+print(json.dumps(cur))
+' "$current" "$key_body")
+    local pc
+    pc=$(curl -s -X PUT "$HOST/api/providers/$name" -H "Content-Type: application/json" -d "$merged" -o /tmp/bifrost-$name.out -w "%{http_code}")
+    if [ "$pc" = "200" ]; then
+      echo "  $name: key added via PUT (HTTP 200)"
+    else
+      echo "  $name: PUT FAILED HTTP $pc"
+      cat /tmp/bifrost-$name.out
+    fi
     return
   fi
-  local key_body=$3
-  local kc
-  kc=$(curl -s -X POST "$HOST/api/providers/$name/keys" -H "Content-Type: application/json" -d "$key_body" -o /tmp/bifrost-$name-key.out -w "%{http_code}")
-  if [ "$kc" = "200" ]; then
-    echo "  $name: key added (HTTP 200)"
+  # New provider: POST with keys embedded — single call.
+  local create_body; create_body=$(python3 -c '
+import json, sys
+body = json.loads(sys.argv[1])
+key = json.loads(sys.argv[2])
+body["keys"] = [key]
+print(json.dumps(body))
+' "$body" "$key_body")
+  local code
+  code=$(curl -s -X POST "$HOST/api/providers" -H "Content-Type: application/json" -d "$create_body" -o /tmp/bifrost-$name.out -w "%{http_code}")
+  if [ "$code" = "200" ]; then
+    echo "  $name: provider created with key (HTTP 200)"
   else
-    echo "  $name: key add FAILED HTTP $kc"
-    cat /tmp/bifrost-$name-key.out
+    echo "  $name: provider FAILED HTTP $code"
+    cat /tmp/bifrost-$name.out
   fi
 }
 
@@ -82,7 +99,10 @@ post_rule() {
 }
 
 simple_key() {
-  jq -n --arg n "$1" --arg k "$2" '{name:$n,value:$k,weight:1,enabled:true}'
+  # Bifrost upstream now expects `value` as an object, not a string:
+  #   value: {value: "<raw>", env_var: "", from_env: false}
+  # The flat-string form was accepted in earlier versions.
+  jq -n --arg n "$1" --arg k "$2" '{name:$n, value:{value:$k, env_var:"", from_env:false}, weight:1, enabled:true, models:[], blacklisted_models:[], use_for_batch_api:false}'
 }
 
 echo "→ adding providers"
