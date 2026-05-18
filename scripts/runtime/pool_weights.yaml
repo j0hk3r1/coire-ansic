@@ -101,33 +101,38 @@ pools:
     - gemini/gemini-2.5-flash
     - sambanova/Llama-4-Maverick-17B-128E-Instruct
   compress:
-    # NB: nvidia-nim/meta/llama-3.3-70b-instruct moved primary→fallback
-    # 2026-05-18 — it rejects parallel tool_calls with HTTP 400 'this
-    # model only supports single tool-calls at once'. Most agents (hermes,
-    # pi-op) send parallel calls. Remaining 7 primaries renormalized to 1.0.
+    # Compress = long-context summarization (8-30k token prompts typical).
+    # 2026-05-19: groq/llama-3.3-70b-versatile moved primary→fallback —
+    # groq free-tier has 6k TPM-per-call across all models, so 413s
+    # ('request too large') were ~10% of compress traffic. github-models
+    # gpt-4.1 (2M TPM, 128k context, 20k RPM) replaces it as primary.
+    # Earlier note: nvidia-nim/meta/llama-3.3-70b-instruct stays in
+    # fallback only — 400 'single tool-calls at once' rejects parallel
+    # tool_calls from hermes/pi-op.
     targets:
-    - provider: groq
-      model: llama-3.3-70b-versatile
+    - provider: github-models
+      model: openai/gpt-4.1
       weight: 0.30
     - provider: gemini
       model: gemini-3-flash-preview
-      weight: 0.24
+      weight: 0.22
     - provider: mistral
       model: mistral-medium-3.5
-      weight: 0.196
-    - provider: cf-openai
-      model: '@cf/google/gemma-4-26b-a4b-it'
-      weight: 0.061
-    - provider: cf-openai
-      model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.049
+      weight: 0.20
     - provider: mistral
       model: mistral-medium-latest
-      weight: 0.077
+      weight: 0.10
     - provider: mistral
       model: mistral-large-latest
-      weight: 0.077
+      weight: 0.10
+    - provider: cf-openai
+      model: '@cf/google/gemma-4-26b-a4b-it'
+      weight: 0.06
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.02
     fallbacks:
+    - groq/llama-3.3-70b-versatile
     - nvidia-nim/meta/llama-3.3-70b-instruct
     - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
     - openrouter/meta-llama/llama-3.3-70b-instruct:free

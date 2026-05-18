@@ -36,7 +36,7 @@ LOW_UTIL_THRESHOLD = 0.05   # <=5% → raise (only if cap meaningful)
 SATURATED_DEMOTE_COUNT = 2  # if >= N models of a provider are daily-cap-demoted,
                              # treat the whole provider as saturated and do NOT raise.
 
-CB_STATE_PATH = Path.home() / ".hermes" / "curator-pool" / "circuit_state.json"
+CB_STATE_PATH = Path.home() / ".coire" / "curator-pool" / "circuit_state.json"
 
 
 def fetch_usage(max_attempts: int = 4):

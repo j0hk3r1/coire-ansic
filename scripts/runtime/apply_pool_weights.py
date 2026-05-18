@@ -194,12 +194,28 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--plan", default=str(DEFAULT_PLAN), help="path to YAML plan")
     ap.add_argument("--dry-run", action="store_true", help="show diff but do not PUT")
+    ap.add_argument("--skip-sync", action="store_true",
+                    help="don't auto-run sync_key_models after applying")
     args = ap.parse_args()
     plan_path = Path(args.plan)
     if not plan_path.exists():
         sys.exit(f"plan not found: {plan_path}")
     plan = load_plan(plan_path)
     apply(plan, dry_run=args.dry_run)
+    # After any pool change (CREATE or PUT), key.models[] may have models
+    # that no key supports yet. sync_key_models.py reads the LIVE routing
+    # rules and PUTs each provider key with the model set it should serve.
+    # Skip on dry-run (no actual mutations to sync).
+    if not args.dry_run and not args.skip_sync:
+        import subprocess
+        sync = Path(__file__).resolve().parent.parent.parent / "bifrost" / "sync_key_models.py"
+        if sync.exists():
+            print()
+            print("→ auto-running sync_key_models (use --skip-sync to suppress)")
+            try:
+                subprocess.run([sys.executable, str(sync)], check=False, timeout=120)
+            except Exception as e:
+                print(f"  sync_key_models failed: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
