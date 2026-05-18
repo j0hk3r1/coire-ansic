@@ -77,9 +77,9 @@ view of which models are excluded and why.
 | `--with-hermes` | [Nous hermes-agent] CLI + gateway + free-provider scout cron |
 | `--with-telegram` | Telegram bot pairing (requires `--with-hermes`) |
 | `--with-firecrawl` | Local web_extract backend |
-| `--with-camofox` | Anti-detect Firefox (Camoufox + REST) — free web browsing |
 | `--with-searxng` | Self-hosted meta-search |
-| `--all` | All of the above |
+| `--with-camofox` | Anti-detect Firefox — **BYO source**, see [camofox/README.md](camofox/README.md). Not in `--all`. |
+| `--all` | hermes + telegram + firecrawl + searxng (camofox is opt-in only) |
 
 [Nous hermes-agent]: https://github.com/NousResearch/hermes-agent
 

@@ -34,11 +34,8 @@ cd "$FIRECRAWL_DIR"
 ok "compose fetched"
 
 step "configure"
+# Disable Supabase auth (we self-host without it).
 sed -i "s/USE_DB_AUTHENTICATION=true/USE_DB_AUTHENTICATION=false/" .env
-# Switch from local-build to prebuilt images (smaller, faster)
-sed -i 's|^  build: apps/api$|#  build: apps/api\n  image: ghcr.io/firecrawl/firecrawl:latest|' docker-compose.yaml
-sed -i 's|^    build: apps/playwright-service-ts$|#    build: apps/playwright-service-ts\n    image: ghcr.io/firecrawl/playwright-service:latest|' docker-compose.yaml
-sed -i 's|^    build: apps/nuq-postgres$|#    build: apps/nuq-postgres\n    image: ghcr.io/firecrawl/nuq-postgres:latest|' docker-compose.yaml
 
 # Rabbitmq needs an explicit volume w/ correct ownership (uid 999) — the
 # default anonymous volume gets created with root:root mode 700 on first
@@ -46,28 +43,28 @@ sed -i 's|^    build: apps/nuq-postgres$|#    build: apps/nuq-postgres\n    imag
 mkdir -p ./rabbit_data
 sudo chown -R 999:999 ./rabbit_data
 sudo chmod 700 ./rabbit_data
-if ! grep -q "./rabbit_data:/var/lib/rabbitmq" docker-compose.yaml; then
-  python3 - <<'PY'
-p="docker-compose.yaml"
-s=open(p).read()
-s=s.replace(
-    """  rabbitmq:
-    image: rabbitmq:3-management
-    networks:
-      - backend
-    command: rabbitmq-server""",
-    """  rabbitmq:
-    image: rabbitmq:3-management
-    networks:
-      - backend
+
+# Write a docker-compose.override.yaml instead of mutating upstream's
+# docker-compose.yaml in place. Compose merges this automatically.
+# - Swap build → prebuilt ghcr.io images (lighter + faster than local build)
+# - Use `!reset null` to drop upstream `build:` so compose doesn't rebuild
+# - Add rabbitmq volume for cookie ownership fix
+cat > docker-compose.override.yaml <<'YAML'
+services:
+  api:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    build: !reset null
+  playwright-service:
+    image: ghcr.io/firecrawl/playwright-service:latest
+    build: !reset null
+  nuq-postgres:
+    image: ghcr.io/firecrawl/nuq-postgres:latest
+    build: !reset null
+  rabbitmq:
     volumes:
       - ./rabbit_data:/var/lib/rabbitmq
-    command: rabbitmq-server"""
-)
-open(p,"w").write(s)
-PY
-fi
-ok "configured"
+YAML
+ok "configured (override.yaml written; upstream files unmodified)"
 
 step "pull images (~3GB)"
 docker compose pull 2>&1 | tail -3

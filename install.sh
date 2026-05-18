@@ -33,7 +33,10 @@ for arg in "$@"; do
     --with-camofox)   WITH_CAMOFOX=1 ;;
     --with-searxng)   WITH_SEARXNG=1 ;;
     --with-firecrawl) WITH_FIRECRAWL=1 ;;
-    --all)            WITH_HERMES=1; WITH_TELEGRAM=1; WITH_CAMOFOX=1; WITH_SEARXNG=1; WITH_FIRECRAWL=1 ;;
+    # --all excludes --with-camofox: Camoufox upstream ships a Python lib
+    # (no REST server), so the docker service needs an out-of-band fork
+    # cloned into ./camofox/src/. Users who want it must opt in explicitly.
+    --all)            WITH_HERMES=1; WITH_TELEGRAM=1; WITH_SEARXNG=1; WITH_FIRECRAWL=1 ;;
     -h|--help)
       grep -E "^# " "$0" | sed 's/^# //'; exit 0 ;;
     *) echo "unknown flag: $arg (try --help)"; exit 64 ;;
