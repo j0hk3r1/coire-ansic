@@ -75,17 +75,32 @@ ok "pulled"
 
 step "bring up"
 docker compose up -d
-sleep 12
+# Firecrawl's API container depends on rabbitmq+postgres healthchecks. On
+# fresh installs those take 30-60s to go healthy, and any service whose
+# deps weren't ready at startup time stays in 'Created' state. Re-run
+# `compose up -d` after deps stabilize so dependents actually start.
+for i in $(seq 1 12); do
+  sleep 5
+  PENDING=$(docker compose ps --status created -q 2>/dev/null | wc -l)
+  if [ "$PENDING" -gt 0 ]; then
+    docker compose up -d > /dev/null 2>&1 || true
+  else
+    break
+  fi
+done
 docker ps --filter name=firecrawl --format "  {{.Names}}: {{.Status}}"
 ok "up"
 
 step "smoke test"
-sleep 4
-if curl -sf -o /dev/null http://localhost:3002/; then
-  ok "firecrawl API @ http://localhost:3002 ready"
-else
-  warn "API not responding yet — give it 30s more then check 'docker logs firecrawl-api-1'"
-fi
+# Poll for API readiness up to 90s
+for i in $(seq 1 18); do
+  if curl -sf -o /dev/null http://localhost:3002/; then
+    ok "firecrawl API @ http://localhost:3002 ready"
+    break
+  fi
+  sleep 5
+  [ "$i" -eq 18 ] && warn "API not responding after 90s — check 'docker logs firecrawl-api-1'"
+done
 
 cat <<MSG
 
