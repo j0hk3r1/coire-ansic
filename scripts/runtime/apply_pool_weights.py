@@ -95,10 +95,41 @@ def apply(plan, dry_run=False):
     for pool_name, pool_plan in plan.get("pools", {}).items():
         rule = rules.get(pool_name)
         is_new = rule is None
+
+        # Build filtered target list FIRST so we can both
+        #   (a) skip pools with zero valid targets, and
+        #   (b) include targets in the initial CREATE body (bifrost rejects
+        #       routing-rule POST with empty targets — 400 "at least one
+        #       target is required").
+        new_targets = []
+        for t in pool_plan.get("targets", []):
+            key = f"{t['provider']}/{t['model']}"
+            if key in demoted:
+                continue  # CB has this demoted — skip, daemon will re-add when smoke passes
+            if configured and t["provider"] not in configured:
+                continue  # provider not registered in bifrost (no key in .env) — skip
+            new_targets.append({"provider": t["provider"], "model": t["model"], "weight": float(t["weight"])})
+        if not new_targets:
+            reason = "no configured-provider targets" if configured else "all planned targets are CB-demoted"
+            if rule and rule.get("id") and not dry_run:
+                try:
+                    req("DELETE", f"/governance/routing-rules/{rule['id']}")
+                    print(f"  [DELETED] pool '{pool_name}' — {reason}", file=sys.stderr)
+                except urllib.error.HTTPError as e:
+                    print(f"  [SKIP] pool '{pool_name}' — {reason} (delete failed: HTTP {e.code})", file=sys.stderr)
+            else:
+                print(f"  [SKIP] pool '{pool_name}' — {reason}", file=sys.stderr)
+            continue
+        new_targets = normalize(new_targets)
+        new_fallbacks = [
+            fb for fb in (pool_plan.get("fallbacks") or (rule.get("fallbacks", []) if rule else []))
+            if fb not in demoted
+            and (not configured or ("/" in fb and fb.split("/", 1)[0] in configured))
+        ]
+
         if is_new:
-            # Create new routing rule with sensible defaults; apply loop below
-            # will then PUT the planned weights into it.
             print(f"\n=== {pool_name} (CREATING NEW) ===")
+            for t in new_targets: print(f"    {t['weight']:.2f}  {t['provider']}/{t['model']}")
             if dry_run:
                 continue
             create_body = {
@@ -106,8 +137,8 @@ def apply(plan, dry_run=False):
                 "description": pool_plan.get("description", f"Pool '{pool_name}' from pool_weights.yaml"),
                 "enabled": True,
                 "cel_expression": f'model == "{pool_name}"',
-                "targets": [],  # filled in below
-                "fallbacks": [],
+                "targets": new_targets,
+                "fallbacks": new_fallbacks,
                 "scope": "global",
                 "scope_id": None,
                 "priority": 0,
@@ -120,34 +151,7 @@ def apply(plan, dry_run=False):
             except urllib.error.HTTPError as e:
                 err_body = e.read().decode("utf-8", errors="replace")[:400]
                 print(f"  ✗ CREATE FAIL: HTTP {e.code} {err_body}", file=sys.stderr)
-                continue
-        new_targets = []
-        for t in pool_plan.get("targets", []):
-            key = f"{t['provider']}/{t['model']}"
-            if key in demoted:
-                continue  # CB has this demoted — skip, daemon will re-add when smoke passes
-            if configured and t["provider"] not in configured:
-                continue  # provider not registered in bifrost (no key in .env) — skip
-            new_targets.append({"provider": t["provider"], "model": t["model"], "weight": float(t["weight"])})
-        if not new_targets:
-            reason = "no configured-provider targets" if configured else "all planned targets are CB-demoted"
-            # If an EXISTING rule has no valid targets after filter, delete it
-            # so routing fails fast instead of 500-ing on missing-provider targets.
-            if rule and rule.get("id") and not dry_run:
-                try:
-                    req("DELETE", f"/governance/routing-rules/{rule['id']}")
-                    print(f"  [DELETED] pool '{pool_name}' — {reason}", file=sys.stderr)
-                except urllib.error.HTTPError as e:
-                    print(f"  [SKIP] pool '{pool_name}' — {reason} (delete failed: HTTP {e.code})", file=sys.stderr)
-            else:
-                print(f"  [SKIP] pool '{pool_name}' — {reason}", file=sys.stderr)
-            continue
-        new_targets = normalize(new_targets)
-        new_fallbacks = [
-            fb for fb in (pool_plan.get("fallbacks") or rule.get("fallbacks", []))
-            if fb not in demoted
-            and (not configured or ("/" in fb and fb.split("/", 1)[0] in configured))
-        ]
+            continue  # CREATE delivered targets+fallbacks; no PUT needed
 
         # Compare as sets — bifrost stores numeric weights with reduced
         # precision (0.30 → 0.3) and reorders ties by internal heuristics.
