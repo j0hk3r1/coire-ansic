@@ -78,36 +78,53 @@ def main():
     live_providers = {p["name"] for p in providers_resp.get("providers", [])}
     updated = 0
     skipped = 0
+    # Bifrost upstream removed the /providers/<name>/keys subresource (405
+    # on POST, non-JSON on GET against newer versions). The supported way
+    # to update key.models is now: GET /providers/<name> (full config),
+    # mutate the keys array, PUT /providers/<name> back.
     for provider, models in wanted.items():
         if provider not in live_providers:
             print(f"  - {provider}: provider missing — skip")
             continue
         try:
-            keys_resp = req("GET", f"/providers/{provider}/keys")
+            cur = req("GET", f"/providers/{provider}")
         except RuntimeError as e:
             print(f"  - {provider}: {e} — skip")
             continue
-        for k in keys_resp.get("keys", []):
+        existing_keys = cur.get("keys", [])
+        if not existing_keys:
+            print(f"  - {provider}: no keys configured — skip")
+            continue
+        # Build updated keys list — set `models` on every key, preserve
+        # everything else. Re-send the full provider config on PUT (bifrost
+        # treats PUT as replace; omitting fields nulls them).
+        new_keys = []
+        any_change = False
+        for k in existing_keys:
             current = sorted(k.get("models") or [])
             if current == models:
                 skipped += 1
+                new_keys.append(k)
                 continue
-            body = {
-                "name": k["name"],
-                "value": k["value"]["value"] if isinstance(k.get("value"), dict) else k.get("value"),
-                "models": models,
-                "blacklisted_models": k.get("blacklisted_models", []),
-                "weight": k.get("weight", 1),
-                "enabled": k.get("enabled", True),
-            }
-            try:
-                req("PUT", f"/providers/{provider}/keys/{k['id']}", body)
-                print(f"  ~ {provider}/{k['name']}: {len(models)} models")
-                updated += 1
-            except urllib.error.HTTPError as e:
-                print(f"  X {provider}/{k['name']}: {e.code} {e.read().decode()[:200]}")
+            any_change = True
+            kc = dict(k)
+            kc["models"] = models
+            new_keys.append(kc)
+        if not any_change:
+            continue
+        body = dict(cur)
+        body["keys"] = new_keys
+        # On older bifrost responses, providers GET returns 'name' but PUT
+        # body wants 'provider'. Set both to be safe.
+        body["provider"] = cur.get("name", provider)
+        try:
+            req("PUT", f"/providers/{provider}", body)
+            print(f"  ~ {provider}: {len(new_keys)} key(s) updated with {len(models)} models")
+            updated += 1
+        except urllib.error.HTTPError as e:
+            print(f"  X {provider}: {e.code} {e.read().decode()[:200]}")
 
-    print(f"\n{updated} keys updated, {skipped} unchanged")
+    print(f"\n{updated} provider(s) updated, {skipped} keys unchanged")
 
 
 if __name__ == "__main__":
