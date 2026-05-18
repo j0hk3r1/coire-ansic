@@ -38,18 +38,23 @@ from contextlib import contextmanager
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
-_DASHBOARD_DIR = Path.home() / ".hermes" / "curator-pool"
+_DASHBOARD_DIR = Path.home() / ".coire" / "curator-pool"
 _DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
-# Migrate legacy script-dir files into dashboard dir on first run.
-for _legacy_name in ("circuit_state.json", "circuit_history.jsonl"):
-    _legacy = SCRIPTS_DIR / _legacy_name
+# Migrate legacy locations into the new ~/.coire/curator-pool dir on first
+# run. Order matters: script-dir → ~/.hermes/curator-pool → ~/.coire/curator-pool.
+_LEGACY_HERMES = Path.home() / ".hermes" / "curator-pool"
+for _legacy_name in ("circuit_state.json", "circuit_history.jsonl", "cooldown_status.json"):
     _new = _DASHBOARD_DIR / _legacy_name
-    if _legacy.exists() and not _new.exists():
-        _legacy.rename(_new)
+    if _new.exists():
+        continue
+    for _src in (SCRIPTS_DIR / _legacy_name, _LEGACY_HERMES / _legacy_name):
+        if _src.exists():
+            _src.rename(_new)
+            break
 STATE_FILE = _DASHBOARD_DIR / "circuit_state.json"
 STATE_LOCK = _DASHBOARD_DIR / "circuit_state.lock"
 HISTORY_FILE = _DASHBOARD_DIR / "circuit_history.jsonl"
-DASHBOARD_STATUS = Path.home() / ".hermes" / "curator-pool" / "cooldown_status.json"
+DASHBOARD_STATUS = _DASHBOARD_DIR / "cooldown_status.json"
 BIFROST_BASE = os.environ.get("BIFROST_URL", "http://localhost:4001")
 _BPASS = os.environ.get("BIFROST_PASS")
 if not _BPASS:
