@@ -91,8 +91,17 @@ chmod 777 bifrost/data 2>/dev/null || true
 
 # Build docker compose profile list based on flags
 PROFILES="dashboard"
-[ $WITH_CAMOFOX  -eq 1 ] && PROFILES="$PROFILES,camofox"
-[ $WITH_SEARXNG  -eq 1 ] && PROFILES="$PROFILES,searxng"
+if [ $WITH_CAMOFOX -eq 1 ]; then
+  if [ -f camofox/src/Dockerfile.ci ]; then
+    PROFILES="$PROFILES,camofox"
+  else
+    warn "--with-camofox set but camofox/src/ not populated. Skipping camofox profile."
+    warn "  Camoufox source is not bundled (different license, optional fork). Clone your"
+    warn "  Camoufox-browser source into ./camofox/src/ then re-run install."
+    WITH_CAMOFOX=0
+  fi
+fi
+[ $WITH_SEARXNG -eq 1 ] && PROFILES="$PROFILES,searxng"
 
 COMPOSE_PROFILES="$PROFILES" docker compose up -d --build
 # wait for bifrost healthy
