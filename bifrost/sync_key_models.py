@@ -67,12 +67,26 @@ def collect_models_per_provider(snap):
 
 
 def main():
-    if not SNAPSHOT.exists():
-        print(f"FAIL: {SNAPSHOT} missing", file=sys.stderr)
+    # Pull current routing rules from LIVE bifrost — the snapshot file is a
+    # frozen seed-time view and drifts the moment apply_pool_weights.py
+    # mutates a pool. Using live data means: any pool/target change picked
+    # up next sync run without manual snapshot regeneration.
+    try:
+        live = req("GET", "/governance/routing-rules")
+    except Exception as e:
+        print(f"FAIL: cannot fetch live routing-rules: {e}", file=sys.stderr)
         sys.exit(1)
-    snap = json.loads(SNAPSHOT.read_text())
-    wanted = collect_models_per_provider(snap)
-    print(f"snapshot: {sum(len(v) for v in wanted.values())} model slots across {len(wanted)} providers")
+    wanted = collect_models_per_provider(live)
+    if not wanted:
+        # Fall back to snapshot file (fresh-install path: rules not applied yet)
+        if SNAPSHOT.exists():
+            print(f"  live had 0 rules — falling back to snapshot file")
+            snap = json.loads(SNAPSHOT.read_text())
+            wanted = collect_models_per_provider(snap)
+        else:
+            print(f"FAIL: no live rules and {SNAPSHOT} missing", file=sys.stderr)
+            sys.exit(1)
+    print(f"wanted: {sum(len(v) for v in wanted.values())} model slots across {len(wanted)} providers")
 
     providers_resp = req("GET", "/providers")
     live_providers = {p["name"] for p in providers_resp.get("providers", [])}

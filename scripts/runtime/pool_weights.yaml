@@ -238,25 +238,29 @@ pools:
     # the user-facing pools' (best/code/mid/fast) provider budgets.
     #
     # Pi-op prompts often run 8-15k tokens (full bifrost log dumps + tool
-    # definitions + skill content). groq free-tier 8b models 413 on these
-    # requests — the 6k TPM-per-call bucket can't absorb them. Cerebras
-    # has 60k TPM headroom + a 32k-context qwen-235b. nvidia-nim's preview
-    # tier is effectively unmetered. groq 8b kept as fallback for smaller
-    # pi-op-queue probes.
+    # definitions + skill content) AND send parallel tool_calls. Two hard
+    # constraints rule out most providers:
+    #  - groq free-tier 8b models 413 on >6k token requests (TPM bucket)
+    #  - nvidia-nim/meta/llama-3.3-70b-instruct rejects parallel tool_calls
+    #    with HTTP 400 ("single tool-calls at once")
+    # All cerebras models tolerate parallel tools + 60k TPM headroom. Use
+    # cerebras-only primaries; groq + mistral + nvidia kept as fallback
+    # for the rare single-tool-call requests.
     # No cf-openai (neuron-budget shared globally), no gemini (250 RPD shared
     # globally), no openrouter (50 RPD pool budget shared globally), no
     # github-models (hermes uses gpt-4.1-mini in mid pool).
     targets:
     - provider: cerebras
       model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.45
+      weight: 0.50
     - provider: cerebras
       model: llama3.1-8b
       weight: 0.30
-    - provider: nvidia-nim
-      model: meta/llama-3.3-70b-instruct
-      weight: 0.25
+    - provider: cerebras
+      model: gpt-oss-120b
+      weight: 0.20
     fallbacks:
+    - mistral/mistral-small-latest
     - groq/llama-3.1-8b-instant
     - groq/openai/gpt-oss-20b
-    - mistral/mistral-small-latest
+    - nvidia-nim/meta/llama-3.3-70b-instruct
