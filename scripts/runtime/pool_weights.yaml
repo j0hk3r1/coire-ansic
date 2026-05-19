@@ -102,36 +102,36 @@ pools:
     - sambanova/Llama-4-Maverick-17B-128E-Instruct
   compress:
     # Compress = long-context summarization (8-30k token prompts typical).
-    # 2026-05-19: groq/llama-3.3-70b-versatile moved primary→fallback —
-    # groq free-tier has 6k TPM-per-call across all models, so 413s
-    # ('request too large') were ~10% of compress traffic. github-models
-    # gpt-4.1 (2M TPM, 128k context, 20k RPM) replaces it as primary.
-    # Earlier note: nvidia-nim/meta/llama-3.3-70b-instruct stays in
-    # fallback only — 400 'single tool-calls at once' rejects parallel
-    # tool_calls from hermes/pi-op.
+    # History:
+    # - 2026-05-19a: groq/llama-3.3-70b-versatile moved primary→fallback
+    #   (6k TPM per-call ceiling 413s ~10% of traffic)
+    # - 2026-05-19b: TRIED github-models/openai/gpt-4.1 as primary at w=0.30
+    #   but github-models free tier has an 8k token request cap, immediate
+    #   413s on every compress request. Moved to fallback (where short
+    #   probes might still benefit).
+    # nvidia-nim/meta/llama-3.3-70b-instruct stays in fallback only —
+    # 400 'single tool-calls at once' rejects parallel tool_calls.
     targets:
-    - provider: github-models
-      model: openai/gpt-4.1
-      weight: 0.30
     - provider: gemini
       model: gemini-3-flash-preview
-      weight: 0.22
+      weight: 0.3143
     - provider: mistral
       model: mistral-medium-3.5
-      weight: 0.20
+      weight: 0.2857
     - provider: mistral
       model: mistral-medium-latest
-      weight: 0.10
+      weight: 0.1429
     - provider: mistral
       model: mistral-large-latest
-      weight: 0.10
+      weight: 0.1428
     - provider: cf-openai
       model: '@cf/google/gemma-4-26b-a4b-it'
-      weight: 0.06
+      weight: 0.0857
     - provider: cf-openai
       model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.02
+      weight: 0.0286
     fallbacks:
+    - github-models/openai/gpt-4.1
     - groq/llama-3.3-70b-versatile
     - nvidia-nim/meta/llama-3.3-70b-instruct
     - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
