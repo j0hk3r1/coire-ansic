@@ -1,0 +1,10 @@
+[Unit]
+Description=Every 30min — scan for stuck/drifted state in the stack
+
+[Timer]
+OnCalendar=*:0/30
+Persistent=true
+RandomizedDelaySec=180
+
+[Install]
+WantedBy=timers.target
