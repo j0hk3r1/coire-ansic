@@ -120,6 +120,15 @@ def apply(plan, dry_run=False):
             else:
                 print(f"  [SKIP] pool '{pool_name}' — {reason}", file=sys.stderr)
             continue
+        # Safety: warn (don't fail) if a pool has fewer than 3 primaries
+        # after CB / provider-not-configured filtering. Some pools may
+        # legitimately have 3 (e.g. ops before 5-primary expansion) but
+        # going below 3 means the pool has no cascade depth — single bad
+        # day can empty it entirely. Surface for human attention.
+        if len(new_targets) < 3:
+            print(f"  [WARN] pool '{pool_name}' has only {len(new_targets)} "
+                  f"primary target(s) after filtering — pool intent (depth=3+) "
+                  f"degraded", file=sys.stderr)
         new_targets = normalize(new_targets)
         new_fallbacks = [
             fb for fb in (pool_plan.get("fallbacks") or (rule.get("fallbacks", []) if rule else []))

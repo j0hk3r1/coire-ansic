@@ -253,22 +253,25 @@ pools:
     # No cf-openai (neuron-budget shared globally), no gemini (250 RPD shared
     # globally), no openrouter (50 RPD pool budget shared globally), no
     # github-models (hermes uses gpt-4.1-mini in mid pool).
-    # 2026-05-19: added github-models/gpt-4.1-mini as 4th primary —
-    # cerebras 30 RPM cap was saturating with all 3 primaries on one provider.
-    # github-models has 20k RPM headroom, parallel-tool OK, 128k context.
+    # 2026-05-19: spread across 3 providers (cerebras, github-models, nvidia-nim)
+    # to escape cerebras 30 RPM cap saturation. All 5 primaries support parallel
+    # tool_calls and have ≥30k context.
     targets:
     - provider: cerebras
       model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.375
+      weight: 0.30
     - provider: github-models
       model: openai/gpt-4.1-mini
-      weight: 0.25
+      weight: 0.20
+    - provider: nvidia-nim
+      model: moonshotai/kimi-k2.6
+      weight: 0.20
     - provider: cerebras
       model: llama3.1-8b
-      weight: 0.225
+      weight: 0.18
     - provider: cerebras
       model: gpt-oss-120b
-      weight: 0.15
+      weight: 0.12
     fallbacks:
     - mistral/mistral-small-latest
     - groq/llama-3.1-8b-instant

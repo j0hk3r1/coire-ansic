@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAN_PATH = ROOT / "scripts" / "runtime" / "pool_weights.yaml"
-DISCOVERIES = Path.home() / ".hermes" / "operator" / "discoveries"
+DISCOVERIES = Path.home() / ".coire" / "operator" / "discoveries"
 
 # Provider → (endpoint, env_var_for_auth, header_prefix)
 # Only providers with a public /v1/models endpoint we can hit directly.
@@ -25,6 +25,9 @@ PROVIDERS = {
     "sambanova":     ("https://api.sambanova.ai/v1/models", "SAMBANOVA_API_KEY", "Bearer"),
     "cohere":        ("https://api.cohere.com/v1/models", "COHERE_API_KEY", "Bearer"),
     "openrouter":    ("https://openrouter.ai/api/v1/models", None, None),  # public catalog
+    # github-models uses a non-OpenAI catalog endpoint (no /v1/models).
+    # /catalog/models lists everything across providers (openai/, mistral-ai/, etc.).
+    "github-models": ("https://models.github.ai/catalog/models", "GITHUB_MODELS_TOKEN", "Bearer"),
 }
 
 
@@ -39,7 +42,11 @@ def fetch_models(url, key, prefix):
         d = json.loads(urllib.request.urlopen(req, timeout=20).read())
     except Exception as e:
         return [], f"fetch failed: {e}"
-    items = d.get("data", []) or d.get("models", []) or []
+    # github-models /catalog/models returns a bare array, not {"data":[...]}.
+    if isinstance(d, list):
+        items = d
+    else:
+        items = d.get("data", []) or d.get("models", []) or []
     ids = []
     for m in items:
         mid = m.get("id") or m.get("name") or m.get("model")
