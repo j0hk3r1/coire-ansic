@@ -20,38 +20,52 @@
 pools:
   best:
     targets:
-    # 2026-05-19 auto: removed nvidia-nim/kimi-k2.6 (p95=227s, recurring 504)
-    # and github-models/openai/gpt-4.1 (free-tier 8k context cap, 18×/h 413
-    # on real traffic) from primaries. Both kept in fallback.
+    # 2026-05-19 quality pass — best is now frontier-tier only:
+    #   cerebras qwen-3-235b + gpt-oss-120b (Cerebras-hosted, fast frontier)
+    #   groq gpt-oss-120b (same family, alt provider, sub-second)
+    #   mistral-large-latest (Mistral flagship; 4 RPM cap so low weight)
+    #   cohere command-a-03-2025 (Cohere flagship, 20 RPM)
+    #   groq llama-3.3-70b (fast capable)
+    #   sambanova DeepSeek-V3.1 (20 RPD cap, low weight)
+    #   gemini-3-pro-preview (LMArena #5 but tight daily — CB manages)
+    #   cf-openai kimi-k2.6 (small alt path)
+    # Moved to fallback: mistral-medium-3.5 (mid-tier — belongs in mid pool),
+    #   cf-openai/@cf/nvidia/nemotron-3-120b-a12b (niche/instruct-only, not
+    #   frontier despite size).
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.24
     - provider: groq
       model: openai/gpt-oss-120b
-      weight: 0.3071
-    - provider: mistral
-      model: mistral-medium-3.5
-      weight: 0.2229
+      weight: 0.22
+    - provider: cerebras
+      model: gpt-oss-120b
+      weight: 0.16
     - provider: cohere
       model: command-a-03-2025
-      weight: 0.1480
+      weight: 0.10
     - provider: groq
       model: llama-3.3-70b-versatile
-      weight: 0.1236
-    - provider: cf-openai
-      model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.0599
+      weight: 0.08
+    - provider: mistral
+      model: mistral-large-latest
+      weight: 0.08
     - provider: sambanova
       model: DeepSeek-V3.1
-      weight: 0.0562
-    - provider: cf-openai
-      model: '@cf/nvidia/nemotron-3-120b-a12b'
-      weight: 0.0450
+      weight: 0.05
     - provider: gemini
       model: gemini-3-pro-preview
-      weight: 0.0373
+      weight: 0.04
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.03
     fallbacks:
     - nvidia-nim/moonshotai/kimi-k2.6
+    - mistral/mistral-medium-3.5
+    - cohere/command-a-reasoning-08-2025
+    - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
     - github-models/openai/gpt-4.1
     - github-models/openai/gpt-4o
-    - cohere/command-a-reasoning-08-2025
     - gemini/gemini-3.1-pro-preview
     - openrouter/openai/gpt-oss-120b:free
     - cf-openai/@cf/moonshotai/kimi-k2.5
