@@ -241,6 +241,26 @@ yaml.safe_dump(d, p.open("w"), sort_keys=False)
 PYEOF
   fi
 
+  # camofox auto-enables hermes 'browser' toolset (browser_navigate / click /
+  # snapshot / etc.) — otherwise the camofox container runs but hermes never
+  # talks to it. Only flip on when both adapters present.
+  if [ $WITH_CAMOFOX -eq 1 ]; then
+    python3 - <<'PYEOF' || warn "could not enable browser toolset for hermes"
+import yaml, pathlib
+p = pathlib.Path.home() / ".hermes" / "config.yaml"
+if not p.exists(): exit(0)
+d = yaml.safe_load(p.read_text()) or {}
+ts = d.setdefault("toolsets", [])
+if "browser" not in ts:
+    ts.append("browser")
+    print("  ✓ added 'browser' to hermes toolsets")
+# Ensure camofox engine + URL wired
+b = d.setdefault("browser", {})
+b.setdefault("engine", "camofox")
+yaml.safe_dump(d, p.open("w"), sort_keys=False)
+PYEOF
+  fi
+
   step "[adapter] centralise .env via symlink"
   if [ -e "$HOME/.hermes/.env" ] && [ ! -L "$HOME/.hermes/.env" ]; then
     mv "$HOME/.hermes/.env" "$HOME/.hermes/.env.bak.$(date +%s)"
