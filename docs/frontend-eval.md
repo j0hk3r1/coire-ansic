@@ -53,23 +53,57 @@ Goal scoring:
 - Verdict: **incompatible with our stack** without writing a Responses
   API adapter for strip-shim. Skipping for this round.
 
+### omp (oh-my-pi v15.1.7, can1357/oh-my-pi) — TESTED @ 23:25 WEST
+- Install: 4 (curl-bash one-liner via https://omp.sh/install)
+- Tool accuracy: **5/5 — returned 10.11.8.0 directly** via docker exec
+- TTFT: fast (sub-30s for tool-heavy query)
+- Hallucinations: 0
+- UX: TUI + `-p` print mode + `--model` selector
+- Config: `~/.omp/agent/models.yml` defines `coire-bifrost` provider
+  pointing at strip-shim :4002 with all 7 pool aliases as selectable
+  models. `--model coire-bifrost/best` works. Subagent roles
+  (`--smol`, `--slow`, `--plan`) can be wired to specific pool aliases
+  via the same config (see adapters/omp/models.yml in repo).
+
+### omo (oh-my-openagent dev, code-yeongyu/oh-my-openagent) — TESTED @ 23:30 WEST
+- Install: 4 (bunx oh-my-openagent install — Bun required)
+- Tool accuracy: **5/5 — returned 10.11.8** via docker inspect label
+- TTFT: slower than opencode-direct (full agent stack)
+- Hallucinations: 0
+- UX: full multi-agent harness (Sisyphus + 9 specialist agents) on top
+  of OpenCode TUI. Agents auto-spawn parallel team for complex tasks.
+- Config: `~/.config/opencode/oh-my-openagent.json` maps each agent
+  + category to one of our 7 pools. Mapping in repo at
+  adapters/omo/oh-my-openagent.json:
+    sisyphus / atlas / prometheus / metis / oracle → best
+    hephaestus / momus → code
+    sisyphus-junior → mid
+    librarian / explore → fast
+    multimodal-looker / category visual-engineering → vision
+    category writing → compress
+    category quick → fast
+    category ultrabrain / deep / artistry → best
+
 ## Pending (require more install effort, unclear ROI)
-- **omp** — needs source clarification from user
-- **omo** — needs source clarification from user
 - **LibreChat** — full web UI, heavier; docker-compose
 - **LobeChat** — web UI, lighter; docker
 
-## Tentative ranking (subject to confirmation)
-1. **hermes-agent** — fastest (29s), correct, fullest feature stack
-   (memory, kanban, voice, agentic skills, Open WebUI integration).
+## Final ranking (5 frontends tested + multi-agent ones)
+1. **hermes-agent + Open WebUI** — fastest (29s), correct, fullest feature
+   stack (memory, kanban, voice, agentic skills, web UI on :3030).
    Recommended default for user-facing chat.
-2. **opencode** — correct, transparent shell-style UX, no hallucinations.
-   Slower TTFT but ideal for "I want to see what the agent is doing"
-   workflows. Strong secondary option.
-3. **pi-agent** — fastest to call (already installed) but hallucinates
-   factual claims without verifying. Keep for operator/automation
-   (where it's currently used) — not promoted to user chat.
-4. Others — pending install + test (no clear ROI without user steering).
+2. **omo (multi-agent)** — best for parallel team workflows. 10 specialist
+   agents mapped onto our 7 pools (orchestrator→best, code→code, search→fast,
+   vision→vision, writing→compress). Slower per-query but massively
+   parallel for complex tasks. Best for "build me X" with hyperplan +
+   security-research skills.
+3. **omp (single-agent)** — clean fork of pi-mono with sessions, subagents,
+   slash commands. Fast direct answers, per-role model overrides
+   (--smol/--slow/--plan can each point at a different pool).
+4. **opencode** — correct, transparent shell-style UX. Solo, no team mode.
+   Good middle ground.
+5. **pi-agent** — hallucinated jellyfin version. Keep for operator/internal
+   only (already wired for op-* timers).
 
 **ASK USER**:
 - Lock hermes-agent as the default user chat? (Open WebUI :3030

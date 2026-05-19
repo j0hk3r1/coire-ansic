@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+  "agents": {
+    "hephaestus": {"model": "coire/code"},
+    "oracle": {"model": "coire/best"},
+    "librarian": {"model": "coire/fast"},
+    "explore": {"model": "coire/fast"},
+    "multimodal-looker": {"model": "coire/vision"},
+    "prometheus": {"model": "coire/best"},
+    "metis": {"model": "coire/best"},
+    "momus": {"model": "coire/code"},
+    "atlas": {"model": "coire/best"},
+    "sisyphus-junior": {"model": "coire/mid"}
+  },
+  "categories": {
+    "visual-engineering": {"model": "coire/vision"},
+    "ultrabrain": {"model": "coire/best"},
+    "deep": {"model": "coire/best"},
+    "artistry": {"model": "coire/best"},
+    "quick": {"model": "coire/fast"},
+    "unspecified-low": {"model": "coire/mid"},
+    "unspecified-high": {"model": "coire/best"},
+    "writing": {"model": "coire/compress"}
+  }
+}
