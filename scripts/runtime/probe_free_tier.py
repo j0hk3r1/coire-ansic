@@ -215,6 +215,16 @@ def main():
     print()
     print(f"wrote {OUT_PATH} ({len(results)} targets)")
     print(f"  summary: {counts}")
+    # Refresh ~/.coire/models.json so strip-shim /v1/models picks up the
+    # new probe-classification tags (e.g. probe:needs_balance for deepseek).
+    import subprocess
+    builder = Path(__file__).resolve().parent / "build_models_list.py"
+    if builder.exists():
+        print("→ auto-running build_models_list")
+        try:
+            subprocess.run([sys.executable, str(builder)], check=False, timeout=30)
+        except Exception as e:
+            print(f"  build_models_list failed: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

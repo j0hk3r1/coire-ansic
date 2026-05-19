@@ -42,6 +42,12 @@ services:
       - "127.0.0.1:4002:4002"
     environment:
       BIFROST_URL: http://bifrost:8080
+      MODELS_JSON_PATH: /root/.coire/models.json
+    # Read-only mount of ~/.coire so /v1/models can serve the live-generated
+    # models.json (built by scripts/runtime/build_models_list.py). Missing
+    # file is fine — the endpoint falls back to a static pool list.
+    volumes:
+      - ~/.coire:/root/.coire:ro
     depends_on:
       bifrost:
         condition: service_started

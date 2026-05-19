@@ -246,6 +246,16 @@ def main():
                 subprocess.run([sys.executable, str(sync)], check=False, timeout=120)
             except Exception as e:
                 print(f"  sync_key_models failed: {e}", file=sys.stderr)
+        # Regenerate the public models list (~/.coire/models.json) so
+        # strip-shim's /v1/models reflects current pools + targets without
+        # any repo update. Cheap (one bifrost GET + one file write).
+        builder = Path(__file__).resolve().parent / "build_models_list.py"
+        if builder.exists():
+            print("→ auto-running build_models_list")
+            try:
+                subprocess.run([sys.executable, str(builder)], check=False, timeout=30)
+            except Exception as e:
+                print(f"  build_models_list failed: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
