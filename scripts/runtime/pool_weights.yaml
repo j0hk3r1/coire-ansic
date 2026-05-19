@@ -20,61 +20,49 @@
 pools:
   best:
     targets:
-    # 2026-05-19 quality pass — best is now frontier-tier only:
-    #   cerebras qwen-3-235b + gpt-oss-120b (Cerebras-hosted, fast frontier)
-    #   groq gpt-oss-120b (same family, alt provider, sub-second)
+    # 2026-05-19 UX pass: groq primaries removed — 6k TPM ceiling 413s on
+    # any non-trivial conversation (>2k input tokens), and every hermes
+    # turn carries 15k+ history. Was wasting cascade slots before landing
+    # on a long-context-capable target. groq stays in fast/ops where
+    # prompts are short.
+    # Frontier-tier long-context survivors:
+    #   cerebras qwen-3-235b + gpt-oss-120b + zai-glm-4.7 (60k TPM, fast)
+    #   cohere command-a-03-2025 (256k ctx, 20 RPM)
     #   mistral-large-latest (Mistral flagship; 4 RPM cap so low weight)
-    #   cohere command-a-03-2025 (Cohere flagship, 20 RPM)
-    #   groq llama-3.3-70b (fast capable)
-    #   sambanova DeepSeek-V3.1 (20 RPD cap, low weight)
-    #   gemini-3-pro-preview (LMArena #5 but tight daily — CB manages)
+    #   sambanova DeepSeek-V3.1 (256k ctx, 20 RPD cap, low weight)
+    #   gemini-3-flash-preview (boosted — fast, big ctx, 250 RPD)
     #   cf-openai kimi-k2.6 (small alt path)
-    # Moved to fallback: mistral-medium-3.5 (mid-tier — belongs in mid pool),
-    #   cf-openai/@cf/nvidia/nemotron-3-120b-a12b (niche/instruct-only, not
-    #   frontier despite size).
     - provider: cerebras
       model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.20
-    - provider: groq
-      model: openai/gpt-oss-120b
-      weight: 0.22
+      weight: 0.30
     - provider: cerebras
       model: gpt-oss-120b
-      weight: 0.16
+      weight: 0.23
     - provider: cohere
       model: command-a-03-2025
+      weight: 0.15
+    - provider: gemini
+      model: gemini-3-flash-preview
       weight: 0.10
-    - provider: groq
-      model: llama-3.3-70b-versatile
-      weight: 0.08
     - provider: mistral
       model: mistral-large-latest
       weight: 0.08
+    - provider: cerebras
+      model: zai-glm-4.7
+      weight: 0.06
     - provider: sambanova
       model: DeepSeek-V3.1
       weight: 0.05
-    # NB: gemini-3-pro-preview / gemini-3.1-pro-preview confirmed
-    # FREE-TIER ZERO via error 'limit: 0, model: gemini-3.1-pro' from
-    # generativelanguage.googleapis.com — moved to fallback only.
-    - provider: gemini
-      model: gemini-3-flash-preview
-      weight: 0.04
-    - provider: cerebras
-      model: zai-glm-4.7
-      weight: 0.04
     - provider: cf-openai
       model: '@cf/moonshotai/kimi-k2.6'
       weight: 0.03
     fallbacks:
-    - nvidia-nim/moonshotai/kimi-k2.6
+    # Ordered fastest-cascade-recovery first. nvidia-nim/kimi-k2.6 moved
+    # to LAST because cold-start is 30-40s — was burning client-side
+    # stream timeouts when used as primary fallback.
     - mistral/mistral-medium-3.5
     - cohere/command-a-reasoning-08-2025
     - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
-    # github-models full models (gpt-4o, gpt-4.1) removed from this
-    # fallback chain — free tier has 8k token cap, every hermes-agent
-    # call (15k+) 413s and wastes the cascade slot. Kept in fast/mid
-    # fallbacks where prompts are short.
-    - gemini/gemini-3-flash-preview
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/z-ai/glm-4.5-air:free
     - openrouter/deepseek/deepseek-v4-flash:free
@@ -85,6 +73,8 @@ pools:
     # so a depleted account doesn't add latency to every cascade.
     - deepseek/deepseek-chat
     - deepseek/deepseek-reasoner
+    # Last-resort slow cold-start path:
+    - nvidia-nim/moonshotai/kimi-k2.6
   code:
     # 2026-05-19: nvidia-nim/kimi-k2.6 (p95 >100s sustained) + github-models/
     # openai/gpt-4.1 (free-tier 8k token cap, every hermes-agent call 413s)
