@@ -1,0 +1,16 @@
+[Unit]
+Description=Frontend crash-loop watchdog (default: hermes-gateway.service)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/coire-ansic
+# Override service via FRONTEND_SERVICE env var (default: hermes-gateway.service).
+# Set in a drop-in or by running:
+#   systemctl --user edit frontend-watchdog.service
+# and adding: Environment=FRONTEND_SERVICE=opencode.service
+ExecStart=/usr/bin/python3 %h/coire-ansic/scripts/runtime/frontend_watchdog.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=60
+Nice=15
