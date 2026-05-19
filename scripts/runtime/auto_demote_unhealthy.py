@@ -65,6 +65,13 @@ AUTH = "Basic " + base64.b64encode(f"{USER}:{PASS}".encode()).decode()
 ERR_THRESHOLD = 5          # err count in 1h that triggers immediate fallback move
 P95_THRESHOLD_MS = 30_000  # latency p95 ceiling
 P95_STREAK_REQUIRED = 3    # consecutive ticks > P95_THRESHOLD before cutting weight
+# Window note: this script intentionally uses a tight 1h window for p95
+# (see collect_health) so it acts on RECENT health. The hourly audit cron
+# uses a wider window (300 logs, no time cutoff) for human-readable
+# historical context — its p95 can differ by an order of magnitude when
+# old slow events are still in buffer. That divergence is by design:
+# audit reports "is there a tail to investigate?", auto_demote answers
+# "is the target slow RIGHT NOW?".
 P95_CUT_FACTOR = 0.90      # 10% cut per qualifying tick
 MIN_PRIMARIES = 3          # never let any pool go below this
 MAX_CHANGES_PER_TICK = 2   # circuit-breaker against runaway oscillation
