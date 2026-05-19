@@ -129,25 +129,37 @@ def apply(plan, dry_run=False):
             print(f"  [WARN] pool '{pool_name}' has only {len(new_targets)} "
                   f"primary target(s) after filtering — pool intent (depth=3+) "
                   f"degraded", file=sys.stderr)
-        # Cross-check against the freeness-probe digest if present
-        # (~/.coire/curator-pool/free_tier_probe.json, written by
-        # scripts/runtime/probe_free_tier.py). Surface a WARN when a
-        # primary target is known-dead on the user's free tier — e.g.
-        # gemini-3-pro returns 'limit: 0', github-models gpt-4o has 8k
-        # context cap, deepseek/* has insufficient balance. Doesn't
-        # auto-mutate (config is a human decision) but makes drift visible.
+        # Cross-check against the freeness-probe digest. Primaries classified
+        # free_zero / needs_balance / not_available are auto-DEMOTED to the
+        # pool's fallback chain (was WARN-only). Re-probing dead primaries
+        # wastes RPM and cascades user traffic into 400s before reaching a
+        # working target. Safety: only demote if ≥3 primaries remain.
+        probe_demoted_keys: list[str] = []
         try:
             probe_path = Path.home() / ".coire" / "curator-pool" / "free_tier_probe.json"
             if probe_path.exists():
                 probe = json.loads(probe_path.read_text()).get("results", {})
                 bad = ("free_zero", "needs_balance", "not_available")
-                for t in new_targets:
-                    k = f"{t['provider']}/{t['model']}"
-                    summary = (probe.get(k) or {}).get("summary")
-                    if summary in bad:
-                        print(f"  [WARN] pool '{pool_name}' primary {k} "
-                              f"classified '{summary}' by last probe — consider "
-                              f"moving to fallback or removing", file=sys.stderr)
+                bad_targets = [t for t in new_targets
+                               if (probe.get(f"{t['provider']}/{t['model']}") or {}).get("summary") in bad]
+                if bad_targets:
+                    remaining = [t for t in new_targets if t not in bad_targets]
+                    if len(remaining) >= 3:
+                        for t in bad_targets:
+                            k = f"{t['provider']}/{t['model']}"
+                            summary = probe[k]["summary"]
+                            print(f"  [PROBE-DEMOTE] pool '{pool_name}' {k} "
+                                  f"classified '{summary}' — moving to fallback")
+                            probe_demoted_keys.append(k)
+                        new_targets = remaining
+                    else:
+                        for t in bad_targets:
+                            k = f"{t['provider']}/{t['model']}"
+                            summary = probe[k]["summary"]
+                            print(f"  [WARN] pool '{pool_name}' primary {k} "
+                                  f"classified '{summary}' but auto-demote would "
+                                  f"drop primaries below 3 — manual fix needed",
+                                  file=sys.stderr)
         except Exception as e:
             print(f"  [info] probe-json check failed: {e}", file=sys.stderr)
         new_targets = normalize(new_targets)
@@ -156,6 +168,12 @@ def apply(plan, dry_run=False):
             if fb not in demoted
             and (not configured or ("/" in fb and fb.split("/", 1)[0] in configured))
         ]
+        # Append probe-demoted primaries to fallback chain (de-duplicated).
+        # Placed AFTER yaml-declared fallbacks so the curated cascade order
+        # remains primary, with auto-demoted ones serving as last resort.
+        for k in probe_demoted_keys:
+            if k not in new_fallbacks:
+                new_fallbacks.append(k)
 
         if is_new:
             print(f"\n=== {pool_name} (CREATING NEW) ===")
