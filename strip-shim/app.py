@@ -338,6 +338,45 @@ async def proxy(path: str, request: Request):
 
     if is_stream:
         async def gen():
+            # Track last annotated model so we can emit a footer delta
+            # chunk before the stream's finish_reason chunk fires. Without
+            # this, openwebui (and similar) only show chunk.model as a
+            # subtle badge — easy to miss. Footer is visible in content.
+            last_model = ""
+
+            def maybe_footer_chunk(orig_event: bytes):
+                """Return optional footer event to yield BEFORE the
+                finish-reason chunk, or None."""
+                if not orig_event.startswith(b"data: ") or orig_event == b"data: [DONE]":
+                    return None
+                try:
+                    p = json.loads(orig_event[6:])
+                except (json.JSONDecodeError, ValueError):
+                    return None
+                if not isinstance(p, dict):
+                    return None
+                choices = p.get("choices") or []
+                if not choices:
+                    return None
+                fr = choices[0].get("finish_reason")
+                if not fr or fr == "tool_calls":
+                    return None
+                model = p.get("model") or last_model
+                if " · " not in model:
+                    return None
+                footer = {
+                    "id": p.get("id"),
+                    "object": "chat.completion.chunk",
+                    "created": p.get("created"),
+                    "model": model,
+                    "choices": [{
+                        "index": choices[0].get("index", 0),
+                        "delta": {"content": f"\n\n— *via {model}*"},
+                        "finish_reason": None,
+                    }],
+                }
+                return b"data: " + json.dumps(footer).encode() + b"\n\n"
+
             async with client.stream(
                 request.method, target, content=body, headers=headers,
                 params=dict(request.query_params),
@@ -345,10 +384,20 @@ async def proxy(path: str, request: Request):
                 buf = b""
                 async for chunk in r.aiter_raw():
                     buf += chunk
-                    # Process complete SSE events (separated by \n\n)
                     while b"\n\n" in buf:
                         event, buf = buf.split(b"\n\n", 1)
-                        yield _annotate_sse_event(event) + b"\n\n"
+                        annotated = _annotate_sse_event(event)
+                        try:
+                            j = json.loads(annotated[6:]) if annotated.startswith(b"data: ") and annotated != b"data: [DONE]" else None
+                            if isinstance(j, dict) and j.get("model"):
+                                last_model = j["model"]
+                        except (json.JSONDecodeError, ValueError):
+                            pass
+                        # Emit footer just BEFORE the finish-reason chunk
+                        fc = maybe_footer_chunk(annotated)
+                        if fc:
+                            yield fc
+                        yield annotated + b"\n\n"
                 if buf:
                     yield _annotate_sse_event(buf)
         return StreamingResponse(gen(), media_type="text/event-stream")
