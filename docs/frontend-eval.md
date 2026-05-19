@@ -34,8 +34,19 @@ Goal scoring:
   chat, would need a different default. Less reliable on factual claims
   out-of-the-box than hermes-agent.
 
-## Pending (require installation)
-- **opencode** (sst/opencode TUI) — Go binary, ~20MB. Should be quick.
+### opencode (sst/opencode) — RUN @ 22:15 WEST
+- Install: 4 (one curl-bash, ~20MB Go binary)
+- Tool accuracy: **5/5 — returned 10.11.8 (correct via real exec)**
+- TTFT: ~60-90s (hit shell-output timeout in test; clean tool flow)
+- Hallucinations: 0 — tried multiple binary paths, kept trying until success
+- UX: TUI with shell-style command visibility; great transparency
+- Config: ~/.config/opencode/opencode.json defines `coire` provider
+  pointing at strip-shim :4002 with pool aliases best/code/mid/fast as
+  selectable models
+- Notes: visible "$ docker exec ..." trace gives nice operator insight
+  but means longer TTFT. Honest failure path (tries alternatives).
+
+## Pending (require more install effort, unclear ROI)
 - **omp** — needs source clarification from user
 - **omo** — needs source clarification from user
 - **Codex CLI** — anthropic-style; install via npm/pip
@@ -43,12 +54,21 @@ Goal scoring:
 - **LobeChat** — web UI, lighter; docker
 
 ## Tentative ranking (subject to confirmation)
-1. **hermes-agent** — best in this round (correct answer, full stack, already
-   running). Recommended default.
-2. **pi-agent** — secondary; reliable for operator/automation tasks but
-   hallucinates more on factual queries.
-3. Others — pending install + test.
+1. **hermes-agent** — fastest (29s), correct, fullest feature stack
+   (memory, kanban, voice, agentic skills, Open WebUI integration).
+   Recommended default for user-facing chat.
+2. **opencode** — correct, transparent shell-style UX, no hallucinations.
+   Slower TTFT but ideal for "I want to see what the agent is doing"
+   workflows. Strong secondary option.
+3. **pi-agent** — fastest to call (already installed) but hallucinates
+   factual claims without verifying. Keep for operator/automation
+   (where it's currently used) — not promoted to user chat.
+4. Others — pending install + test (no clear ROI without user steering).
 
-**ASK USER**: lock in hermes-agent as the official user-chat frontend?
-Or keep both (hermes for chat, pi-agent for operator)? Or push install
-remaining candidates first?
+**ASK USER**:
+- Lock hermes-agent as the default user chat? (Open WebUI :3030
+  already points there.)
+- Keep opencode installed as alternate frontend (~/.opencode/bin/opencode,
+  `coire/best` model wired) for transparent-shell workflows?
+- Want me to install + test the remaining 5 candidates, or are these
+  three enough to make a call?
