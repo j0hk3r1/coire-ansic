@@ -169,6 +169,41 @@ High-RPD inst/fast tier only. Quality not needed.
 - visual-engineering / artistry depend on Gemini Pro per omo — we have Flash variants
   only (free-tier zero for pro). UX will be acceptable, not optimal.
 
+## Model-variant prompt routing — a deeper constraint
+
+Cloned omo and read `src/agents/*/AGENTS.md` + `src/shared/model-requirements.ts`.
+Every Sisyphus/Atlas/Prometheus/Junior agent has MULTIPLE prompt variants
+(default/Claude ~1100 LOC, gpt.ts ~120 LOC, gemini.ts, kimi.ts) that auto-route
+based on the model identifier string.
+
+When we pin `sisyphus -> coire/best`, omo sees model name "best" (no claude/
+gpt/gemini/kimi pattern match) and falls back to the **default (Claude)
+prompt variant**. That prompt expects mechanics-driven instruction following.
+
+Implication: code pool's primary cerebras/gpt-oss-120b will get the Claude
+prompt, not the GPT-tuned one. Should still work — gpt-oss is instruct-tuned
+and handles Claude-style prompts decently — but loses the prompt-tuning
+benefit omo's developers put in.
+
+Two possible upgrades (future work, not blocking):
+
+**(a) Hint the family in the pool alias name.** Expose dual aliases:
+  `coire/best-claude` -> same backend rule as best (Claude-style primaries)
+  `coire/gpt-code`    -> same backend as code (GPT-style primaries)
+  `coire/gemini-vision` -> same backend as vision
+
+omo's variant detector matches substring `claude`/`gpt`/`gemini`/`kimi` in
+the model id; the alias name carries the hint. bifrost can host multiple
+routing rules with the same target list — cheap to add.
+
+**(b) Per-agent direct-target pinning.** Skip pool aliases for agents whose
+prompt-variant matters (Sisyphus, Hephaestus). Pin `sisyphus ->
+coire-bifrost/kimi-k2.6` directly so omo sees "kimi" and uses the Kimi
+variant. Loses pool routing benefits (no cascade) for those agents.
+
+Recommendation: ship pool tuning first (this doc), then add (a) as v2 if
+prompt-variant mismatch shows up in real omo runs.
+
 ## Apply path
 
 When approved:

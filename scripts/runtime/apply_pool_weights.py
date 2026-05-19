@@ -83,6 +83,11 @@ def load_configured_providers() -> set:
 
 def apply(plan, dry_run=False):
     rules = {r["name"]: r for r in req("GET", "/governance/routing-rules").get("rules", [])}
+    # Bifrost enforces unique priority per (scope, priority). Existing rules
+    # may have priorities 0, 10, 11... When CREATING new rules we MUST pick
+    # an unused priority value or POST 500s with "priority already exists".
+    # Track max so we can hand out priority = max+1, +2, ... for each new pool.
+    next_priority = max([r.get("priority", 0) for r in rules.values()] + [0]) + 1
     demoted = load_demoted_keys()
     configured = load_configured_providers()
     if demoted:
@@ -189,8 +194,9 @@ def apply(plan, dry_run=False):
                 "fallbacks": new_fallbacks,
                 "scope": "global",
                 "scope_id": None,
-                "priority": 0,
+                "priority": next_priority,
             }
+            next_priority += 1
             try:
                 res = req("POST", "/governance/routing-rules", create_body)
                 rule = res.get("rule") or res

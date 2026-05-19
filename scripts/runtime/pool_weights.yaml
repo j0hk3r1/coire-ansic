@@ -299,3 +299,160 @@ pools:
     - groq/llama-3.1-8b-instant
     - groq/openai/gpt-oss-20b
     - nvidia-nim/meta/llama-3.3-70b-instruct
+
+  # ─── omo-* pools (oh-my-openagent tailored) ───────────────────────────────
+  # Designed for code-yeongyu/oh-my-openagent multi-agent harness.
+  # Pool ALIAS names contain family-substring (kimi/gpt-5-5/gemini) so omo's
+  # extractModelName + isXxxModel matchers (src/agents/types.ts) auto-select
+  # the correct prompt variant when an agent is pinned to one of these pools.
+  #
+  # Mapping (see adapters/omo/oh-my-openagent.json):
+  #   sisyphus, atlas, prometheus, metis, junior        -> omo-kimi
+  #   hephaestus, oracle, momus, ultrabrain, deep       -> omo-gpt-5-5
+  #   multimodal-looker, visual-engineering, artistry   -> omo-gemini
+  #   explore, librarian, quick                         -> omo-utility
+  #   writing, unspecified-high/-low                    -> omo-kimi
+  #
+  # Per-pool composition follows omo's agent-model-matching.md:
+  #   - Communicator pools lead with Kimi K2.6 / Qwen-235b / GLM (Claude substitutes)
+  #   - Deep pool leads with gpt-oss-120b / deepseek-v4-flash (GPT substitutes)
+  #   - Visual pool leads with Gemini family (no Claude/Kimi per omo doc)
+  #   - Utility pool leads with inst-tier small models (no frontier — wasteful per omo)
+
+  omo-kimi:
+    # Communicator/orchestrator pool. Name contains "kimi" → omo loads
+    # Kimi K2.x prompt variant. Composition is Claude-substitute heavy.
+    targets:
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.25
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.5'
+      weight: 0.18
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.18
+    - provider: cerebras
+      model: zai-glm-4.7
+      weight: 0.13
+    - provider: cohere
+      model: command-a-03-2025
+      weight: 0.10
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.08
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.05
+    - provider: mistral
+      model: mistral-large-latest
+      weight: 0.03
+    fallbacks:
+    - nvidia-nim/moonshotai/kimi-k2.6
+    - openrouter/openai/gpt-oss-120b:free
+    - openrouter/z-ai/glm-4.5-air:free
+    - sambanova/DeepSeek-V3.1
+    - deepseek/deepseek-chat
+
+  omo-gpt-5-5:
+    # Deep specialist pool. Name contains "gpt-5-5" → omo loads GPT-5.5
+    # prompt variant. Composition is GPT-family OSS heavy.
+    targets:
+    - provider: cerebras
+      model: gpt-oss-120b
+      weight: 0.30
+    - provider: openrouter
+      model: openai/gpt-oss-120b:free
+      weight: 0.20
+    - provider: openrouter
+      model: deepseek/deepseek-v4-flash:free
+      weight: 0.15
+    - provider: mistral
+      model: codestral-latest
+      weight: 0.12
+    - provider: cf-openai
+      model: '@cf/qwen/qwen2.5-coder-32b-instruct'
+      weight: 0.10
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.08
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.05
+    fallbacks:
+    - sambanova/DeepSeek-V3.2
+    - sambanova/DeepSeek-V3.1
+    - mistral/mistral-medium-3.5
+    - cerebras/zai-glm-4.7
+    - nvidia-nim/moonshotai/kimi-k2.6
+    - deepseek/deepseek-reasoner
+
+  omo-gemini:
+    # Visual pool. Name contains "gemini" → omo loads Gemini prompt variant.
+    # Per omo doc: NO Claude/Kimi here — wrong style for visual reasoning.
+    targets:
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.30
+    - provider: gemini
+      model: gemini-2.5-flash
+      weight: 0.22
+    - provider: gemini
+      model: gemini-3.1-flash-lite-preview
+      weight: 0.15
+    - provider: mistral
+      model: pixtral-large-latest
+      weight: 0.13
+    - provider: gemini
+      model: gemini-flash-latest
+      weight: 0.10
+    - provider: github-models
+      model: openai/gpt-4o-mini
+      weight: 0.05
+    - provider: cohere
+      model: command-a-vision-07-2025
+      weight: 0.05
+    fallbacks:
+    - nvidia-nim/meta/llama-3.2-90b-vision-instruct
+    - nvidia-nim/meta/llama-3.2-11b-vision-instruct
+    - mistral/pixtral-12b-latest
+    - openrouter/nvidia/nemotron-nano-12b-v2-vl:free
+    - cohere/c4ai-aya-vision-32b
+
+  omo-utility:
+    # Speed-critical pool for Explore/Librarian/quick. No family substring
+    # → omo loads default (Claude) prompt — fine because utility agents
+    # don't need deep reasoning, just speed + tool fan-out.
+    # All inst/fast tier. Zero frontier models per omo's "no Opus for
+    # utility — wasteful overprovision" rule.
+    targets:
+    - provider: groq
+      model: llama-3.1-8b-instant
+      weight: 0.25
+    - provider: cerebras
+      model: llama3.1-8b
+      weight: 0.22
+    - provider: groq
+      model: openai/gpt-oss-20b
+      weight: 0.15
+    - provider: groq
+      model: qwen/qwen3-32b
+      weight: 0.10
+    - provider: github-models
+      model: openai/gpt-4.1-mini
+      weight: 0.10
+    - provider: github-models
+      model: openai/gpt-4o-mini
+      weight: 0.08
+    - provider: gemini
+      model: gemini-3.1-flash-lite-preview
+      weight: 0.07
+    - provider: gemini
+      model: gemini-flash-lite-latest
+      weight: 0.03
+    fallbacks:
+    - groq/llama-3.3-70b-versatile
+    - github-models/openai/gpt-4.1-nano
+    - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
+    - mistral/mistral-small-latest
+    - nvidia-nim/meta/llama-3.3-70b-instruct

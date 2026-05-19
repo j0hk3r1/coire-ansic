@@ -1,25 +1,27 @@
 {
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+  "_doc": "omo agent->pool mapping using omo-* pools whose alias names contain family substrings (kimi/gpt-5-5/gemini) so omo's variant matcher in src/agents/types.ts auto-selects the right prompt variant. See docs/omo-pool-tuning.md.",
   "agents": {
-    "hephaestus": {"model": "coire/code"},
-    "oracle": {"model": "coire/best"},
-    "librarian": {"model": "coire/fast"},
-    "explore": {"model": "coire/fast"},
-    "multimodal-looker": {"model": "coire/vision"},
-    "prometheus": {"model": "coire/best"},
-    "metis": {"model": "coire/best"},
-    "momus": {"model": "coire/code"},
-    "atlas": {"model": "coire/best"},
-    "sisyphus-junior": {"model": "coire/mid"}
+    "sisyphus":          {"model": "coire/omo-kimi"},
+    "atlas":             {"model": "coire/omo-kimi"},
+    "prometheus":        {"model": "coire/omo-gpt-5-5"},
+    "metis":             {"model": "coire/omo-kimi"},
+    "hephaestus":        {"model": "coire/omo-gpt-5-5"},
+    "oracle":            {"model": "coire/omo-gpt-5-5"},
+    "momus":             {"model": "coire/omo-gpt-5-5"},
+    "librarian":         {"model": "coire/omo-utility"},
+    "explore":           {"model": "coire/omo-utility"},
+    "multimodal-looker": {"model": "coire/omo-gemini"},
+    "sisyphus-junior":   {"model": "coire/omo-kimi"}
   },
   "categories": {
-    "visual-engineering": {"model": "coire/vision"},
-    "ultrabrain": {"model": "coire/best"},
-    "deep": {"model": "coire/best"},
-    "artistry": {"model": "coire/best"},
-    "quick": {"model": "coire/fast"},
-    "unspecified-low": {"model": "coire/mid"},
-    "unspecified-high": {"model": "coire/best"},
-    "writing": {"model": "coire/compress"}
+    "visual-engineering": {"model": "coire/omo-gemini"},
+    "artistry":           {"model": "coire/omo-gemini"},
+    "ultrabrain":         {"model": "coire/omo-gpt-5-5"},
+    "deep":               {"model": "coire/omo-gpt-5-5"},
+    "quick":              {"model": "coire/omo-utility"},
+    "writing":            {"model": "coire/omo-kimi"},
+    "unspecified-high":   {"model": "coire/omo-kimi"},
+    "unspecified-low":    {"model": "coire/omo-kimi"}
   }
 }
