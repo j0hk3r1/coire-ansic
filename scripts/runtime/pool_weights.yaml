@@ -53,8 +53,11 @@ pools:
     - provider: sambanova
       model: DeepSeek-V3.1
       weight: 0.05
+    # NB: gemini-3-pro-preview / gemini-3.1-pro-preview confirmed
+    # FREE-TIER ZERO via error 'limit: 0, model: gemini-3.1-pro' from
+    # generativelanguage.googleapis.com — moved to fallback only.
     - provider: gemini
-      model: gemini-3-pro-preview
+      model: gemini-3-flash-preview
       weight: 0.04
     - provider: cerebras
       model: zai-glm-4.7
@@ -81,34 +84,34 @@ pools:
     - deepseek/deepseek-chat
     - deepseek/deepseek-reasoner
   code:
+    # 2026-05-19: nvidia-nim/kimi-k2.6 (p95 >100s sustained) + github-models/
+    # openai/gpt-4.1 (free-tier 8k token cap, every hermes-agent call 413s)
+    # moved to fallback. Re-normalized 8 remaining primaries to 1.0.
     targets:
-    - provider: nvidia-nim
-      model: moonshotai/kimi-k2.6
-      weight: 0.2197
-    - provider: github-models
-      model: openai/gpt-4.1
-      weight: 0.1997
     - provider: groq
       model: openai/gpt-oss-120b
-      weight: 0.1652
+      weight: 0.28
     - provider: mistral
       model: codestral-latest
-      weight: 0.1198
-    - provider: cf-openai
-      model: '@cf/qwen/qwen2.5-coder-32b-instruct'
-      weight: 0.0404
-    - provider: cf-openai
-      model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.0404
-    - provider: mistral
-      model: mistral-medium-3.5
-      weight: 0.0699
-    - provider: github-models
-      model: openai/gpt-4.1-mini
-      weight: 0.0499
+      weight: 0.18
+    - provider: cerebras
+      model: gpt-oss-120b
+      weight: 0.15
     - provider: groq
       model: llama-3.3-70b-versatile
-      weight: 0.055
+      weight: 0.10
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.08
+    - provider: github-models
+      model: openai/gpt-4.1-mini
+      weight: 0.07
+    - provider: cf-openai
+      model: '@cf/qwen/qwen2.5-coder-32b-instruct'
+      weight: 0.05
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.05
     - provider: cohere
       model: command-a-03-2025
       weight: 0.02
@@ -116,6 +119,8 @@ pools:
       model: DeepSeek-V3.1
       weight: 0.02
     fallbacks:
+    - nvidia-nim/moonshotai/kimi-k2.6
+    - github-models/openai/gpt-4.1
     - github-models/openai/gpt-4o
     - cohere/command-a-reasoning-08-2025
     - openrouter/openai/gpt-oss-120b:free
@@ -123,6 +128,7 @@ pools:
     - cf-openai/@cf/moonshotai/kimi-k2.5
     - gemini/gemini-2.5-flash
     - sambanova/Llama-4-Maverick-17B-128E-Instruct
+    - deepseek/deepseek-chat
   compress:
     # Compress = long-context summarization (8-30k token prompts typical).
     # History:
