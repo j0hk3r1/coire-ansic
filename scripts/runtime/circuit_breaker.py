@@ -666,6 +666,13 @@ def tick(state, error_window, once_mode=False):
                     is_timeout = True
                 if is_daily_quota_msg(msg_l, prov, model):
                     is_quota = True
+                # 402 / "insufficient balance" — pre-paid provider credit
+                # depleted (deepseek, anthropic-direct, openai-direct). Treat
+                # as daily-quota so CB demotes for 24h then re-probes (in case
+                # user tops up). Without this, every call eats latency on a
+                # guaranteed-fail target.
+                elif status_code == 402 or "insufficient balance" in msg_l or "insufficient_quota" in msg_l:
+                    is_quota = True
                 # 429 on known daily-cap target → treat as quota (cf, gemini-pro, OR :free on $0 credit)
                 elif status_code == 429 and is_daily_capped_target(prov, model):
                     is_quota = True

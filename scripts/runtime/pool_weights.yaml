@@ -75,6 +75,11 @@ pools:
     - openrouter/deepseek/deepseek-v4-flash:free
     - cf-openai/@cf/moonshotai/kimi-k2.5
     - sambanova/DeepSeek-V3.2
+    # deepseek-chat / -reasoner — work only when user has balance on
+    # DEEPSEEK_API_KEY. CB auto-demotes on 'Insufficient Balance' for 24h
+    # so a depleted account doesn't add latency to every cascade.
+    - deepseek/deepseek-chat
+    - deepseek/deepseek-reasoner
   code:
     targets:
     - provider: nvidia-nim
