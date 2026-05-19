@@ -79,6 +79,19 @@ if [ -z "${BIFROST_PASS:-}" ]; then
   export BIFROST_PASS="$GEN_PASS"
   ok "generated BIFROST_PASS"
 fi
+# API_SERVER_KEY auto-gen — hermes-agent api_server platform Bearer auth.
+# Only consumed when --with-hermes installs the systemd drop-in (below);
+# but generated up-front so the value is consistent if user later opts in.
+if [ -z "${API_SERVER_KEY:-}" ]; then
+  GEN_KEY="sk-hermes-$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 32)"
+  if grep -q '^API_SERVER_KEY=' .env; then
+    sed -i "s|^API_SERVER_KEY=.*|API_SERVER_KEY=$GEN_KEY|" .env
+  else
+    printf '\nAPI_SERVER_KEY=%s\n' "$GEN_KEY" >> .env
+  fi
+  export API_SERVER_KEY="$GEN_KEY"
+  ok "generated API_SERVER_KEY (hermes api_server bearer)"
+fi
 # Count configured provider keys — warn if zero (router would be useless)
 PROVIDER_COUNT=0
 for v in GROQ_API_KEY GEMINI_API_KEY MISTRAL_API_KEY CEREBRAS_API_KEY NVIDIA_API_KEY \
@@ -268,6 +281,33 @@ PYEOF
   fi
   ln -sf "$ROOT/.env" "$HOME/.hermes/.env"
   ok "linked"
+
+  step "[adapter] hermes api_server (OpenAI-compat HTTP for chat UIs)"
+  # Hermes-gateway ships an OpenAI-compat HTTP server platform at
+  # gateway/platforms/api_server.py that exposes /v1/chat/completions
+  # backed by the full hermes agent loop (memory, tools, planning).
+  # Open WebUI / LibreChat / LobeChat / etc. point at it directly.
+  #
+  # Enable via env vars BUT use a systemd drop-in (not the main unit
+  # file) because hermes-gateway *regenerates* its own systemd unit
+  # on every gateway run — any Environment= lines we add to the main
+  # unit get clobbered. Drop-ins under .service.d/ are auto-merged
+  # by systemd and untouched by hermes.
+  DROP_IN_DIR="$HOME/.config/systemd/user/hermes-gateway.service.d"
+  mkdir -p "$DROP_IN_DIR"
+  cat > "$DROP_IN_DIR/api-server.conf" <<EOF
+# Managed by coire-ansic install.sh — re-run install to update.
+# Hermes-agent api_server platform: OpenAI-compat HTTP at :8642
+# (see https://github.com/NousResearch/hermes-agent gateway/platforms/api_server.py)
+[Service]
+Environment=API_SERVER_ENABLED=true
+Environment=API_SERVER_KEY=$API_SERVER_KEY
+Environment=API_SERVER_PORT=8642
+Environment=API_SERVER_HOST=0.0.0.0
+Environment=API_SERVER_CORS_ORIGINS=*
+EOF
+  ok "wrote drop-in: $DROP_IN_DIR/api-server.conf"
+  systemctl --user daemon-reload 2>/dev/null || true
 
   step "[adapter] patch hermes-agent TUI status bar (provider/model)"
   if [ -d "$HOME/hermes-agent" ]; then

@@ -27,6 +27,9 @@ echo "▶ stopping gateway"
 PATH="$HOME/hermes-agent/venv/bin:$PATH"
 hermes gateway stop 2>/dev/null || true
 hermes gateway uninstall 2>/dev/null || true
+# Remove our drop-in (hermes won't, it owns only the main unit file)
+rm -rf "$HOME/.config/systemd/user/hermes-gateway.service.d" 2>/dev/null || true
+systemctl --user daemon-reload 2>/dev/null || true
 
 echo "▶ docker compose down"
 docker compose down -v 2>/dev/null || true

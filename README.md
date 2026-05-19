@@ -74,7 +74,7 @@ view of which models are excluded and why.
 
 | Flag | What it adds |
 |---|---|
-| `--with-hermes` | [Nous hermes-agent] CLI + gateway + free-provider scout cron |
+| `--with-hermes` | [Nous hermes-agent] CLI + gateway + free-provider scout cron + OpenAI-compat HTTP at `:8642` (api_server platform) for chat UIs |
 | `--with-telegram` | Telegram bot pairing (requires `--with-hermes`) |
 | `--with-firecrawl` | Local web_extract backend |
 | `--with-searxng` | Self-hosted meta-search |
