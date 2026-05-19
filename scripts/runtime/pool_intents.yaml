@@ -1,0 +1,124 @@
+# Pool intent specs — what each pool is FOR, in terms of capability requirements.
+# Read by build_pool_targets.py alongside model_capabilities.yaml to auto-assemble
+# pool_weights.yaml without hand-tuning.
+#
+# Rules:
+#   needs:    all conditions must match (AND). Numeric fields: model_value >= needs_value.
+#             Categorical fields (tools, free_tier): exact match.
+#   exclude:  any matching condition disqualifies. Used for "this property would
+#             break the pool" — e.g. tpm_cap < 8000 breaks long-context pools.
+#   prefer:   soft-scoring, used to ORDER targets within the pool. Higher quality
+#             gets higher weight (renormalized to 1.0 after).
+#   max_per_provider: ≤ this fraction of total weight per provider (enforces spread).
+#   min_primaries: refuse to emit a pool with fewer primaries (else escalate).
+#   max_primaries: cap targets list so cascade stays sane.
+#
+# Capability fields available: ctx_input, ctx_output, rpm_cap, tpm_cap, rpd_cap,
+#   tools (none|simple|full), vision (bool), reasoning (bool), quality_score (0-100),
+#   free_tier (ok|needs_balance|free_zero|unstable).
+
+pools:
+
+  best:
+    description: Frontier-tier quality, long-context user-facing chat
+    needs:
+      ctx_input: 64000        # hermes carries ~15-20k history easily; need headroom
+      tools: full
+      free_tier: ok
+    exclude:
+      tpm_cap_below: 8000     # groq 6k TPM cap → 413 on real chats
+    prefer:
+      quality_score: high     # rank primaries by AA score
+      ctx_input: high
+    max_per_provider: 0.40    # spread; no single provider > 40% weight
+    min_primaries: 4
+    max_primaries: 10
+
+  code:
+    description: Code generation + review, long-context multi-file
+    needs:
+      ctx_input: 32000
+      tools: full
+      free_tier: ok
+    exclude:
+      tpm_cap_below: 8000
+    prefer:
+      quality_score: high
+      # code-specialized models (codestral, qwen2.5-coder, gpt-oss) get implicit boost
+      # via quality_source + name-pattern heuristic in build script
+    max_per_provider: 0.40
+    min_primaries: 4
+    max_primaries: 10
+
+  mid:
+    description: Mid-tier dialog + tool use, general agentic workloads
+    needs:
+      ctx_input: 16000
+      tools: full
+      free_tier: ok
+    prefer:
+      quality_score: high
+    max_per_provider: 0.40
+    min_primaries: 4
+    max_primaries: 10
+
+  fast:
+    description: Low-latency Q/A, short prompts, simple tools
+    needs:
+      ctx_input: 4000
+      free_tier: ok
+    prefer:
+      quality_score: high
+      # short ctx tolerable here; groq fits since prompts stay small
+    max_per_provider: 0.40
+    min_primaries: 4
+    max_primaries: 10
+
+  compress:
+    description: Long-input summarization, no tools required
+    needs:
+      ctx_input: 64000
+      free_tier: ok
+    prefer:
+      quality_score: high
+      ctx_input: high
+    max_per_provider: 0.40
+    min_primaries: 3
+    max_primaries: 8
+
+  vision:
+    description: Image-input tasks
+    needs:
+      vision: true
+      free_tier: ok
+    prefer:
+      quality_score: high
+    max_per_provider: 0.40
+    min_primaries: 3
+    max_primaries: 8
+
+  ops:
+    description: Operator agents (pi-op-*) — isolated, tool-heavy, low quality OK
+    needs:
+      ctx_input: 8000
+      tools: full
+      free_tier: ok
+    prefer:
+      rpd_cap: high           # operator loops are RPD-hungry
+    max_per_provider: 0.50    # ops can lean on cerebras heavier (it's idle for users)
+    min_primaries: 3
+    max_primaries: 6
+
+# Fallback chain assembly:
+# - Any model NOT picked as a primary for a pool but matching its 'needs' AND not
+#   in 'exclude' gets appended to the pool's fallback chain in quality-score order.
+# - free_tier == needs_balance models get appended LAST (only kicks in when user has
+#   actual deepseek/openrouter credits — see auto-demote logic).
+# - nvidia-nim/kimi-k2.6 + similar cold-start-heavy targets get appended at the very
+#   end via the special "cold_start" flag in capabilities yaml (TBD when build script
+#   evolves; for now they're listed last alphabetically as a proxy).
+
+fallback_policy:
+  cold_start_last: true       # demote cold-start-heavy models to end of fallback chain
+  needs_balance_last: true    # paid-tier targets only kick in when user adds credits
+  max_fallbacks_per_pool: 12  # don't over-cascade
