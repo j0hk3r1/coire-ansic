@@ -97,42 +97,37 @@
         {
           "provider": "cerebras",
           "model": "qwen-3-235b-a22b-instruct-2507",
-          "weight": 0.2982
+          "weight": 0.3181
         },
         {
           "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.2401
+          "weight": 0.2561
         },
         {
           "provider": "cohere",
           "model": "command-a-03-2025",
-          "weight": 0.1491
+          "weight": 0.1591
         },
         {
           "provider": "gemini",
           "model": "gemini-3-flash-preview",
-          "weight": 0.0895
+          "weight": 0.0955
         },
         {
           "provider": "mistral",
           "model": "mistral-large-latest",
-          "weight": 0.0795
-        },
-        {
-          "provider": "cerebras",
-          "model": "zai-glm-4.7",
-          "weight": 0.0626
+          "weight": 0.0848
         },
         {
           "provider": "sambanova",
           "model": "DeepSeek-V3.1",
-          "weight": 0.0497
+          "weight": 0.053
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.0313
+          "weight": 0.0334
         }
       ],
       "fallbacks": [
