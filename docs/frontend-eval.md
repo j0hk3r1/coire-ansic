@@ -46,10 +46,16 @@ Goal scoring:
 - Notes: visible "$ docker exec ..." trace gives nice operator insight
   but means longer TTFT. Honest failure path (tries alternatives).
 
+### Codex CLI (@openai/codex 0.131.0) — TESTED @ 22:05 WEST
+- Install: 5 (npm install -g @openai/codex)
+- Config requirement: `wire_api = "responses"` is now MANDATORY.
+  bifrost + strip-shim only speak chat/completions today.
+- Verdict: **incompatible with our stack** without writing a Responses
+  API adapter for strip-shim. Skipping for this round.
+
 ## Pending (require more install effort, unclear ROI)
 - **omp** — needs source clarification from user
 - **omo** — needs source clarification from user
-- **Codex CLI** — anthropic-style; install via npm/pip
 - **LibreChat** — full web UI, heavier; docker-compose
 - **LobeChat** — web UI, lighter; docker
 
