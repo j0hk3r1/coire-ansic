@@ -95,29 +95,24 @@
       "cel_expression": "model == \"best\"",
       "targets": [
         {
-          "provider": "groq",
-          "model": "openai/gpt-oss-120b",
-          "weight": 0.22
-        },
-        {
           "provider": "cerebras",
           "model": "qwen-3-235b-a22b-instruct-2507",
-          "weight": 0.2
+          "weight": 0.3
         },
         {
           "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.16
+          "weight": 0.23
         },
         {
           "provider": "cohere",
           "model": "command-a-03-2025",
-          "weight": 0.1
+          "weight": 0.15
         },
         {
-          "provider": "groq",
-          "model": "llama-3.3-70b-versatile",
-          "weight": 0.08
+          "provider": "gemini",
+          "model": "gemini-3-flash-preview",
+          "weight": 0.1
         },
         {
           "provider": "mistral",
@@ -125,19 +120,14 @@
           "weight": 0.08
         },
         {
+          "provider": "cerebras",
+          "model": "zai-glm-4.7",
+          "weight": 0.06
+        },
+        {
           "provider": "sambanova",
           "model": "DeepSeek-V3.1",
           "weight": 0.05
-        },
-        {
-          "provider": "cerebras",
-          "model": "zai-glm-4.7",
-          "weight": 0.04
-        },
-        {
-          "provider": "gemini",
-          "model": "gemini-3-flash-preview",
-          "weight": 0.04
         },
         {
           "provider": "cf-openai",
@@ -146,18 +136,17 @@
         }
       ],
       "fallbacks": [
-        "nvidia-nim/moonshotai/kimi-k2.6",
         "mistral/mistral-medium-3.5",
         "cohere/command-a-reasoning-08-2025",
         "cf-openai/@cf/nvidia/nemotron-3-120b-a12b",
-        "gemini/gemini-3-flash-preview",
         "openrouter/openai/gpt-oss-120b:free",
         "openrouter/z-ai/glm-4.5-air:free",
         "openrouter/deepseek/deepseek-v4-flash:free",
         "cf-openai/@cf/moonshotai/kimi-k2.5",
         "sambanova/DeepSeek-V3.2",
         "deepseek/deepseek-chat",
-        "deepseek/deepseek-reasoner"
+        "deepseek/deepseek-reasoner",
+        "nvidia-nim/moonshotai/kimi-k2.6"
       ],
       "scope": "global",
       "scope_id": null,
