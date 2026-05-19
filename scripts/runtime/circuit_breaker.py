@@ -306,6 +306,23 @@ def evaluate_target(events: list) -> tuple[bool, str, bool]:
 def fetch_pools():
     return {r["name"]: r for r in req("GET", "/governance/routing-rules").get("rules", [])}
 
+
+def target_in_live_rules(provider: str, model: str, pools: dict) -> bool:
+    """Return True if provider/model is referenced as a primary target OR
+    fallback in any current routing rule. Used to drop stale CB demoted
+    entries — when a model has been removed from pool_weights.yaml + applied,
+    CB shouldn't keep smoke-probing it. Each probe burns a request slot and
+    spams the error log with 'no keys found' or similar."""
+    key = f"{provider}/{model}"
+    for rule in pools.values():
+        for t in rule.get("targets") or []:
+            if t.get("provider") == provider and t.get("model") == model:
+                return True
+        for fb in rule.get("fallbacks") or []:
+            if isinstance(fb, str) and fb == key:
+                return True
+    return False
+
 def write_pool(rule, new_targets):
     body = {
         "name": rule["name"],
@@ -768,6 +785,17 @@ def tick(state, error_window, once_mode=False):
         if info.get("pruned"):
             continue  # permanently dead — checked once a day in case provider revives
         prov, model = key.split("/", 1)
+        # Self-cleanup: if the target is no longer in ANY routing rule
+        # (primary or fallback), there's nothing to restore TO. The
+        # smoke_test would still fire a request that yields 'no keys
+        # found that support model: X' — pure noise in error logs.
+        # Drop the entry instead.
+        if not target_in_live_rules(prov, model, pools):
+            print(f"[CLEANUP] {prov}/{model} — no longer in any pool, dropping CB entry")
+            log_event({"action": "ghost_dropped", "provider": prov, "model": model,
+                       "reason": "absent from live routing rules"})
+            state["demoted"].pop(key, None)
+            continue
         print(f"[RESTORE-CHECK] {prov}/{model}")
         restore_target(prov, model, info, pools, state)
 
