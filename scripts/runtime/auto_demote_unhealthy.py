@@ -93,9 +93,14 @@ def save_state(s: dict) -> None:
 def collect_health() -> tuple[dict, dict]:
     """Pull recent bifrost logs; return (err_count_by_pm, latencies_by_pm).
 
-    Filters to last 60 minutes by timestamp (bifrost returns most-recent
-    first, but the API doesn't accept a since= filter directly so we
-    over-fetch + trim).
+    Filters to last 60 minutes by timestamp. Skips logs whose input_history
+    indicates an orphan-tool malformed request — those errors are caused
+    by the client (typically pi-mono mid-tool-flow compaction), not by the
+    upstream provider's health, and shouldn't count toward auto-demotion.
+    Mirrors circuit_breaker.py's malformed-input guard.
+
+    Also skips list_models bookkeeping errors — they're internal sync
+    noise, not real traffic.
     """
     raw = jget("/api/logs?limit=500&order=desc")
     logs = raw.get("logs", raw) if isinstance(raw, dict) else raw
@@ -115,6 +120,21 @@ def collect_health() -> tuple[dict, dict]:
             continue
         k = f"{prov}/{model}"
         if l.get("status") == "error":
+            ih = l.get("input_history") or []
+            # Orphan-tool malformed input — not a provider health signal
+            if ih and len(ih) == 1 and ih[0].get("role") == "tool":
+                continue
+            if ih and ih[-1].get("role") == "tool":
+                has_call = any(m.get("role") == "assistant" and m.get("tool_calls")
+                               for m in ih)
+                if not has_call:
+                    continue
+            # list_models polling noise (bifrost internal)
+            ed = l.get("error_details") or {}
+            eo = ed.get("error") or {} if isinstance(ed, dict) else {}
+            msg = (eo.get("message") if isinstance(eo, dict) else "") or ""
+            if "list_models is not supported" in msg:
+                continue
             err_counts[k] += 1
         elif l.get("latency") is not None:
             latencies[k].append(int(l["latency"]))
