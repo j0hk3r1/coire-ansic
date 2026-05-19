@@ -70,8 +70,10 @@ pools:
     - mistral/mistral-medium-3.5
     - cohere/command-a-reasoning-08-2025
     - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
-    - github-models/openai/gpt-4.1
-    - github-models/openai/gpt-4o
+    # github-models full models (gpt-4o, gpt-4.1) removed from this
+    # fallback chain — free tier has 8k token cap, every hermes-agent
+    # call (15k+) 413s and wastes the cascade slot. Kept in fast/mid
+    # fallbacks where prompts are short.
     - gemini/gemini-3.1-pro-preview
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/z-ai/glm-4.5-air:free
@@ -120,8 +122,10 @@ pools:
       weight: 0.02
     fallbacks:
     - nvidia-nim/moonshotai/kimi-k2.6
-    - github-models/openai/gpt-4.1
-    - github-models/openai/gpt-4o
+    # github-models full models (gpt-4o, gpt-4.1) removed from this
+    # fallback chain — free tier has 8k token cap, every hermes-agent
+    # call (15k+) 413s and wastes the cascade slot. Kept in fast/mid
+    # fallbacks where prompts are short.
     - cohere/command-a-reasoning-08-2025
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/meta-llama/llama-3.3-70b-instruct:free
