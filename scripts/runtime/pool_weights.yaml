@@ -139,32 +139,33 @@ pools:
     - cf-openai/@cf/moonshotai/kimi-k2.5
     - groq/qwen/qwen3-32b
   fast:
+    # 2026-05-19 auto: groq/llama-3.1-8b-instant moved primary→fallback —
+    # ≥6 HTTP 413 'request too large' in last hour (6k TPM bucket can't
+    # absorb pi-op-queue probe bursts). Remaining 7 primaries renormalized.
     targets:
     - provider: cerebras
       model: llama3.1-8b
-      weight: 0.2111
+      weight: 0.2607
     - provider: github-models
       model: openai/gpt-4o-mini
-      weight: 0.1723
-    - provider: groq
-      model: llama-3.1-8b-instant
-      weight: 0.19
+      weight: 0.2127
     - provider: groq
       model: openai/gpt-oss-20b
-      weight: 0.1267
+      weight: 0.1564
     - provider: mistral
       model: mistral-small-latest
-      weight: 0.0957
+      weight: 0.1181
     - provider: gemini
       model: gemini-3.1-flash-lite-preview
-      weight: 0.0775
+      weight: 0.0957
     - provider: groq
       model: llama-3.3-70b-versatile
-      weight: 0.0739
+      weight: 0.0912
     - provider: groq
       model: qwen/qwen3-32b
-      weight: 0.0528
+      weight: 0.0652
     fallbacks:
+    - groq/llama-3.1-8b-instant
     - github-models/openai/gpt-4.1-nano
     - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
     - nvidia-nim/meta/llama-3.3-70b-instruct
