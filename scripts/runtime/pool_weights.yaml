@@ -139,29 +139,28 @@ pools:
     - cf-openai/@cf/moonshotai/kimi-k2.5
     - groq/qwen/qwen3-32b
   fast:
-    # 2026-05-19 auto: groq/llama-3.1-8b-instant + groq/openai/gpt-oss-20b
-    # both moved primary→fallback over consecutive ticks — same 6k TPM
-    # bucket 413s. Remaining 6 primaries renormalized.
+    # 2026-05-19: groq/llama-3.1-8b-instant + groq/openai/gpt-oss-20b moved
+    # primary→fallback (6k TPM bucket 413s). 2026-05-19 also moved
+    # mistral/mistral-small-latest primary→fallback (50 RPM bursting 7×/h).
+    # Remaining 5 primaries renormalized to 1.0.
     targets:
     - provider: cerebras
       model: llama3.1-8b
-      weight: 0.3091
+      weight: 0.3594
     - provider: github-models
       model: openai/gpt-4o-mini
-      weight: 0.2521
-    - provider: mistral
-      model: mistral-small-latest
-      weight: 0.1400
+      weight: 0.2932
     - provider: gemini
       model: gemini-3.1-flash-lite-preview
-      weight: 0.1134
+      weight: 0.1319
     - provider: groq
       model: llama-3.3-70b-versatile
-      weight: 0.1081
+      weight: 0.1257
     - provider: groq
       model: qwen/qwen3-32b
-      weight: 0.0773
+      weight: 0.0898
     fallbacks:
+    - mistral/mistral-small-latest
     - groq/llama-3.1-8b-instant
     - groq/openai/gpt-oss-20b
     - github-models/openai/gpt-4.1-nano
@@ -170,38 +169,39 @@ pools:
     - mistral/codestral-latest
     - gemini/gemini-flash-lite-latest
   mid:
+    # 2026-05-19: mistral/mistral-small-latest moved primary→fallback —
+    # hitting mistral RPM (50/m for small) bursting 7×/h. Same fix in fast.
+    # Remaining 9 primaries renormalized to 1.0.
     targets:
     - provider: github-models
       model: openai/gpt-4.1-mini
-      weight: 0.2671
-    - provider: mistral
-      model: mistral-small-latest
-      weight: 0.1604
+      weight: 0.3181
     - provider: gemini
       model: gemini-3-flash-preview
-      weight: 0.1559
+      weight: 0.1857
     - provider: gemini
       model: gemini-2.5-flash-lite
-      weight: 0.104
+      weight: 0.1239
     - provider: groq
       model: qwen/qwen3-32b
-      weight: 0.0944
+      weight: 0.1124
     - provider: mistral
       model: mistral-medium-3.5
-      weight: 0.0749
+      weight: 0.0892
     - provider: cf-openai
       model: '@cf/qwen/qwen2.5-coder-32b-instruct'
-      weight: 0.0433
+      weight: 0.0516
     - provider: cf-openai
       model: '@cf/google/gemma-4-26b-a4b-it'
-      weight: 0.0433
+      weight: 0.0516
     - provider: groq
       model: llama-3.3-70b-versatile
-      weight: 0.0353
+      weight: 0.0420
     - provider: cohere
       model: command-r7b-12-2024
-      weight: 0.0214
+      weight: 0.0255
     fallbacks:
+    - mistral/mistral-small-latest
     - github-models/openai/gpt-4o-mini
     - cohere/command-r-08-2024
     - openrouter/google/gemma-4-26b-a4b-it:free
@@ -253,16 +253,22 @@ pools:
     # No cf-openai (neuron-budget shared globally), no gemini (250 RPD shared
     # globally), no openrouter (50 RPD pool budget shared globally), no
     # github-models (hermes uses gpt-4.1-mini in mid pool).
+    # 2026-05-19: added github-models/gpt-4.1-mini as 4th primary —
+    # cerebras 30 RPM cap was saturating with all 3 primaries on one provider.
+    # github-models has 20k RPM headroom, parallel-tool OK, 128k context.
     targets:
     - provider: cerebras
       model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.50
+      weight: 0.375
+    - provider: github-models
+      model: openai/gpt-4.1-mini
+      weight: 0.25
     - provider: cerebras
       model: llama3.1-8b
-      weight: 0.30
+      weight: 0.225
     - provider: cerebras
       model: gpt-oss-120b
-      weight: 0.20
+      weight: 0.15
     fallbacks:
     - mistral/mistral-small-latest
     - groq/llama-3.1-8b-instant

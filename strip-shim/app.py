@@ -72,6 +72,48 @@ def strip_reasoning(messages: list) -> list:
     return cleaned
 
 
+def drop_orphan_tool_results(messages: list) -> list:
+    """Drop role:tool messages that have no preceding assistant tool_calls.
+
+    Pi-mono / hermes-agent occasionally constructs message history with a
+    bare role:tool entry as the only or trailing message — usually when an
+    op-log helper invocation is captured as a 'tool result' without the
+    matching assistant call. Cerebras (and others) reject these as HTTP 400.
+    Bifrost surfaces it as 'provider api error (status 400)'.
+
+    Filter contract: a role:tool message is valid ONLY if a previous
+    role:assistant message in the same history has tool_calls including
+    the matching tool_call_id. Otherwise drop it. Saves the wasted RPM
+    + eliminates a recurring noisy error bucket.
+    """
+    pending_ids: set[str] = set()
+    out = []
+    dropped = 0
+    for m in messages:
+        if not isinstance(m, dict):
+            out.append(m)
+            continue
+        role = m.get("role")
+        if role == "assistant":
+            for tc in (m.get("tool_calls") or []):
+                tcid = tc.get("id")
+                if tcid:
+                    pending_ids.add(tcid)
+            out.append(m)
+        elif role == "tool":
+            tcid = m.get("tool_call_id")
+            if tcid and tcid in pending_ids:
+                pending_ids.discard(tcid)
+                out.append(m)
+            else:
+                dropped += 1
+        else:
+            out.append(m)
+    if dropped:
+        log.warning("dropped %d orphan tool message(s) from request", dropped)
+    return out
+
+
 def _short_id(old: str) -> str:
     return hashlib.sha1(old.encode()).hexdigest()[:9]
 
@@ -246,6 +288,7 @@ async def proxy(path: str, request: Request):
             data = None
         if isinstance(data, dict) and "messages" in data:
             data["messages"] = strip_reasoning(data["messages"])
+            data["messages"] = drop_orphan_tool_results(data["messages"])
             data["messages"] = rewrite_tool_ids(data["messages"])
             # deepseek-v4-pro on NIM hangs without enable_thinking=true.
             # Scoped to that model only — kimi-k2 breaks when extras injected.
