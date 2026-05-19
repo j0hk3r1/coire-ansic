@@ -34,7 +34,7 @@ pools:
     #   frontier despite size).
     - provider: cerebras
       model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.24
+      weight: 0.20
     - provider: groq
       model: openai/gpt-oss-120b
       weight: 0.22
@@ -56,6 +56,9 @@ pools:
     - provider: gemini
       model: gemini-3-pro-preview
       weight: 0.04
+    - provider: cerebras
+      model: zai-glm-4.7
+      weight: 0.04
     - provider: cf-openai
       model: '@cf/moonshotai/kimi-k2.6'
       weight: 0.03
@@ -68,6 +71,7 @@ pools:
     - github-models/openai/gpt-4o
     - gemini/gemini-3.1-pro-preview
     - openrouter/openai/gpt-oss-120b:free
+    - openrouter/z-ai/glm-4.5-air:free
     - cf-openai/@cf/moonshotai/kimi-k2.5
     - sambanova/DeepSeek-V3.2
   code:
