@@ -1,0 +1,10 @@
+[Unit]
+Description=Every 15min — health-driven primary demotion check
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
