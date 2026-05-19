@@ -55,12 +55,20 @@ def load_yaml(p: Path) -> dict:
     return yaml.safe_load(p.read_text())
 
 
+CATEGORICAL_FIELDS = ("tools", "free_tier", "latency_tier")
+
+
 def model_matches_needs(caps: dict, needs: dict) -> bool:
     for k, want in (needs or {}).items():
         v = caps.get(k)
-        if k in ("tools", "free_tier"):
-            if v != want:
-                return False
+        if k in CATEGORICAL_FIELDS:
+            # Want can be a single value OR a list (OR match)
+            if isinstance(want, list):
+                if v not in want:
+                    return False
+            else:
+                if v != want:
+                    return False
         elif k == "vision":
             if bool(v) is not bool(want):
                 return False
@@ -86,23 +94,56 @@ def model_excluded(caps: dict, exclude: dict) -> bool:
             v = caps.get(field)
             if v is not None and v > threshold:
                 return True
+        elif k.endswith("_in"):
+            # E.g. latency_tier_in: [slow] → exclude if model's latency_tier is in the list
+            field = k[:-len("_in")]
+            v = caps.get(field)
+            if isinstance(threshold, list) and v in threshold:
+                return True
         else:
             if caps.get(k) == threshold:
                 return True
     return False
 
 
-def score_for_ranking(model_id: str, caps: dict, pool_name: str) -> float:
-    """Composite ranking score within a pool. Higher = better primary."""
+def score_for_ranking(model_id: str, caps: dict, pool_name: str,
+                       pool_spec: dict) -> float:
+    """Composite ranking score within a pool. Higher = better primary.
+
+    Reads pool_spec.prefer for tunable bonuses (per pool_intents.yaml).
+    bonus_when sub-block applies +N for specific capability matches:
+      bonus_when.code_specialty: 10   → +10 if caps.code_specialty truthy
+      bonus_when.latency_tier_inst: 5  → +5 if caps.latency_tier == "inst"
+    """
     base = float(caps.get("quality_score") or 0)
-    # Code pool: name-heuristic bonus for coding-specialized models
-    if pool_name == "code" and any(h in model_id for h in CODE_NAME_HINTS):
+    prefer = (pool_spec.get("prefer") or {})
+    bonus_when = prefer.get("bonus_when") or {}
+
+    for key, bonus in bonus_when.items():
+        # Pattern: <field>_<value> for categorical match, or plain <field> for boolean.
+        if key in caps and caps[key]:
+            base += bonus
+            continue
+        # Try _<value> suffix split
+        for field in ("latency_tier", "tools", "free_tier"):
+            prefix = f"{field}_"
+            if key.startswith(prefix):
+                want = key[len(prefix):]
+                if caps.get(field) == want:
+                    base += bonus
+                break
+
+    # Legacy code-name fallback (in addition to code_specialty tag)
+    if pool_name == "code" and any(h in model_id for h in CODE_NAME_HINTS) \
+       and not caps.get("code_specialty"):
         base += 5
+
     # Ops pool: rpd_cap-heavy bonus (operator loops are RPD-hungry)
     if pool_name == "ops":
         rpd = caps.get("rpd_cap") or 0
         if rpd >= 10000:
             base += 8
+
     # Cold-start penalty (knocks nvidia-nim/kimi-k2.6 out of primaries)
     if model_id in COLD_START_NAMES:
         base -= 30
@@ -128,7 +169,7 @@ def assemble_pool(pool_name: str, pool_spec: dict, caps_db: dict) -> dict:
             continue
         candidates.append((model_id, caps))
     # Sort by ranking score desc
-    candidates.sort(key=lambda mc: -score_for_ranking(mc[0], mc[1], pool_name))
+    candidates.sort(key=lambda mc: -score_for_ranking(mc[0], mc[1], pool_name, pool_spec))
 
     # Build primaries with per-provider cap
     provider_used: dict[str, float] = defaultdict(float)
@@ -178,7 +219,7 @@ def assemble_pool(pool_name: str, pool_spec: dict, caps_db: dict) -> dict:
         targets[0]["weight"] = round(targets[0]["weight"] + diff, 4)
 
     # Fallback chain — everything else that matched, in quality order
-    leftover.sort(key=lambda mc: -score_for_ranking(mc[0], mc[1], pool_name))
+    leftover.sort(key=lambda mc: -score_for_ranking(mc[0], mc[1], pool_name, pool_spec))
     fallback_policy = (pool_spec.get("fallback_policy") or {})
     # Push needs_balance + cold_start to tail
     head, paid_tail, cold_tail = [], [], []

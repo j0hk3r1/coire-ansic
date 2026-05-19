@@ -2,19 +2,19 @@
 # Read by build_pool_targets.py alongside model_capabilities.yaml to auto-assemble
 # pool_weights.yaml without hand-tuning.
 #
-# Rules:
-#   needs:    all conditions must match (AND). Numeric fields: model_value >= needs_value.
-#             Categorical fields (tools, free_tier): exact match.
-#   exclude:  any matching condition disqualifies. Used for "this property would
-#             break the pool" — e.g. tpm_cap < 8000 breaks long-context pools.
-#   prefer:   soft-scoring, used to ORDER targets within the pool. Higher quality
-#             gets higher weight (renormalized to 1.0 after).
-#   max_per_provider: ≤ this fraction of total weight per provider (enforces spread).
-#   min_primaries: refuse to emit a pool with fewer primaries (else escalate).
-#   max_primaries: cap targets list so cascade stays sane.
+# Field reference:
+#   needs:    all conditions must match. Numeric fields: model_value >= needs_value.
+#             Categorical fields (tools, free_tier, latency_tier): can be a single
+#             value OR a list (OR match). vision: bool exact match.
+#   exclude:  any matching condition disqualifies. Numeric *_below excludes when
+#             model_value < threshold AND model_value is not null (null = unbounded).
+#   prefer:   ordering keys. Each key contributes to ranking score; bonus_when
+#             gives explicit +N for boolean/categorical matches.
+#   max_per_provider, min_primaries, max_primaries — pool shape constraints.
 #
-# Capability fields available: ctx_input, ctx_output, rpm_cap, tpm_cap, rpd_cap,
-#   tools (none|simple|full), vision (bool), reasoning (bool), quality_score (0-100),
+# Capability fields: ctx_input, ctx_output, rpm_cap, tpm_cap, rpd_cap,
+#   tools (none|simple|full), vision (bool), reasoning (bool), latency_tier
+#   (inst|fast|mid|slow), code_specialty (bool), quality_score (0-100),
 #   free_tier (ok|needs_balance|free_zero|unstable).
 
 pools:
@@ -22,17 +22,18 @@ pools:
   best:
     description: Frontier-tier quality, long-context user-facing chat
     needs:
-      ctx_input: 64000        # hermes carries ~15-20k history easily; need headroom
+      ctx_input: 64000
       tools: full
       free_tier: ok
     exclude:
-      tpm_cap_below: 8000     # groq 6k TPM cap → 413 on real chats
+      tpm_cap_below: 8000
+      latency_tier_in: [slow]
     prefer:
-      quality_score: high     # rank primaries by AA score
+      quality_score: high
       ctx_input: high
-    max_per_provider: 0.40    # spread; no single provider > 40% weight
+    max_per_provider: 0.40
     min_primaries: 4
-    max_primaries: 10
+    max_primaries: 8
 
   code:
     description: Code generation + review, long-context multi-file
@@ -42,83 +43,94 @@ pools:
       free_tier: ok
     exclude:
       tpm_cap_below: 8000
+      latency_tier_in: [slow]
     prefer:
       quality_score: high
-      # code-specialized models (codestral, qwen2.5-coder, gpt-oss) get implicit boost
-      # via quality_source + name-pattern heuristic in build script
+      bonus_when:
+        code_specialty: 10        # codestral / qwen-coder get +10 ranking
+        reasoning: 3              # reasoning models (gpt-oss/qwen3) get small boost for code
     max_per_provider: 0.40
     min_primaries: 4
-    max_primaries: 10
+    max_primaries: 8
 
   mid:
-    description: Mid-tier dialog + tool use, general agentic workloads
+    description: Mid-tier dialog + tool use, general agentic workloads — balanced
     needs:
       ctx_input: 16000
       tools: full
       free_tier: ok
+      latency_tier: [inst, fast, mid]   # exclude slow models from mid
+    exclude:
+      tpm_cap_below: 8000
     prefer:
       quality_score: high
+      bonus_when:
+        latency_tier_inst: 5
+        latency_tier_fast: 3
     max_per_provider: 0.40
     min_primaries: 4
-    max_primaries: 10
+    max_primaries: 8
 
   fast:
-    description: Low-latency Q/A, short prompts, simple tools
+    description: Low-latency Q/A, short prompts, simple tools acceptable
     needs:
       ctx_input: 4000
+      latency_tier: [inst, fast]        # the defining constraint
       free_tier: ok
     prefer:
-      quality_score: high
-      # short ctx tolerable here; groq fits since prompts stay small
+      bonus_when:
+        latency_tier_inst: 15           # inst >> fast for this pool
+        latency_tier_fast: 3
+      quality_score: high               # secondary
     max_per_provider: 0.40
     min_primaries: 4
-    max_primaries: 10
+    max_primaries: 8
 
   compress:
-    description: Long-input summarization, no tools required
+    description: Long-input summarization, no tools required, latency tolerant
     needs:
       ctx_input: 64000
       free_tier: ok
+    exclude:
+      latency_tier_in: [slow]
     prefer:
       quality_score: high
       ctx_input: high
     max_per_provider: 0.40
     min_primaries: 3
-    max_primaries: 8
+    max_primaries: 6
 
   vision:
     description: Image-input tasks
     needs:
       vision: true
       free_tier: ok
+    exclude:
+      latency_tier_in: [slow]
     prefer:
       quality_score: high
     max_per_provider: 0.40
     min_primaries: 3
-    max_primaries: 8
+    max_primaries: 6
 
   ops:
     description: Operator agents (pi-op-*) — isolated, tool-heavy, low quality OK
     needs:
       ctx_input: 8000
-      tools: full
+      tools: [simple, full]             # ops tolerates tools=simple (cerebras llama3.1-8b)
       free_tier: ok
+    exclude:
+      tpm_cap_below: 8000               # still exclude groq if it would 413
+      latency_tier_in: [slow]
     prefer:
-      rpd_cap: high           # operator loops are RPD-hungry
-    max_per_provider: 0.50    # ops can lean on cerebras heavier (it's idle for users)
+      rpd_cap: high                     # operator loops are RPD-hungry
+      bonus_when:
+        latency_tier_inst: 8            # inst is gold for ops fan-out
+    max_per_provider: 0.50              # ops can lean harder on a single provider
     min_primaries: 3
     max_primaries: 6
 
-# Fallback chain assembly:
-# - Any model NOT picked as a primary for a pool but matching its 'needs' AND not
-#   in 'exclude' gets appended to the pool's fallback chain in quality-score order.
-# - free_tier == needs_balance models get appended LAST (only kicks in when user has
-#   actual deepseek/openrouter credits — see auto-demote logic).
-# - nvidia-nim/kimi-k2.6 + similar cold-start-heavy targets get appended at the very
-#   end via the special "cold_start" flag in capabilities yaml (TBD when build script
-#   evolves; for now they're listed last alphabetically as a proxy).
-
 fallback_policy:
-  cold_start_last: true       # demote cold-start-heavy models to end of fallback chain
-  needs_balance_last: true    # paid-tier targets only kick in when user adds credits
-  max_fallbacks_per_pool: 12  # don't over-cascade
+  cold_start_last: true
+  needs_balance_last: true
+  max_fallbacks_per_pool: 12

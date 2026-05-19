@@ -32,8 +32,6 @@
 # more public benchmarks publish numbers for these models.
 
 models:
-
-  # ─── cerebras (RPM=30/model, TPM=60k, RPD=14400, TPD=1M per-model) ───
   cerebras/qwen-3-235b-a22b-instruct-2507:
     ctx_input: 131072
     ctx_output: 16384
@@ -47,6 +45,7 @@ models:
     quality_source: estimate
     free_tier: ok
     notes: cerebras-hosted Qwen 235B; reasoning-capable
+    latency_tier: fast
   cerebras/gpt-oss-120b:
     ctx_input: 131072
     ctx_output: 16384
@@ -59,6 +58,7 @@ models:
     quality_score: 33
     quality_source: AA
     free_tier: ok
+    latency_tier: fast
   cerebras/llama3.1-8b:
     ctx_input: 8192
     ctx_output: 4096
@@ -72,6 +72,7 @@ models:
     quality_source: AA
     free_tier: ok
     notes: small fast cerebras path
+    latency_tier: inst
   cerebras/zai-glm-4.7:
     ctx_input: 131072
     ctx_output: 16384
@@ -85,14 +86,11 @@ models:
     quality_source: estimate
     notes: LMArena tier=1472 (rank ~54)
     free_tier: ok
-
-  # ─── groq (TPM=6000 PER-CALL hard cap; RPD=14400/model header-verified) ───
-  # CRITICAL: TPM=6000 means any single request >~5k tokens 413s.
-  # Hermes chats carry 15k+ history -> groq is fast-pool only.
+    latency_tier: fast
   groq/openai/gpt-oss-120b:
     ctx_input: 131072
     ctx_output: 16384
-    rpm_cap: ~
+    rpm_cap: null
     tpm_cap: 6000
     rpd_cap: 14400
     tools: full
@@ -102,10 +100,11 @@ models:
     quality_source: AA
     free_tier: ok
     notes: TPM=6000 makes this UNUSABLE for long-context chats
+    latency_tier: inst
   groq/openai/gpt-oss-20b:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
+    rpm_cap: null
     tpm_cap: 6000
     rpd_cap: 14400
     tools: full
@@ -114,10 +113,11 @@ models:
     quality_score: 24
     quality_source: AA
     free_tier: ok
+    latency_tier: inst
   groq/llama-3.3-70b-versatile:
     ctx_input: 131072
     ctx_output: 16384
-    rpm_cap: ~
+    rpm_cap: null
     tpm_cap: 6000
     rpd_cap: 14400
     tools: full
@@ -126,10 +126,11 @@ models:
     quality_score: 14
     quality_source: AA
     free_tier: ok
+    latency_tier: inst
   groq/llama-3.1-8b-instant:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
+    rpm_cap: null
     tpm_cap: 6000
     rpd_cap: 14400
     tools: simple
@@ -138,10 +139,11 @@ models:
     quality_score: 12
     quality_source: estimate
     free_tier: ok
+    latency_tier: inst
   groq/qwen/qwen3-32b:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
+    rpm_cap: null
     tpm_cap: 6000
     rpd_cap: 14400
     tools: full
@@ -150,13 +152,12 @@ models:
     quality_score: 22
     quality_source: estimate
     free_tier: ok
-
-  # ─── gemini (RPM=30 flash, RPD=250 flash; pro=25-50 RPD) ───
+    latency_tier: inst
   gemini/gemini-3-flash-preview:
     ctx_input: 1048576
     ctx_output: 65536
     rpm_cap: 30
-    tpm_cap: ~
+    tpm_cap: null
     rpd_cap: 250
     tools: full
     vision: true
@@ -164,11 +165,12 @@ models:
     quality_score: 35
     quality_source: AA
     free_tier: ok
+    latency_tier: mid
   gemini/gemini-3.1-flash-lite-preview:
     ctx_input: 1048576
     ctx_output: 8192
     rpm_cap: 30
-    tpm_cap: ~
+    tpm_cap: null
     rpd_cap: 250
     tools: full
     vision: true
@@ -176,11 +178,12 @@ models:
     quality_score: 34
     quality_source: AA
     free_tier: ok
+    latency_tier: fast
   gemini/gemini-2.5-flash:
     ctx_input: 1048576
     ctx_output: 8192
     rpm_cap: 30
-    tpm_cap: ~
+    tpm_cap: null
     rpd_cap: 250
     tools: full
     vision: true
@@ -189,11 +192,12 @@ models:
     quality_source: AA
     free_tier: ok
     notes: LMArena=1480
+    latency_tier: fast
   gemini/gemini-2.5-flash-lite:
     ctx_input: 1048576
     ctx_output: 8192
     rpm_cap: 30
-    tpm_cap: ~
+    tpm_cap: null
     rpd_cap: 250
     tools: full
     vision: true
@@ -201,11 +205,12 @@ models:
     quality_score: 28
     quality_source: estimate
     free_tier: ok
+    latency_tier: fast
   gemini/gemini-flash-latest:
     ctx_input: 1048576
     ctx_output: 8192
     rpm_cap: 30
-    tpm_cap: ~
+    tpm_cap: null
     rpd_cap: 250
     tools: full
     vision: true
@@ -213,11 +218,12 @@ models:
     quality_score: 30
     quality_source: estimate
     free_tier: ok
+    latency_tier: fast
   gemini/gemini-flash-lite-latest:
     ctx_input: 1048576
     ctx_output: 8192
     rpm_cap: 30
-    tpm_cap: ~
+    tpm_cap: null
     rpd_cap: 250
     tools: full
     vision: true
@@ -225,14 +231,13 @@ models:
     quality_score: 28
     quality_source: estimate
     free_tier: ok
-
-  # ─── cohere (RPM=20 trial; 1000 monthly call ceiling) ───
+    latency_tier: fast
   cohere/command-a-03-2025:
     ctx_input: 256000
     ctx_output: 16384
     rpm_cap: 20
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
@@ -240,74 +245,78 @@ models:
     quality_source: AA
     free_tier: ok
     notes: high-latency tail (p95 spike to 120s observed)
+    latency_tier: mid
   cohere/command-a-reasoning-08-2025:
     ctx_input: 256000
     ctx_output: 16384
     rpm_cap: 20
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: true
     quality_score: 18
     quality_source: estimate
     free_tier: ok
+    latency_tier: slow
   cohere/command-a-vision-07-2025:
     ctx_input: 128000
     ctx_output: 16384
     rpm_cap: 20
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: true
     reasoning: false
     quality_score: 16
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   cohere/command-r-08-2024:
     ctx_input: 128000
     ctx_output: 4096
     rpm_cap: 20
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
     quality_score: 10
     quality_source: estimate
     free_tier: ok
+    latency_tier: fast
   cohere/command-r7b-12-2024:
     ctx_input: 128000
     ctx_output: 4096
     rpm_cap: 20
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
     quality_score: 8
     quality_source: estimate
     free_tier: ok
+    latency_tier: fast
   cohere/c4ai-aya-vision-32b:
     ctx_input: 16384
     ctx_output: 4096
     rpm_cap: 20
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: simple
     vision: true
     reasoning: false
     quality_score: 12
     quality_source: estimate
     free_tier: ok
-
-  # ─── mistral (50 RPM small / 4 RPM large / 5 RPM magistral; per-model) ───
+    latency_tier: mid
   mistral/mistral-large-latest:
     ctx_input: 131072
     ctx_output: 8192
     rpm_cap: 4
     tpm_cap: 250000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
@@ -315,48 +324,52 @@ models:
     quality_source: AA
     free_tier: ok
     notes: 4 RPM = thin slot, low weight
+    latency_tier: slow
   mistral/mistral-medium-3.5:
     ctx_input: 131072
     ctx_output: 8192
     rpm_cap: 50
     tpm_cap: 50000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
     quality_score: 39
     quality_source: AA
     free_tier: ok
+    latency_tier: mid
   mistral/mistral-medium-latest:
     ctx_input: 131072
     ctx_output: 8192
     rpm_cap: 50
     tpm_cap: 50000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
     quality_score: 38
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   mistral/mistral-small-latest:
     ctx_input: 131072
     ctx_output: 8192
     rpm_cap: 50
     tpm_cap: 50000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
     quality_score: 18
     quality_source: estimate
     free_tier: ok
+    latency_tier: fast
   mistral/codestral-latest:
     ctx_input: 256000
     ctx_output: 16384
     rpm_cap: 50
     tpm_cap: 50000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
@@ -364,38 +377,40 @@ models:
     quality_source: estimate
     free_tier: ok
     notes: code-specialized
+    latency_tier: mid
+    code_specialty: true
   mistral/pixtral-12b-latest:
     ctx_input: 131072
     ctx_output: 8192
     rpm_cap: 50
     tpm_cap: 50000
-    rpd_cap: ~
+    rpd_cap: null
     tools: simple
     vision: true
     reasoning: false
     quality_score: 14
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   mistral/pixtral-large-latest:
     ctx_input: 131072
     ctx_output: 8192
     rpm_cap: 4
     tpm_cap: 250000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: true
     reasoning: false
     quality_score: 22
     quality_source: estimate
     free_tier: ok
-
-  # ─── github-models (20k RPM / 2M TPM, 8k context CAP on full models on free) ───
+    latency_tier: mid
   github-models/openai/gpt-4.1:
     ctx_input: 8000
     ctx_output: 4000
     rpm_cap: 20000
     tpm_cap: 2000000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
@@ -403,12 +418,13 @@ models:
     quality_source: estimate
     free_tier: ok
     notes: 8k context cap on free tier (probe-verified)
+    latency_tier: fast
   github-models/openai/gpt-4.1-mini:
     ctx_input: 8000
     ctx_output: 4096
     rpm_cap: 20000
     tpm_cap: 2000000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
@@ -416,37 +432,38 @@ models:
     quality_source: estimate
     free_tier: ok
     notes: also 8k cap (probe confirmed via 413 "Max size 8000")
+    latency_tier: fast
   github-models/openai/gpt-4.1-nano:
     ctx_input: 8000
     ctx_output: 4096
     rpm_cap: 20000
     tpm_cap: 2000000
-    rpd_cap: ~
+    rpd_cap: null
     tools: simple
     vision: false
     reasoning: false
     quality_score: 18
     quality_source: estimate
     free_tier: ok
+    latency_tier: fast
   github-models/openai/gpt-4o-mini:
     ctx_input: 8000
     ctx_output: 4096
     rpm_cap: 20000
     tpm_cap: 2000000
-    rpd_cap: ~
+    rpd_cap: null
     tools: full
     vision: true
     reasoning: false
     quality_score: 26
     quality_source: estimate
     free_tier: ok
-
-  # ─── cf-openai (10k neurons/day pooled across CF Workers AI models) ───
+    latency_tier: fast
   cf-openai/@cf/moonshotai/kimi-k2.6:
     ctx_input: 256000
     ctx_output: 16384
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 10000
     tools: full
     vision: false
@@ -455,11 +472,12 @@ models:
     quality_source: AA
     free_tier: ok
     notes: LMArena=1454; pooled neurons across CF
+    latency_tier: mid
   cf-openai/@cf/moonshotai/kimi-k2.5:
     ctx_input: 256000
     ctx_output: 16384
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 10000
     tools: full
     vision: false
@@ -467,11 +485,12 @@ models:
     quality_score: 37
     quality_source: AA
     free_tier: ok
+    latency_tier: mid
   cf-openai/@cf/nvidia/nemotron-3-120b-a12b:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 10000
     tools: full
     vision: false
@@ -479,11 +498,12 @@ models:
     quality_score: 32
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct:
     ctx_input: 32768
     ctx_output: 4096
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 10000
     tools: full
     vision: false
@@ -492,11 +512,13 @@ models:
     quality_source: estimate
     free_tier: ok
     notes: code-specialized
+    latency_tier: fast
+    code_specialty: true
   cf-openai/@cf/google/gemma-4-26b-a4b-it:
     ctx_input: 131072
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 10000
     tools: simple
     vision: false
@@ -504,11 +526,12 @@ models:
     quality_score: 20
     quality_source: estimate
     free_tier: ok
+    latency_tier: fast
   cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 10000
     tools: simple
     vision: false
@@ -516,64 +539,65 @@ models:
     quality_score: 12
     quality_source: estimate
     free_tier: ok
-
-  # ─── nvidia-nim (40 RPM/model documented, slow cold starts) ───
+    latency_tier: fast
   nvidia-nim/moonshotai/kimi-k2.6:
     ctx_input: 256000
     ctx_output: 16384
     rpm_cap: 40
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
     quality_score: 43
     quality_source: AA
     free_tier: ok
-    notes: COLD START 30-50s — last-resort fallback only
+    notes: "COLD START 30-50s \u2014 last-resort fallback only"
+    latency_tier: slow
   nvidia-nim/meta/llama-3.3-70b-instruct:
     ctx_input: 131072
     ctx_output: 4096
     rpm_cap: 40
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: simple
     vision: false
     reasoning: false
     quality_score: 14
     quality_source: AA
     free_tier: ok
+    latency_tier: mid
   nvidia-nim/meta/llama-3.2-11b-vision-instruct:
     ctx_input: 131072
     ctx_output: 4096
     rpm_cap: 40
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: simple
     vision: true
     reasoning: false
     quality_score: 12
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   nvidia-nim/meta/llama-3.2-90b-vision-instruct:
     ctx_input: 131072
     ctx_output: 4096
     rpm_cap: 40
-    tpm_cap: ~
-    rpd_cap: ~
+    tpm_cap: null
+    rpd_cap: null
     tools: simple
     vision: true
     reasoning: false
     quality_score: 18
     quality_source: estimate
     free_tier: ok
-
-  # ─── sambanova (20 RPD hard floor — header-verified, free tier) ───
+    latency_tier: slow
   sambanova/DeepSeek-V3.1:
     ctx_input: 131072
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 20
     tools: full
     vision: false
@@ -582,11 +606,12 @@ models:
     quality_source: estimate
     free_tier: ok
     notes: 20 RPD = thin; high latency tail
+    latency_tier: slow
   sambanova/DeepSeek-V3.2:
     ctx_input: 131072
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 20
     tools: full
     vision: false
@@ -595,11 +620,12 @@ models:
     quality_source: estimate
     free_tier: ok
     notes: upstream "high demand" 429s common
+    latency_tier: slow
   sambanova/Llama-4-Maverick-17B-128E-Instruct:
     ctx_input: 131072
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 20
     tools: simple
     vision: false
@@ -607,13 +633,12 @@ models:
     quality_score: 18
     quality_source: estimate
     free_tier: ok
-
-  # ─── openrouter ($0-credit account = 50 RPD pooled across all :free) ───
+    latency_tier: mid
   openrouter/openai/gpt-oss-120b:free:
     ctx_input: 131072
     ctx_output: 16384
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 50
     tools: full
     vision: false
@@ -621,11 +646,12 @@ models:
     quality_score: 33
     quality_source: AA
     free_tier: ok
+    latency_tier: mid
   openrouter/z-ai/glm-4.5-air:free:
     ctx_input: 131072
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 50
     tools: full
     vision: false
@@ -633,11 +659,12 @@ models:
     quality_score: 28
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   openrouter/deepseek/deepseek-v4-flash:free:
     ctx_input: 131072
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 50
     tools: full
     vision: false
@@ -645,11 +672,12 @@ models:
     quality_score: 32
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   openrouter/meta-llama/llama-3.3-70b-instruct:free:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 50
     tools: simple
     vision: false
@@ -657,11 +685,12 @@ models:
     quality_score: 14
     quality_source: AA
     free_tier: ok
+    latency_tier: mid
   openrouter/google/gemma-4-26b-a4b-it:free:
     ctx_input: 131072
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 50
     tools: simple
     vision: false
@@ -669,11 +698,12 @@ models:
     quality_score: 20
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   openrouter/qwen/qwen3-next-80b-a3b-instruct:free:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 50
     tools: full
     vision: false
@@ -681,11 +711,12 @@ models:
     quality_score: 26
     quality_source: estimate
     free_tier: ok
+    latency_tier: mid
   openrouter/nvidia/nemotron-nano-12b-v2-vl:free:
     ctx_input: 131072
     ctx_output: 4096
-    rpm_cap: ~
-    tpm_cap: ~
+    rpm_cap: null
+    tpm_cap: null
     rpd_cap: 50
     tools: simple
     vision: true
@@ -693,29 +724,30 @@ models:
     quality_score: 14
     quality_source: estimate
     free_tier: ok
-
-  # ─── deepseek (paid; needs balance — keep entry for users with credits) ───
+    latency_tier: slow
   deepseek/deepseek-chat:
     ctx_input: 64000
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
-    rpd_cap: ~
+    rpm_cap: null
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: false
     quality_score: 38
     quality_source: estimate
     free_tier: needs_balance
+    latency_tier: mid
   deepseek/deepseek-reasoner:
     ctx_input: 64000
     ctx_output: 8192
-    rpm_cap: ~
-    tpm_cap: ~
-    rpd_cap: ~
+    rpm_cap: null
+    tpm_cap: null
+    rpd_cap: null
     tools: full
     vision: false
     reasoning: true
     quality_score: 45
     quality_source: estimate
     free_tier: needs_balance
+    latency_tier: slow
