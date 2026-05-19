@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
-"""Health-driven primary demotion — autonomous version of the audit FLAGs.
+"""Health-driven primary demotion — autonomous, runtime-only.
 
 Reads 1h of bifrost logs, computes per-primary err-count + p95 latency,
-and applies bounded auto-actions to pool_weights.yaml:
+and applies bounded auto-actions to LIVE bifrost routing rules (NOT to
+pool_weights.yaml):
 
   * err >= 5/hr on a primary  -> move to fallback (immediate)
   * p95 > 30s for >= 3 consecutive ticks -> cut weight 10% (gradual)
+
+CRITICAL: This script does NOT mutate pool_weights.yaml. Runtime issues
+(429s, regional outages, my-account-specific rate limits) belong in the
+LIVE bifrost rule overlay, not in the source-of-truth yaml. New users
+should start from the clean yaml and grow their own runtime overlay
+based on their account's actual experience. The yaml stays declarative;
+this script + circuit_breaker.py compose runtime overlays on top.
+
+On next apply_pool_weights run (manual or via daily op-rebalance), the
+yaml gets pushed fresh, wiping all auto-demote overlays. The script
+will re-fire next tick and re-demote if the underlying issue persists.
 
 Safety bounds (HARD — refuse to apply if violated):
   * Never empty a pool's primaries below 3 targets.
@@ -13,14 +25,10 @@ Safety bounds (HARD — refuse to apply if violated):
   * Never change a weight by more than 30% in a single tick.
 
 State for the "3 consecutive ticks" rule lives at
-~/.coire/curator-pool/demote_state.json — a small dict mapping
-{provider/model: {pool: {high_p95_streak: int, last_p95_ms: int,
-last_tick_ts: float}}}.
+~/.coire/curator-pool/demote_state.json. History at
+~/.coire/curator-pool/auto_demote_history.jsonl.
 
 Designed to run every 15min via systemd timer (auto-demote-unhealthy.timer).
-After applying changes, calls apply_pool_weights.py to push to bifrost +
-auto-runs sync_key_models + build_models_list as side effects.
-
 Idempotent: if no changes triggered, exits 0 with no writes.
 """
 from __future__ import annotations
@@ -260,20 +268,77 @@ def log_history(actions: list[dict]) -> None:
         f.write(json.dumps(entry) + "\n")
 
 
+def fetch_live_plan() -> dict:
+    """Build a yaml-shaped plan from live bifrost rules. Inverse of
+    apply_pool_weights → bifrost. Used so decide() works on actual
+    current state, not the (possibly stale) yaml source."""
+    raw = jget("/api/governance/routing-rules").get("rules", [])
+    pools = {}
+    for r in raw:
+        pools[r["name"]] = {
+            "_rule_id": r["id"],
+            "_rule_meta": {k: r.get(k) for k in
+                ("description", "enabled", "cel_expression", "scope",
+                 "scope_id", "priority")},
+            "targets": [
+                {"provider": t["provider"], "model": t["model"],
+                 "weight": t["weight"]}
+                for t in (r.get("targets") or [])
+            ],
+            "fallbacks": list(r.get("fallbacks") or []),
+        }
+    return {"pools": pools}
+
+
+def push_live_rule(plan: dict, pool_name: str) -> bool:
+    """PUT the modified pool back to bifrost."""
+    pool = plan["pools"][pool_name]
+    rule_id = pool.get("_rule_id")
+    meta = pool.get("_rule_meta") or {}
+    if not rule_id:
+        print(f"  WARN: no _rule_id for pool '{pool_name}' — skip live push",
+              file=sys.stderr)
+        return False
+    body = {
+        "name": pool_name,
+        "description": meta.get("description", ""),
+        "enabled": meta.get("enabled", True),
+        "cel_expression": meta.get("cel_expression", f'model == "{pool_name}"'),
+        "targets": pool["targets"],
+        "fallbacks": pool["fallbacks"],
+        "scope": meta.get("scope", "global"),
+        "scope_id": meta.get("scope_id"),
+        "priority": meta.get("priority", 0),
+    }
+    import urllib.error
+    data = json.dumps(body).encode()
+    req = urllib.request.Request(
+        f"{BIFROST_URL}/api/governance/routing-rules/{rule_id}",
+        data=data, method="PUT",
+        headers={"Authorization": AUTH, "Content-Type": "application/json"},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=20).read()
+        return True
+    except urllib.error.HTTPError as e:
+        err = e.read().decode("utf-8", errors="replace")[:400]
+        print(f"  PUT failed for '{pool_name}': HTTP {e.code} {err}",
+              file=sys.stderr)
+        return False
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dry-run", action="store_true",
-                    help="show what would change; don't write yaml or apply")
-    ap.add_argument("--skip-apply", action="store_true",
-                    help="write yaml but don't call apply_pool_weights.py")
+                    help="show what would change; don't push to bifrost")
     args = ap.parse_args()
 
     err_counts, latencies = collect_health()
-    plan = yaml.safe_load(PLAN_PATH.read_text())
+    plan = fetch_live_plan()   # <-- live state, NOT yaml
     state = load_state()
     now = dt.datetime.now(dt.timezone.utc).timestamp()
     actions = decide(plan, err_counts, latencies, state, now)
-    save_state(state)  # always persist streaks even if no actions
+    save_state(state)
 
     if not actions:
         print("auto-demote: 0 actions (system healthy)")
@@ -287,32 +352,27 @@ def main() -> int:
     if args.dry_run:
         return 0
 
+    # Apply in-memory + push each modified pool to bifrost
     applied = []
+    touched_pools: set[str] = set()
     for a in actions:
         if apply_action(plan, a):
             applied.append(a)
+            touched_pools.add(a["pool"])
 
     if not applied:
         print("  no actions applied (all blocked by safety bounds)")
         log_history([])
         return 0
 
-    bak = PLAN_PATH.with_suffix(".yaml.bak")
-    bak.write_text(PLAN_PATH.read_text())
-    # Re-serialize keeping order + comments minimal (the file is mostly data).
-    text = PLAN_PATH.read_text()
-    head_end = text.find("\npools:")
-    header = text[:head_end + 1] if head_end > 0 else ""
-    body = yaml.safe_dump({"pools": plan["pools"]}, sort_keys=False, default_flow_style=False)
-    PLAN_PATH.write_text((header + body) if header else body)
-    log_history(applied)
-    print(f"  wrote {PLAN_PATH}")
+    for pool_name in touched_pools:
+        if push_live_rule(plan, pool_name):
+            print(f"  ✓ pushed {pool_name} to bifrost (runtime overlay)")
+        else:
+            print(f"  ✗ failed to push {pool_name} to bifrost", file=sys.stderr)
 
-    if args.skip_apply:
-        return 0
-    print("  → running apply_pool_weights")
-    subprocess.run([sys.executable, str(ROOT / "scripts" / "runtime" / "apply_pool_weights.py")],
-                   check=False, timeout=180)
+    log_history(applied)
+    print("  pool_weights.yaml unchanged — overlay is runtime-only.")
     return 0
 
 
