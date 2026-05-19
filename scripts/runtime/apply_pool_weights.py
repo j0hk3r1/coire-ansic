@@ -129,6 +129,27 @@ def apply(plan, dry_run=False):
             print(f"  [WARN] pool '{pool_name}' has only {len(new_targets)} "
                   f"primary target(s) after filtering — pool intent (depth=3+) "
                   f"degraded", file=sys.stderr)
+        # Cross-check against the freeness-probe digest if present
+        # (~/.coire/curator-pool/free_tier_probe.json, written by
+        # scripts/runtime/probe_free_tier.py). Surface a WARN when a
+        # primary target is known-dead on the user's free tier — e.g.
+        # gemini-3-pro returns 'limit: 0', github-models gpt-4o has 8k
+        # context cap, deepseek/* has insufficient balance. Doesn't
+        # auto-mutate (config is a human decision) but makes drift visible.
+        try:
+            probe_path = Path.home() / ".coire" / "curator-pool" / "free_tier_probe.json"
+            if probe_path.exists():
+                probe = json.loads(probe_path.read_text()).get("results", {})
+                bad = ("free_zero", "needs_balance", "not_available")
+                for t in new_targets:
+                    k = f"{t['provider']}/{t['model']}"
+                    summary = (probe.get(k) or {}).get("summary")
+                    if summary in bad:
+                        print(f"  [WARN] pool '{pool_name}' primary {k} "
+                              f"classified '{summary}' by last probe — consider "
+                              f"moving to fallback or removing", file=sys.stderr)
+        except Exception as e:
+            print(f"  [info] probe-json check failed: {e}", file=sys.stderr)
         new_targets = normalize(new_targets)
         new_fallbacks = [
             fb for fb in (pool_plan.get("fallbacks") or (rule.get("fallbacks", []) if rule else []))

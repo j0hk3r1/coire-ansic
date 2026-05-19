@@ -74,7 +74,7 @@ pools:
     # fallback chain — free tier has 8k token cap, every hermes-agent
     # call (15k+) 413s and wastes the cascade slot. Kept in fast/mid
     # fallbacks where prompts are short.
-    - gemini/gemini-3.1-pro-preview
+    - gemini/gemini-3-flash-preview
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/z-ai/glm-4.5-air:free
     - openrouter/deepseek/deepseek-v4-flash:free
