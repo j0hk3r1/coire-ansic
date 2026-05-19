@@ -11,7 +11,7 @@
         "max_conns_per_host": 5000
       },
       "concurrency_and_buffer_size": {
-        "concurrency": 1000,
+        "concurrency": 4,
         "buffer_size": 5000
       },
       "proxy_config": null,
@@ -19,7 +19,6 @@
       "send_back_raw_response": false,
       "store_raw_request_response": false,
       "provider_status": "active",
-      "status": "unknown",
       "_keys_count": 1
     },
     {
@@ -37,7 +36,7 @@
         "max_conns_per_host": 5000
       },
       "concurrency_and_buffer_size": {
-        "concurrency": 1000,
+        "concurrency": 4,
         "buffer_size": 5000
       },
       "proxy_config": null,
@@ -48,7 +47,7 @@
         "is_key_less": false,
         "base_provider_type": "openai",
         "allowed_requests": {
-          "list_models": true,
+          "list_models": false,
           "text_completion": false,
           "text_completion_stream": false,
           "chat_completion": true,
@@ -101,12 +100,114 @@
         },
         "request_path_overrides": {
           "chat_completion": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions",
-          "chat_completion_stream": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions",
-          "list_models": "http://coire-strip-shim:4002/stub/models"
+          "chat_completion_stream": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions"
         }
       },
       "provider_status": "active",
-      "status": "unknown",
+      "_keys_count": 1
+    },
+    {
+      "name": "cohere",
+      "network_config": {
+        "default_request_timeout_in_seconds": 30,
+        "max_retries": 0,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000,
+        "stream_idle_timeout_in_seconds": 60,
+        "max_conns_per_host": 5000
+      },
+      "concurrency_and_buffer_size": {
+        "concurrency": 1000,
+        "buffer_size": 5000
+      },
+      "proxy_config": null,
+      "send_back_raw_request": false,
+      "send_back_raw_response": false,
+      "store_raw_request_response": false,
+      "provider_status": "active",
+      "_keys_count": 1
+    },
+    {
+      "name": "deepseek",
+      "network_config": {
+        "base_url": "https://api.deepseek.com/v1",
+        "extra_headers": {
+          "Authorization": "Bearer ${DEEPSEEK_API_KEY}"
+        },
+        "default_request_timeout_in_seconds": 300,
+        "max_retries": 0,
+        "retry_backoff_initial": 0,
+        "retry_backoff_max": 0
+      },
+      "concurrency_and_buffer_size": {
+        "concurrency": 1000,
+        "buffer_size": 5000
+      },
+      "proxy_config": null,
+      "send_back_raw_request": false,
+      "send_back_raw_response": false,
+      "store_raw_request_response": false,
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "list_models": false,
+          "text_completion": false,
+          "text_completion_stream": false,
+          "chat_completion": true,
+          "chat_completion_stream": true,
+          "responses": false,
+          "responses_stream": false,
+          "count_tokens": false,
+          "embedding": false,
+          "rerank": false,
+          "ocr": false,
+          "speech": false,
+          "speech_stream": false,
+          "transcription": false,
+          "transcription_stream": false,
+          "image_generation": false,
+          "image_generation_stream": false,
+          "image_edit": false,
+          "image_edit_stream": false,
+          "image_variation": false,
+          "video_generation": false,
+          "video_retrieve": false,
+          "video_download": false,
+          "video_delete": false,
+          "video_list": false,
+          "video_remix": false,
+          "batch_create": false,
+          "batch_list": false,
+          "batch_retrieve": false,
+          "batch_cancel": false,
+          "batch_delete": false,
+          "batch_results": false,
+          "file_upload": false,
+          "file_list": false,
+          "file_retrieve": false,
+          "file_delete": false,
+          "file_content": false,
+          "container_create": false,
+          "container_list": false,
+          "container_retrieve": false,
+          "container_delete": false,
+          "container_file_create": false,
+          "container_file_list": false,
+          "container_file_retrieve": false,
+          "container_file_content": false,
+          "container_file_delete": false,
+          "passthrough": false,
+          "passthrough_stream": false,
+          "websocket_responses": false,
+          "realtime": false
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.deepseek.com/v1/chat/completions",
+          "chat_completion_stream": "https://api.deepseek.com/v1/chat/completions"
+        }
+      },
+      "provider_status": "active",
       "_keys_count": 1
     },
     {
@@ -120,7 +221,7 @@
         "max_conns_per_host": 5000
       },
       "concurrency_and_buffer_size": {
-        "concurrency": 1000,
+        "concurrency": 3,
         "buffer_size": 5000
       },
       "proxy_config": null,
@@ -128,7 +229,89 @@
       "send_back_raw_response": false,
       "store_raw_request_response": false,
       "provider_status": "active",
-      "status": "unknown",
+      "_keys_count": 1
+    },
+    {
+      "name": "github-models",
+      "network_config": {
+        "base_url": "https://models.github.ai/inference",
+        "extra_headers": {
+          "Authorization": "Bearer ${GITHUB_MODELS_TOKEN}"
+        },
+        "default_request_timeout_in_seconds": 120,
+        "max_retries": 0,
+        "retry_backoff_initial": 0,
+        "retry_backoff_max": 0
+      },
+      "concurrency_and_buffer_size": {
+        "concurrency": 1000,
+        "buffer_size": 5000
+      },
+      "proxy_config": null,
+      "send_back_raw_request": false,
+      "send_back_raw_response": false,
+      "store_raw_request_response": false,
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "list_models": false,
+          "text_completion": false,
+          "text_completion_stream": false,
+          "chat_completion": true,
+          "chat_completion_stream": true,
+          "responses": false,
+          "responses_stream": false,
+          "count_tokens": false,
+          "embedding": false,
+          "rerank": false,
+          "ocr": false,
+          "speech": false,
+          "speech_stream": false,
+          "transcription": false,
+          "transcription_stream": false,
+          "image_generation": false,
+          "image_generation_stream": false,
+          "image_edit": false,
+          "image_edit_stream": false,
+          "image_variation": false,
+          "video_generation": false,
+          "video_retrieve": false,
+          "video_download": false,
+          "video_delete": false,
+          "video_list": false,
+          "video_remix": false,
+          "batch_create": false,
+          "batch_list": false,
+          "batch_retrieve": false,
+          "batch_cancel": false,
+          "batch_delete": false,
+          "batch_results": false,
+          "file_upload": false,
+          "file_list": false,
+          "file_retrieve": false,
+          "file_delete": false,
+          "file_content": false,
+          "container_create": false,
+          "container_list": false,
+          "container_retrieve": false,
+          "container_delete": false,
+          "container_file_create": false,
+          "container_file_list": false,
+          "container_file_retrieve": false,
+          "container_file_content": false,
+          "container_file_delete": false,
+          "passthrough": false,
+          "passthrough_stream": false,
+          "websocket_responses": false,
+          "realtime": false
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://models.github.ai/inference/chat/completions",
+          "chat_completion_stream": "https://models.github.ai/inference/chat/completions"
+        }
+      },
+      "provider_status": "active",
       "_keys_count": 1
     },
     {
@@ -142,7 +325,7 @@
         "max_conns_per_host": 5000
       },
       "concurrency_and_buffer_size": {
-        "concurrency": 1000,
+        "concurrency": 2,
         "buffer_size": 5000
       },
       "proxy_config": null,
@@ -150,7 +333,6 @@
       "send_back_raw_response": false,
       "store_raw_request_response": false,
       "provider_status": "active",
-      "status": "unknown",
       "_keys_count": 1
     },
     {
@@ -164,7 +346,7 @@
         "max_conns_per_host": 5000
       },
       "concurrency_and_buffer_size": {
-        "concurrency": 1000,
+        "concurrency": 2,
         "buffer_size": 5000
       },
       "proxy_config": null,
@@ -172,7 +354,6 @@
       "send_back_raw_response": false,
       "store_raw_request_response": false,
       "provider_status": "active",
-      "status": "unknown",
       "_keys_count": 1
     },
     {
@@ -190,7 +371,7 @@
         "max_conns_per_host": 5000
       },
       "concurrency_and_buffer_size": {
-        "concurrency": 1000,
+        "concurrency": 8,
         "buffer_size": 5000
       },
       "proxy_config": null,
@@ -201,7 +382,7 @@
         "is_key_less": false,
         "base_provider_type": "openai",
         "allowed_requests": {
-          "list_models": true,
+          "list_models": false,
           "text_completion": false,
           "text_completion_stream": false,
           "chat_completion": true,
@@ -254,23 +435,44 @@
         },
         "request_path_overrides": {
           "chat_completion": "https://integrate.api.nvidia.com/v1/chat/completions",
-          "chat_completion_stream": "https://integrate.api.nvidia.com/v1/chat/completions",
-          "list_models": "https://integrate.api.nvidia.com/v1/models"
+          "chat_completion_stream": "https://integrate.api.nvidia.com/v1/chat/completions"
         }
       },
       "provider_status": "active",
-      "status": "unknown",
       "_keys_count": 1
     },
     {
       "name": "openrouter",
       "network_config": {
-        "default_request_timeout_in_seconds": 300,
+        "default_request_timeout_in_seconds": 600,
         "max_retries": 1,
         "retry_backoff_initial": 500,
         "retry_backoff_max": 10000,
-        "stream_idle_timeout_in_seconds": 150,
+        "stream_idle_timeout_in_seconds": 300,
         "max_conns_per_host": 5000
+      },
+      "concurrency_and_buffer_size": {
+        "concurrency": 1,
+        "buffer_size": 5000
+      },
+      "proxy_config": null,
+      "send_back_raw_request": false,
+      "send_back_raw_response": false,
+      "store_raw_request_response": false,
+      "provider_status": "active",
+      "_keys_count": 1
+    },
+    {
+      "name": "sambanova",
+      "network_config": {
+        "base_url": "https://api.sambanova.ai/v1",
+        "extra_headers": {
+          "Authorization": "Bearer ${SAMBANOVA_API_KEY}"
+        },
+        "default_request_timeout_in_seconds": 60,
+        "max_retries": 0,
+        "retry_backoff_initial": 0,
+        "retry_backoff_max": 0
       },
       "concurrency_and_buffer_size": {
         "concurrency": 1000,
@@ -280,8 +482,67 @@
       "send_back_raw_request": false,
       "send_back_raw_response": false,
       "store_raw_request_response": false,
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "list_models": false,
+          "text_completion": false,
+          "text_completion_stream": false,
+          "chat_completion": true,
+          "chat_completion_stream": true,
+          "responses": false,
+          "responses_stream": false,
+          "count_tokens": false,
+          "embedding": false,
+          "rerank": false,
+          "ocr": false,
+          "speech": false,
+          "speech_stream": false,
+          "transcription": false,
+          "transcription_stream": false,
+          "image_generation": false,
+          "image_generation_stream": false,
+          "image_edit": false,
+          "image_edit_stream": false,
+          "image_variation": false,
+          "video_generation": false,
+          "video_retrieve": false,
+          "video_download": false,
+          "video_delete": false,
+          "video_list": false,
+          "video_remix": false,
+          "batch_create": false,
+          "batch_list": false,
+          "batch_retrieve": false,
+          "batch_cancel": false,
+          "batch_delete": false,
+          "batch_results": false,
+          "file_upload": false,
+          "file_list": false,
+          "file_retrieve": false,
+          "file_delete": false,
+          "file_content": false,
+          "container_create": false,
+          "container_list": false,
+          "container_retrieve": false,
+          "container_delete": false,
+          "container_file_create": false,
+          "container_file_list": false,
+          "container_file_retrieve": false,
+          "container_file_content": false,
+          "container_file_delete": false,
+          "passthrough": false,
+          "passthrough_stream": false,
+          "websocket_responses": false,
+          "realtime": false
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.sambanova.ai/v1/chat/completions",
+          "chat_completion_stream": "https://api.sambanova.ai/v1/chat/completions"
+        }
+      },
       "provider_status": "active",
-      "status": "unknown",
       "_keys_count": 1
     }
   ]
