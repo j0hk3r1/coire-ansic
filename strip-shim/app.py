@@ -293,6 +293,26 @@ async def proxy(path: str, request: Request):
             data["messages"] = strip_reasoning(data["messages"])
             data["messages"] = drop_orphan_tool_results(data["messages"])
             data["messages"] = rewrite_tool_ids(data["messages"])
+            # Guard: if filtering left no messages (orphan-tool-only payload),
+            # bail with 400 here instead of forwarding empty to upstream —
+            # cerebras / groq / others all 400 on empty messages, which
+            # burns RPM + pollutes error logs. Surfaces the client bug.
+            if not data["messages"]:
+                log.warning("rejecting request to %s — messages empty after filtering "
+                            "(likely orphan-tool-only history from %s)",
+                            data.get("model", "?"),
+                            request.headers.get("user-agent", "unknown"))
+                return JSONResponse(
+                    {"error": {
+                        "message": "strip-shim: messages list empty after filtering "
+                                   "(orphan tool-result with no preceding assistant "
+                                   "tool_calls). Client must include the assistant "
+                                   "message that invoked this tool.",
+                        "type": "invalid_request_error",
+                        "code": "empty_messages_after_filter",
+                    }},
+                    status_code=400,
+                )
             # deepseek-v4-pro on NIM hangs without enable_thinking=true.
             # Scoped to that model only — kimi-k2 breaks when extras injected.
             model = data.get("model", "")
