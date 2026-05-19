@@ -239,6 +239,12 @@ def normalize_response(payload: dict) -> dict:
         # strip provider prefix if upstream already included it (e.g. "deepseek-ai/...")
         model_short = model_in.rsplit("/", 1)[-1]
         payload["model"] = f"{provider} · {model_short}"
+    # Build "via" footer line once per response. Empty if we couldn't
+    # determine the routed model (don't pollute clean responses with a
+    # bare "via ?" line). Appended to each non-empty assistant content
+    # below. Stream path doesn't need this — chunk.model is already
+    # annotated and the client shows it per-chunk.
+    via_footer = f"\n\n— *via {payload['model']}*" if " · " in payload.get("model", "") else ""
     for ch in payload.get("choices", []):
         msg = ch.get("message")
         if not isinstance(msg, dict):
@@ -269,6 +275,11 @@ def normalize_response(payload: dict) -> dict:
             msg["tool_calls"] = tcs
             ch["finish_reason"] = "tool_calls"
             log.warning("normalized %d tool_call(s) from content", len(tcs))
+        elif via_footer and msg.get("content"):
+            # Append "via <provider · model>" so users see which target
+            # routed inside a pool. Only on plain content responses
+            # (skip tool-call results — those are agent-internal).
+            msg["content"] = msg["content"] + via_footer
     return payload
 
 
