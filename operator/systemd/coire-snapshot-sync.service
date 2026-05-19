@@ -1,0 +1,12 @@
+[Unit]
+Description=Pull fresh bifrost snapshot from .93 + commit locally if drift
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jkr/Repos/coire-ansic
+ExecStart=/usr/bin/python3 /home/jkr/Repos/coire-ansic/scripts/runtime/auto_snapshot_sync.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=180
+Nice=15
