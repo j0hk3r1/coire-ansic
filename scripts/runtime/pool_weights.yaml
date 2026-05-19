@@ -20,37 +20,36 @@
 pools:
   best:
     targets:
-    - provider: nvidia-nim
-      model: moonshotai/kimi-k2.6
-      weight: 0.248
-    - provider: github-models
-      model: openai/gpt-4.1
-      weight: 0.2182
+    # 2026-05-19 auto: removed nvidia-nim/kimi-k2.6 (p95=227s, recurring 504)
+    # and github-models/openai/gpt-4.1 (free-tier 8k context cap, 18×/h 413
+    # on real traffic) from primaries. Both kept in fallback.
     - provider: groq
       model: openai/gpt-oss-120b
-      weight: 0.164
+      weight: 0.3071
     - provider: mistral
       model: mistral-medium-3.5
-      weight: 0.1191
+      weight: 0.2229
     - provider: cohere
       model: command-a-03-2025
-      weight: 0.0793
+      weight: 0.1480
     - provider: groq
       model: llama-3.3-70b-versatile
-      weight: 0.0656
+      weight: 0.1236
     - provider: cf-openai
       model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.0322
-    - provider: cf-openai
-      model: '@cf/nvidia/nemotron-3-120b-a12b'
-      weight: 0.0241
+      weight: 0.0599
     - provider: sambanova
       model: DeepSeek-V3.1
-      weight: 0.0298
+      weight: 0.0562
+    - provider: cf-openai
+      model: '@cf/nvidia/nemotron-3-120b-a12b'
+      weight: 0.0450
     - provider: gemini
       model: gemini-3-pro-preview
-      weight: 0.0198
+      weight: 0.0373
     fallbacks:
+    - nvidia-nim/moonshotai/kimi-k2.6
+    - github-models/openai/gpt-4.1
     - github-models/openai/gpt-4o
     - cohere/command-a-reasoning-08-2025
     - gemini/gemini-3.1-pro-preview
