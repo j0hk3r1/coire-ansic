@@ -72,6 +72,7 @@ pools:
     - gemini/gemini-3.1-pro-preview
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/z-ai/glm-4.5-air:free
+    - openrouter/deepseek/deepseek-v4-flash:free
     - cf-openai/@cf/moonshotai/kimi-k2.5
     - sambanova/DeepSeek-V3.2
   code:
