@@ -142,11 +142,15 @@ services:
     volumes:
       - ./openwebui-data:/app/backend/data
     environment:
-      OPENAI_API_BASE_URL: http://coire-strip-shim:4002/v1
-      OPENAI_API_KEY: ${BIFROST_API_KEY}
+      # Two backends so the model picker offers BOTH chat-only routing
+      # (coire pools) AND hermes-agent (full agent loop + memory + tools).
+      # strip-shim's /v1/models now returns the 7 pool names directly.
+      # hermes-gateway's api_server (port 8642 on host) exposes a single
+      # 'hermes-agent' model that invokes the agent loop.
+      OPENAI_API_BASE_URLS: "http://coire-strip-shim:4002/v1;http://172.17.0.1:8642/v1"
+      OPENAI_API_KEYS: "${BIFROST_API_KEY};${API_SERVER_KEY}"
       ENABLE_OLLAMA_API: "false"
       WEBUI_AUTH: ${OPENWEBUI_AUTH:-true}
-      DEFAULT_MODELS: "best,code,mid,fast,compress,vision,ops"
       # Disable phone-home model catalog fetches — we know our pools.
       ENABLE_COMMUNITY_SHARING: "false"
       ENABLE_OPENAI_API_MODELS: "true"

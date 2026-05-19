@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import secrets
+import time
 from contextlib import asynccontextmanager
 
 import httpx
@@ -46,6 +47,24 @@ async def health(request: Request):
     except Exception as e:
         return JSONResponse({"shim": "ok", "bifrost": f"error: {e}"}, status_code=503)
     return {"shim": "ok", "bifrost": "ok" if upstream_ok else f"http {r.status_code}"}
+
+
+@app.get("/v1/models")
+async def list_pool_models():
+    """Return the 7 coire pool names as 'models' so OpenAI-compatible
+    clients (Open WebUI etc.) see clean pool routing in their model picker
+    instead of the 40+ underlying provider models bifrost knows about.
+
+    A request for any of these 'models' is what bifrost expects as the
+    routing-rule name — bifrost picks the actual upstream target via the
+    rule's weighted target list.
+    """
+    pools = ["best", "code", "mid", "fast", "compress", "vision", "ops"]
+    now = int(time.time())
+    return {
+        "object": "list",
+        "data": [{"id": p, "object": "model", "created": now, "owned_by": "coire-ansic"} for p in pools],
+    }
 
 
 @app.get("/stub/models")
