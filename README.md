@@ -78,7 +78,7 @@ view of which models are excluded and why.
 | `--with-telegram` | Telegram bot pairing (requires `--with-hermes`) |
 | `--with-firecrawl` | Local web_extract backend |
 | `--with-searxng` | Self-hosted meta-search |
-| `--with-webui` | [Open WebUI](https://github.com/open-webui/open-webui) chat client — single container, OpenAI-compat, auto-points at strip-shim. UI at `http://localhost:3000`. |
+| `--with-webui` | [Open WebUI](https://github.com/open-webui/open-webui) chat client — single container, OpenAI-compat, auto-points at strip-shim. UI at `http://localhost:3030` (override via `OPENWEBUI_PORT` in `.env`). |
 | `--with-camofox` | Anti-detect Firefox — **BYO source**, see [camofox/README.md](camofox/README.md). Not in `--all`. |
 | `--all` | hermes + telegram + firecrawl + searxng + webui (camofox is opt-in only) |
 

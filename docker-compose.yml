@@ -134,8 +134,11 @@ services:
     profiles: ["webui"]
     image: ghcr.io/open-webui/open-webui:main
     container_name: coire-openwebui
+    # Bound to :3030 (not the open-webui default :3000) because :3000 is often
+    # already taken on shared hosts (jellyfin/aiostreams/grafana/etc.).
+    # Override with OPENWEBUI_PORT=<other> in .env if you need.
     ports:
-      - "0.0.0.0:3000:8080"
+      - "0.0.0.0:${OPENWEBUI_PORT:-3030}:8080"
     volumes:
       - ./openwebui-data:/app/backend/data
     environment:

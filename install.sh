@@ -309,7 +309,7 @@ $([ $WITH_TELEGRAM -eq 1 ] && echo "  • Telegram gateway     journalctl --user
 $([ $WITH_CAMOFOX -eq 1 ] && echo "  • Camofox browser      http://localhost:9378")
 $([ $WITH_SEARXNG -eq 1 ] && echo "  • SearXNG search       http://localhost:8891")
 $([ $WITH_FIRECRAWL -eq 1 ] && echo "  • Firecrawl extract    http://localhost:3002")
-$([ $WITH_WEBUI -eq 1 ] && echo "  • Open WebUI chat      http://localhost:3000  (1st user becomes admin)")
+$([ $WITH_WEBUI -eq 1 ] && echo "  • Open WebUI chat      http://localhost:${OPENWEBUI_PORT:-3030}  (1st user becomes admin)")
 
 Drop new API keys in ~/.coire/operator/incoming_keys/<name>.txt — pi-op-queue
 auto-integrates them within 5 minutes.
