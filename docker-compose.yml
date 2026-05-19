@@ -124,3 +124,32 @@ services:
     depends_on:
       bifrost:
         condition: service_healthy
+
+  # Open WebUI — OpenAI-compatible chat UI. Optional, opt-in via --with-webui
+  # (or COMPOSE_PROFILES=webui). Points at strip-shim for response normalization
+  # (reasoning_content, tool-call IDs) — same path hermes-agent uses.
+  # Web auth on by default; first user becomes admin. Disable with WEBUI_AUTH=false
+  # if running on a trusted LAN.
+  openwebui:
+    profiles: ["webui"]
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: coire-openwebui
+    ports:
+      - "0.0.0.0:3000:8080"
+    volumes:
+      - ./openwebui-data:/app/backend/data
+    environment:
+      OPENAI_API_BASE_URL: http://coire-strip-shim:4002/v1
+      OPENAI_API_KEY: ${BIFROST_API_KEY}
+      ENABLE_OLLAMA_API: "false"
+      WEBUI_AUTH: ${OPENWEBUI_AUTH:-true}
+      DEFAULT_MODELS: "best,code,mid,fast,compress,vision,ops"
+      # Disable phone-home model catalog fetches — we know our pools.
+      ENABLE_COMMUNITY_SHARING: "false"
+      ENABLE_OPENAI_API_MODELS: "true"
+    restart: unless-stopped
+    depends_on:
+      bifrost:
+        condition: service_healthy
+      strip-shim:
+        condition: service_started

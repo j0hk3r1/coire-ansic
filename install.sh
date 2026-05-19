@@ -26,6 +26,7 @@ WITH_TELEGRAM=0
 WITH_CAMOFOX=0
 WITH_SEARXNG=0
 WITH_FIRECRAWL=0
+WITH_WEBUI=0
 for arg in "$@"; do
   case "$arg" in
     --with-hermes)    WITH_HERMES=1 ;;
@@ -33,10 +34,11 @@ for arg in "$@"; do
     --with-camofox)   WITH_CAMOFOX=1 ;;
     --with-searxng)   WITH_SEARXNG=1 ;;
     --with-firecrawl) WITH_FIRECRAWL=1 ;;
+    --with-webui)     WITH_WEBUI=1 ;;
     # --all excludes --with-camofox: Camoufox upstream ships a Python lib
     # (no REST server), so the docker service needs an out-of-band fork
     # cloned into ./camofox/src/. Users who want it must opt in explicitly.
-    --all)            WITH_HERMES=1; WITH_TELEGRAM=1; WITH_SEARXNG=1; WITH_FIRECRAWL=1 ;;
+    --all)            WITH_HERMES=1; WITH_TELEGRAM=1; WITH_SEARXNG=1; WITH_FIRECRAWL=1; WITH_WEBUI=1 ;;
     -h|--help)
       grep -E "^# " "$0" | sed 's/^# //'; exit 0 ;;
     *) echo "unknown flag: $arg (try --help)"; exit 64 ;;
@@ -56,6 +58,7 @@ echo "  telegram:      $([ $WITH_TELEGRAM -eq 1 ] && echo on || echo off)"
 echo "  camofox:       $([ $WITH_CAMOFOX -eq 1 ] && echo on || echo off)"
 echo "  searxng:       $([ $WITH_SEARXNG -eq 1 ] && echo on || echo off)"
 echo "  firecrawl:     $([ $WITH_FIRECRAWL -eq 1 ] && echo on || echo off)"
+echo "  webui:         $([ $WITH_WEBUI -eq 1 ] && echo on || echo off)"
 
 # ════════════════════════════════════════════════════════════════════════════
 # CORE  (always installed)
@@ -110,6 +113,7 @@ if [ $WITH_CAMOFOX -eq 1 ]; then
   fi
 fi
 [ $WITH_SEARXNG -eq 1 ] && PROFILES="$PROFILES,searxng"
+[ $WITH_WEBUI   -eq 1 ] && PROFILES="$PROFILES,webui"
 
 COMPOSE_PROFILES="$PROFILES" docker compose up -d --build
 # wait for bifrost healthy
@@ -305,6 +309,7 @@ $([ $WITH_TELEGRAM -eq 1 ] && echo "  • Telegram gateway     journalctl --user
 $([ $WITH_CAMOFOX -eq 1 ] && echo "  • Camofox browser      http://localhost:9378")
 $([ $WITH_SEARXNG -eq 1 ] && echo "  • SearXNG search       http://localhost:8891")
 $([ $WITH_FIRECRAWL -eq 1 ] && echo "  • Firecrawl extract    http://localhost:3002")
+$([ $WITH_WEBUI -eq 1 ] && echo "  • Open WebUI chat      http://localhost:3000  (1st user becomes admin)")
 
 Drop new API keys in ~/.coire/operator/incoming_keys/<name>.txt — pi-op-queue
 auto-integrates them within 5 minutes.
