@@ -7,19 +7,24 @@
       "cel_expression": "model == \"ops\"",
       "targets": [
         {
+          "provider": "cerebras",
+          "model": "qwen-3-235b-a22b-instruct-2507",
+          "weight": 0.3179
+        },
+        {
           "provider": "github-models",
           "model": "openai/gpt-4.1-mini",
-          "weight": 0.4
+          "weight": 0.2649
         },
         {
           "provider": "cerebras",
           "model": "llama3.1-8b",
-          "weight": 0.36
+          "weight": 0.2504
         },
         {
           "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.24
+          "weight": 0.1669
         }
       ],
       "fallbacks": [
@@ -42,32 +47,32 @@
         {
           "provider": "gemini",
           "model": "gemini-3-flash-preview",
-          "weight": 0.3143
+          "weight": 0.318
         },
         {
           "provider": "mistral",
           "model": "mistral-medium-3.5",
-          "weight": 0.2857
+          "weight": 0.289
         },
         {
           "provider": "mistral",
           "model": "mistral-medium-latest",
-          "weight": 0.1429
+          "weight": 0.1446
         },
         {
           "provider": "mistral",
           "model": "mistral-large-latest",
-          "weight": 0.1428
+          "weight": 0.1445
         },
         {
           "provider": "cf-openai",
           "model": "@cf/google/gemma-4-26b-a4b-it",
-          "weight": 0.0857
+          "weight": 0.078
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.0286
+          "weight": 0.026
         }
       ],
       "fallbacks": [
@@ -91,38 +96,43 @@
       "targets": [
         {
           "provider": "cerebras",
+          "model": "qwen-3-235b-a22b-instruct-2507",
+          "weight": 0.2966
+        },
+        {
+          "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.3286
+          "weight": 0.2388
         },
         {
           "provider": "cohere",
           "model": "command-a-03-2025",
-          "weight": 0.2143
+          "weight": 0.1483
         },
         {
           "provider": "gemini",
           "model": "gemini-3-flash-preview",
-          "weight": 0.1429
+          "weight": 0.0989
         },
         {
           "provider": "mistral",
           "model": "mistral-large-latest",
-          "weight": 0.1143
+          "weight": 0.0791
         },
         {
           "provider": "cerebras",
           "model": "zai-glm-4.7",
-          "weight": 0.0857
+          "weight": 0.0623
         },
         {
           "provider": "sambanova",
           "model": "DeepSeek-V3.1",
-          "weight": 0.0714
+          "weight": 0.0494
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.0429
+          "weight": 0.0267
         }
       ],
       "fallbacks": [
@@ -151,52 +161,52 @@
         {
           "provider": "groq",
           "model": "openai/gpt-oss-120b",
-          "weight": 0.28
+          "weight": 0.2892
         },
         {
           "provider": "mistral",
           "model": "codestral-latest",
-          "weight": 0.18
+          "weight": 0.1771
         },
         {
           "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.15
+          "weight": 0.1549
         },
         {
           "provider": "groq",
           "model": "llama-3.3-70b-versatile",
-          "weight": 0.1
+          "weight": 0.1033
         },
         {
           "provider": "mistral",
           "model": "mistral-medium-3.5",
-          "weight": 0.08
+          "weight": 0.0787
         },
         {
           "provider": "github-models",
           "model": "openai/gpt-4.1-mini",
-          "weight": 0.07
+          "weight": 0.0689
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.05
+          "weight": 0.0443
         },
         {
           "provider": "cf-openai",
           "model": "@cf/qwen/qwen2.5-coder-32b-instruct",
-          "weight": 0.05
+          "weight": 0.0443
         },
         {
           "provider": "cohere",
           "model": "command-a-03-2025",
-          "weight": 0.02
+          "weight": 0.0197
         },
         {
           "provider": "sambanova",
           "model": "DeepSeek-V3.1",
-          "weight": 0.02
+          "weight": 0.0197
         }
       ],
       "fallbacks": [
@@ -222,27 +232,27 @@
         {
           "provider": "cerebras",
           "model": "llama3.1-8b",
-          "weight": 0.3594
+          "weight": 0.3153
         },
         {
           "provider": "github-models",
           "model": "openai/gpt-4o-mini",
-          "weight": 0.2932
-        },
-        {
-          "provider": "gemini",
-          "model": "gemini-3.1-flash-lite-preview",
-          "weight": 0.1319
+          "weight": 0.3082
         },
         {
           "provider": "groq",
           "model": "llama-3.3-70b-versatile",
-          "weight": 0.1257
+          "weight": 0.1387
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-lite-preview",
+          "weight": 0.1386
         },
         {
           "provider": "groq",
           "model": "qwen/qwen3-32b",
-          "weight": 0.0898
+          "weight": 0.0991
         }
       ],
       "fallbacks": [
@@ -268,47 +278,47 @@
         {
           "provider": "github-models",
           "model": "openai/gpt-4.1-mini",
-          "weight": 0.3181
+          "weight": 0.319
         },
         {
           "provider": "gemini",
           "model": "gemini-3-flash-preview",
-          "weight": 0.1857
+          "weight": 0.1862
         },
         {
           "provider": "gemini",
           "model": "gemini-2.5-flash-lite",
-          "weight": 0.1239
+          "weight": 0.1242
         },
         {
           "provider": "groq",
           "model": "qwen/qwen3-32b",
-          "weight": 0.1124
+          "weight": 0.1183
         },
         {
           "provider": "mistral",
           "model": "mistral-medium-3.5",
-          "weight": 0.0892
+          "weight": 0.0894
         },
         {
           "provider": "cf-openai",
           "model": "@cf/google/gemma-4-26b-a4b-it",
-          "weight": 0.0516
+          "weight": 0.0465
         },
         {
           "provider": "cf-openai",
           "model": "@cf/qwen/qwen2.5-coder-32b-instruct",
-          "weight": 0.0516
+          "weight": 0.0465
         },
         {
           "provider": "groq",
           "model": "llama-3.3-70b-versatile",
-          "weight": 0.042
+          "weight": 0.0442
         },
         {
           "provider": "cohere",
           "model": "command-r7b-12-2024",
-          "weight": 0.0255
+          "weight": 0.0256
         }
       ],
       "fallbacks": [
@@ -384,37 +394,42 @@
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.3049
+          "weight": 0.2314
+        },
+        {
+          "provider": "cerebras",
+          "model": "qwen-3-235b-a22b-instruct-2507",
+          "weight": 0.1943
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.5",
-          "weight": 0.2195
+          "weight": 0.1666
         },
         {
           "provider": "cerebras",
           "model": "zai-glm-4.7",
-          "weight": 0.1585
+          "weight": 0.1404
         },
         {
           "provider": "cohere",
           "model": "command-a-03-2025",
-          "weight": 0.122
+          "weight": 0.1028
         },
         {
           "provider": "mistral",
           "model": "mistral-medium-3.5",
-          "weight": 0.0976
+          "weight": 0.0823
         },
         {
           "provider": "gemini",
           "model": "gemini-3-flash-preview",
-          "weight": 0.061
+          "weight": 0.0514
         },
         {
           "provider": "mistral",
           "model": "mistral-large-latest",
-          "weight": 0.0366
+          "weight": 0.0308
         }
       ],
       "fallbacks": [
@@ -437,32 +452,37 @@
         {
           "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.3261
+          "weight": 0.3033
         },
         {
           "provider": "openrouter",
           "model": "openai/gpt-oss-120b:free",
-          "weight": 0.2174
+          "weight": 0.2022
         },
         {
           "provider": "openrouter",
           "model": "deepseek/deepseek-v4-flash:free",
-          "weight": 0.163
+          "weight": 0.1517
         },
         {
           "provider": "mistral",
           "model": "codestral-latest",
-          "weight": 0.1304
+          "weight": 0.1213
         },
         {
           "provider": "cf-openai",
           "model": "@cf/qwen/qwen2.5-coder-32b-instruct",
-          "weight": 0.1087
+          "weight": 0.091
+        },
+        {
+          "provider": "cerebras",
+          "model": "qwen-3-235b-a22b-instruct-2507",
+          "weight": 0.0849
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.0543
+          "weight": 0.0455
         }
       ],
       "fallbacks": [
@@ -539,42 +559,42 @@
         {
           "provider": "groq",
           "model": "llama-3.1-8b-instant",
-          "weight": 0.25
+          "weight": 0.2534
         },
         {
           "provider": "cerebras",
           "model": "llama3.1-8b",
-          "weight": 0.22
+          "weight": 0.223
         },
         {
           "provider": "groq",
           "model": "openai/gpt-oss-20b",
-          "weight": 0.15
-        },
-        {
-          "provider": "github-models",
-          "model": "openai/gpt-4.1-mini",
-          "weight": 0.1
+          "weight": 0.152
         },
         {
           "provider": "groq",
           "model": "qwen/qwen3-32b",
-          "weight": 0.1
+          "weight": 0.1014
+        },
+        {
+          "provider": "github-models",
+          "model": "openai/gpt-4.1-mini",
+          "weight": 0.0965
         },
         {
           "provider": "github-models",
           "model": "openai/gpt-4o-mini",
-          "weight": 0.08
+          "weight": 0.0772
         },
         {
           "provider": "gemini",
           "model": "gemini-3.1-flash-lite-preview",
-          "weight": 0.07
+          "weight": 0.0676
         },
         {
           "provider": "gemini",
           "model": "gemini-flash-lite-latest",
-          "weight": 0.03
+          "weight": 0.029
         }
       ],
       "fallbacks": [
