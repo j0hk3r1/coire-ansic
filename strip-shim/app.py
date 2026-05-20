@@ -130,36 +130,66 @@ def strip_reasoning(messages: list) -> list:
     return cleaned
 
 
-# Some pool primaries cap max_tokens lower than the 16k we advertise.
-# cohere/command-a-03-2025 = 8192. mistral-* = 8192. Clamp here so a
-# client asking for 16k doesn't 400 the cascade with "too many tokens".
-# Power users routing to a provider that supports more can bypass via
-# direct model selection (bifrost-level — provider/model bypasses pools).
-MAX_OUTPUT_CAP = int(os.environ.get("STRIP_SHIM_MAX_OUTPUT_CAP", "8192"))
+# Pool-aware output caps. omo's Sisyphus/Momus/Oracle/Junior ask for
+# maxTokens up to 64000 to support extended planning + reasoning loops.
+# Most of our free providers handle 16384, only cohere/mistral cap at 8192.
+# Clamp PER POOL so we don't strangle the orchestrator on pools where
+# the primaries support more.
+_POOL_OUTPUT_CAP = {
+    # Pools whose primaries lead with cohere/mistral (8k cap)
+    "omo-kimi": 8192,
+    "compress": 8192,
+    # Pools whose primaries support 16k+ output
+    "best": 16384,
+    "code": 16384,
+    "mid": 16384,
+    "fast": 8192,           # fast = small models; 8k typical
+    "vision": 8192,
+    "ops": 8192,
+    "omo-gpt-5-5": 16384,   # gpt-oss + deepseek + qwen-coder all 16k
+    "omo-gemini": 32768,    # gemini supports up to 65k, allow plenty
+    "omo-utility": 8192,
+}
+# Fallback when model is a direct provider/model (not a pool alias)
+DEFAULT_OUTPUT_CAP = int(os.environ.get("STRIP_SHIM_MAX_OUTPUT_CAP", "16384"))
 
-# OpenAI's reasoning_effort field: some providers (mistral) only accept
-# {"high", "none"} on certain models; cohere ignores it; gpt-oss/* uses
-# it via thinking. Safest is to drop UNRECOGNIZED values rather than the
-# field entirely — providers that DO use it stay supported.
-_OK_REASONING_EFFORT = {"high", "low", "medium", "xhigh", "minimal", "none"}
+
+# Pool-name → drop "medium"/"low"/"minimal" reasoning_effort?
+# Only true when the pool's primaries are known to reject those values.
+# omo-kimi leads with mistral-medium (rejects "medium"/"low"). Other
+# pools have gpt-oss/gemini/qwen primaries that ACCEPT reasoning_effort.
+_POOL_DROPS_RE = {"omo-kimi", "compress", "mid", "vision"}
 
 
 def clamp_max_tokens(data: dict) -> None:
-    """Cap max_tokens in-place if it exceeds MAX_OUTPUT_CAP."""
+    """Cap max_tokens in-place based on the pool name in `model` field."""
     mt = data.get("max_tokens")
-    if isinstance(mt, int) and mt > MAX_OUTPUT_CAP:
-        log.info("clamped max_tokens %d -> %d (provider safety cap)", mt, MAX_OUTPUT_CAP)
-        data["max_tokens"] = MAX_OUTPUT_CAP
+    if not isinstance(mt, int):
+        return
+    model = data.get("model") or ""
+    # Pool alias OR provider/model? Pool aliases have no "/"
+    pool_or_alias = model.split("/", 1)[0]
+    cap = _POOL_OUTPUT_CAP.get(pool_or_alias, DEFAULT_OUTPUT_CAP)
+    if mt > cap:
+        log.info("clamped max_tokens %d -> %d for pool=%s", mt, cap, model)
+        data["max_tokens"] = cap
 
 
 def sanitize_reasoning_effort(data: dict) -> None:
-    """Drop reasoning_effort if the value is one that mistral or others
-    specifically reject. mistral-medium-3.5 only accepts {high, none}.
-    cohere ignores it. Dropping "low"/"medium"/"minimal" prevents 400s
-    while keeping "high" and "none" through for providers that use them."""
+    """Pool-aware reasoning_effort sanitization. Drop ONLY when target pool
+    primaries reject 'low'/'medium'/'minimal' (mistral-medium-3.5 only
+    accepts high/none; cohere ignores). For omo-gpt-5-5, omo-kimi-not-via-
+    mistral, fast pool, keep the field — gpt-oss + qwen accept it.
+    """
     re_val = data.get("reasoning_effort")
-    if isinstance(re_val, str) and re_val.lower() in ("low", "medium", "minimal"):
-        log.info("dropping reasoning_effort=%r (rejected by mistral; cohere ignores)", re_val)
+    if not isinstance(re_val, str):
+        return
+    if re_val.lower() not in ("low", "medium", "minimal"):
+        return
+    model = data.get("model") or ""
+    pool_or_alias = model.split("/", 1)[0]
+    if pool_or_alias in _POOL_DROPS_RE:
+        log.info("dropping reasoning_effort=%r for pool=%s (primaries reject)", re_val, model)
         del data["reasoning_effort"]
 
 

@@ -320,37 +320,39 @@ pools:
   #   - Utility pool leads with inst-tier small models (no frontier — wasteful per omo)
 
   omo-kimi:
-    # Communicator/orchestrator pool. Name contains "kimi" → omo loads
-    # Kimi K2.x prompt variant. Composition is Claude-substitute heavy.
+    # 2026-05-20 retune: omo Sisyphus/Junior/Metis ask maxTokens=64000.
+    # Removed mistral-medium-3.5 (8k ctx_output cap) and cohere/command-a
+    # (8k cap + p95=120s tail) — both were truncating Sisyphus plans.
+    # Pool name contains "kimi" → omo loads Kimi K2.x prompt variant.
+    # All primaries handle 16k+ output and accept Claude-style prompts.
     targets:
     - provider: cf-openai
       model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.25
+      weight: 0.28
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.22
     - provider: cf-openai
       model: '@cf/moonshotai/kimi-k2.5'
       weight: 0.18
     - provider: cerebras
-      model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.18
-    - provider: cerebras
       model: zai-glm-4.7
-      weight: 0.13
-    - provider: cohere
-      model: command-a-03-2025
-      weight: 0.10
-    - provider: mistral
-      model: mistral-medium-3.5
-      weight: 0.08
+      weight: 0.15
     - provider: gemini
       model: gemini-3-flash-preview
-      weight: 0.05
-    - provider: mistral
-      model: mistral-large-latest
-      weight: 0.03
+      weight: 0.10
+    - provider: cerebras
+      model: gpt-oss-120b
+      weight: 0.07
     fallbacks:
     - nvidia-nim/moonshotai/kimi-k2.6
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/z-ai/glm-4.5-air:free
+    # 8k-cap models as last resort only (truncates Sisyphus output but
+    # better than nothing if everything else fails)
+    - cohere/command-a-03-2025
+    - mistral/mistral-medium-3.5
+    - mistral/mistral-large-latest
     - sambanova/DeepSeek-V3.1
     - deepseek/deepseek-chat
 
@@ -420,39 +422,42 @@ pools:
     - cohere/c4ai-aya-vision-32b
 
   omo-utility:
-    # Speed-critical pool for Explore/Librarian/quick. No family substring
-    # → omo loads default (Claude) prompt — fine because utility agents
-    # don't need deep reasoning, just speed + tool fan-out.
-    # All inst/fast tier. Zero frontier models per omo's "no Opus for
-    # utility — wasteful overprovision" rule.
+    # 2026-05-20 reworked: real omo Explore/Librarian handoff carries ~25k
+    # tokens of Sisyphus context. Original composition (groq small +
+    # gh-mini/nano) all 413'd on the 8k/12k cap. Now leads with Gemini
+    # Flash variants (1M ctx, fast, no per-call TPM cap). Inst-tier
+    # small models stay as low-weight slots for short prompts.
     targets:
-    - provider: groq
-      model: llama-3.1-8b-instant
-      weight: 0.25
-    - provider: cerebras
-      model: llama3.1-8b
-      weight: 0.22
-    - provider: groq
-      model: openai/gpt-oss-20b
-      weight: 0.15
-    - provider: groq
-      model: qwen/qwen3-32b
-      weight: 0.10
-    - provider: github-models
-      model: openai/gpt-4.1-mini
-      weight: 0.10
-    - provider: github-models
-      model: openai/gpt-4o-mini
-      weight: 0.08
     - provider: gemini
       model: gemini-3.1-flash-lite-preview
-      weight: 0.07
+      weight: 0.28
+    - provider: gemini
+      model: gemini-flash-latest
+      weight: 0.22
+    - provider: gemini
+      model: gemini-2.5-flash-lite
+      weight: 0.15
     - provider: gemini
       model: gemini-flash-lite-latest
-      weight: 0.03
+      weight: 0.10
+    - provider: cerebras
+      model: llama3.1-8b
+      weight: 0.10
+    - provider: groq
+      model: llama-3.1-8b-instant
+      weight: 0.08
+    - provider: groq
+      model: openai/gpt-oss-20b
+      weight: 0.05
+    - provider: nvidia-nim
+      model: meta/llama-3.3-70b-instruct
+      weight: 0.02
     fallbacks:
-    - groq/llama-3.3-70b-versatile
+    # Small-context fallbacks — only useful if Explore handoff is small
+    - github-models/openai/gpt-4.1-mini
+    - github-models/openai/gpt-4o-mini
     - github-models/openai/gpt-4.1-nano
     - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
     - mistral/mistral-small-latest
-    - nvidia-nim/meta/llama-3.3-70b-instruct
+    - groq/qwen/qwen3-32b
+    - groq/llama-3.3-70b-versatile
