@@ -136,19 +136,26 @@ def strip_reasoning(messages: list) -> list:
 # Clamp PER POOL so we don't strangle the orchestrator on pools where
 # the primaries support more.
 _POOL_OUTPUT_CAP = {
-    # Bumped 2026-05-20 after reading omo source: Sisyphus + Junior expect
-    # maxTokens=64000, Hephaestus 32000. Pools tuned to support those
-    # within the actual ctx_output of their primaries.
-    "omo-kimi": 16384,      # kimi/qwen/glm primaries all support 16k+
-    "omo-gpt-5-5": 32768,   # Hephaestus 32k requirement; cerebras-gpt-oss handles
-    "omo-gemini": 32768,    # Gemini supports up to 65k
-    "omo-utility": 8192,    # gemini-flash variants cap at 8k output
+    # 2026-05-20 unleashed for omo: omo's Sisyphus/Junior expect 64k output,
+    # Hephaestus 32k. We previously capped at 8-32k to be nice to hermes
+    # (which was the dominant client) but now omo is the focus. Pass-
+    # through whatever omo asks for on its dedicated pools — the cascade
+    # naturally picks up if a provider rejects a too-big request.
+    # 65536 is the highest output any of our free providers supports
+    # (gemini-3-flash-preview). No clamp below that for omo-* pools.
+    "omo-kimi": 65536,
+    "omo-gpt-5-5": 65536,
+    "omo-gemini": 65536,
+    "omo-utility": 65536,
+    # User-facing pools (hermes / openwebui / pi-agent) keep modest caps —
+    # those clients don't ask for 64k anyway, and the caps protect cohere/
+    # mistral primaries from 400 spam on hermes's normal 4-8k requests.
     "best": 16384,
     "code": 16384,
     "mid": 16384,
     "fast": 8192,
-    "compress": 8192,
-    "vision": 8192,
+    "compress": 16384,
+    "vision": 16384,
     "ops": 4096,
 }
 # Fallback when model is a direct provider/model (not a pool alias)

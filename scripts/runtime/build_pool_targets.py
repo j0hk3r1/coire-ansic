@@ -293,13 +293,24 @@ def main() -> int:
     print(f"\nwrote {out_path}")
 
     if args.apply:
+        # MERGE behavior: load current yaml, replace ONLY pools declared in
+        # pool_intents.yaml, preserve everything else (e.g. omo-* pools
+        # which have manual hand-tuned composition — they're not in
+        # pool_intents.yaml's auto-assembly scope).
+        current = yaml.safe_load(PLAN_PATH.read_text()) or {}
+        current_pools = current.get("pools") or {}
+        manual_pools = {pn: pd for pn, pd in current_pools.items() if pn not in out_pools}
+        merged_pools = {**out_pools, **manual_pools}
+        if manual_pools:
+            print(f"  preserving {len(manual_pools)} manual pool(s) not in pool_intents.yaml: "
+                  f"{sorted(manual_pools)}")
         bak = PLAN_PATH.with_suffix(".yaml.bak")
         bak.write_text(PLAN_PATH.read_text())
-        # Preserve header comments in the live yaml
         text = PLAN_PATH.read_text()
         head_end = text.find("\npools:")
         header = text[:head_end + 1] if head_end > 0 else ""
-        PLAN_PATH.write_text((header + out_yaml) if header else out_yaml)
+        merged_yaml = yaml.safe_dump({"pools": merged_pools}, sort_keys=False, default_flow_style=False)
+        PLAN_PATH.write_text((header + merged_yaml) if header else merged_yaml)
         print(f"  ✓ applied to {PLAN_PATH} (backup at {bak})")
 
     return 0 if not errors else 1
