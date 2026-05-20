@@ -7,24 +7,19 @@
       "cel_expression": "model == \"ops\"",
       "targets": [
         {
-          "provider": "cerebras",
-          "model": "qwen-3-235b-a22b-instruct-2507",
-          "weight": 0.375
-        },
-        {
           "provider": "github-models",
           "model": "openai/gpt-4.1-mini",
-          "weight": 0.25
+          "weight": 0.4
         },
         {
           "provider": "cerebras",
           "model": "llama3.1-8b",
-          "weight": 0.225
+          "weight": 0.36
         },
         {
           "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.15
+          "weight": 0.24
         }
       ],
       "fallbacks": [
@@ -96,43 +91,38 @@
       "targets": [
         {
           "provider": "cerebras",
-          "model": "qwen-3-235b-a22b-instruct-2507",
-          "weight": 0.3
-        },
-        {
-          "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.23
+          "weight": 0.3286
         },
         {
           "provider": "cohere",
           "model": "command-a-03-2025",
-          "weight": 0.15
+          "weight": 0.2143
         },
         {
           "provider": "gemini",
           "model": "gemini-3-flash-preview",
-          "weight": 0.1
+          "weight": 0.1429
         },
         {
           "provider": "mistral",
           "model": "mistral-large-latest",
-          "weight": 0.08
+          "weight": 0.1143
         },
         {
           "provider": "cerebras",
           "model": "zai-glm-4.7",
-          "weight": 0.06
+          "weight": 0.0857
         },
         {
           "provider": "sambanova",
           "model": "DeepSeek-V3.1",
-          "weight": 0.05
+          "weight": 0.0714
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.03
+          "weight": 0.0429
         }
       ],
       "fallbacks": [
@@ -394,42 +384,37 @@
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.25
-        },
-        {
-          "provider": "cerebras",
-          "model": "qwen-3-235b-a22b-instruct-2507",
-          "weight": 0.18
+          "weight": 0.3049
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.5",
-          "weight": 0.18
+          "weight": 0.2195
         },
         {
           "provider": "cerebras",
           "model": "zai-glm-4.7",
-          "weight": 0.13
+          "weight": 0.1585
         },
         {
           "provider": "cohere",
           "model": "command-a-03-2025",
-          "weight": 0.1
+          "weight": 0.122
         },
         {
           "provider": "mistral",
           "model": "mistral-medium-3.5",
-          "weight": 0.08
+          "weight": 0.0976
         },
         {
           "provider": "gemini",
           "model": "gemini-3-flash-preview",
-          "weight": 0.05
+          "weight": 0.061
         },
         {
           "provider": "mistral",
           "model": "mistral-large-latest",
-          "weight": 0.03
+          "weight": 0.0366
         }
       ],
       "fallbacks": [
@@ -452,37 +437,32 @@
         {
           "provider": "cerebras",
           "model": "gpt-oss-120b",
-          "weight": 0.3
+          "weight": 0.3261
         },
         {
           "provider": "openrouter",
           "model": "openai/gpt-oss-120b:free",
-          "weight": 0.2
+          "weight": 0.2174
         },
         {
           "provider": "openrouter",
           "model": "deepseek/deepseek-v4-flash:free",
-          "weight": 0.15
+          "weight": 0.163
         },
         {
           "provider": "mistral",
           "model": "codestral-latest",
-          "weight": 0.12
+          "weight": 0.1304
         },
         {
           "provider": "cf-openai",
           "model": "@cf/qwen/qwen2.5-coder-32b-instruct",
-          "weight": 0.1
-        },
-        {
-          "provider": "cerebras",
-          "model": "qwen-3-235b-a22b-instruct-2507",
-          "weight": 0.08
+          "weight": 0.1087
         },
         {
           "provider": "cf-openai",
           "model": "@cf/moonshotai/kimi-k2.6",
-          "weight": 0.05
+          "weight": 0.0543
         }
       ],
       "fallbacks": [
