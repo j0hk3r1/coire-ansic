@@ -881,41 +881,71 @@ PROVIDER_QUOTAS = {
 
 @app.get("/api/usage_estimates")
 async def api_usage_estimates():
-    """Estimate per-provider free-tier usage from last-24h request counts.
-    Caps are real (verified via live-probe 2026-05-10), not estimates.
+    """Per-provider usage vs known caps. Computes 3 measurements:
+
+      - RPD (last 24h request count)  vs PROVIDER_QUOTAS.rpd
+      - RPM (last 60s request count)  vs PROVIDER_QUOTAS.rpm
+      - TPM (last 60s token total)    vs PROVIDER_QUOTAS.tpm
+
+    Returns percentages for each so the dashboard can render 3 bars per
+    provider. Close-to-limit shows orange/red. Caps are header-verified
+    (see PROVIDER_QUOTAS docstring above).
     """
-    counts: Counter = Counter()
+    import datetime as _dt
+    counts_24h: Counter = Counter()
+    counts_60s: Counter = Counter()
+    tokens_60s: Counter = Counter()
     try:
         cache = _LogsCache()
-        # bifrost log API caps at 500 per page
         succ = load_recent_successes(24, 500, cache=cache).get("successes", [])
         errs = load_recent_errors(24, 500, cache=cache).get("errors", [])
+        cutoff_60s = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(seconds=60)
         for e in succ + errs:
             p = (e.get("provider") or "").lower()
-            if p:
-                counts[p] += 1
+            if not p:
+                continue
+            counts_24h[p] += 1
+            ts = e.get("timestamp") or e.get("ts") or ""
+            try:
+                ldt = _dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if ldt >= cutoff_60s:
+                counts_60s[p] += 1
+                tu = e.get("token_usage") or {}
+                tot = (tu.get("prompt_tokens") or 0) + (tu.get("completion_tokens") or 0)
+                tokens_60s[p] += tot
     except Exception:
         pass
     out = []
     for p, q in PROVIDER_QUOTAS.items():
-        used = counts.get(p, 0)
+        used = counts_24h.get(p, 0)
+        rpm_used = counts_60s.get(p, 0)
+        tpm_used = tokens_60s.get(p, 0)
         rpd = q.get("rpd")
-        pct = round(100 * used / rpd, 1) if rpd else 0
+        rpm = q.get("rpm")
+        tpm = q.get("tpm")
+        pct_rpd = round(100 * used / rpd, 1) if rpd else 0
+        pct_rpm = round(100 * rpm_used / rpm, 1) if rpm else 0
+        pct_tpm = round(100 * tpm_used / tpm, 1) if tpm else 0
         out.append({
             "provider": p,
             "used_24h": used,
+            "rpm_used_60s": rpm_used,
+            "tpm_used_60s": tpm_used,
             "rpd_cap": rpd,
-            "rpm_cap": q.get("rpm"),
-            "tpm_cap": q.get("tpm"),
-            "pct_of_rpd": pct,
+            "rpm_cap": rpm,
+            "tpm_cap": tpm,
+            "pct_of_rpd": pct_rpd,
+            "pct_of_rpm": pct_rpm,
+            "pct_of_tpm": pct_tpm,
             "note": q.get("note", ""),
-            # legacy fields for any existing UI
+            # legacy fields
             "cap_estimated": rpd or 0,
-            "pct": pct,
+            "pct": pct_rpd,
         })
-    # Sort: pct desc, then unbounded (rpd=None) to bottom
-    out.sort(key=lambda x: (-(x["pct_of_rpd"] or 0), x["provider"]))
-    return {"estimates": out, "note": "caps verified via live-probe 2026-05-10"}
+    out.sort(key=lambda x: -max(x["pct_of_rpd"], x["pct_of_rpm"], x["pct_of_tpm"]))
+    return {"estimates": out, "note": "RPD=last 24h, RPM/TPM=last 60s; caps header-verified"}
 
 
 def _bifrost_put_rule(rule_id: str, body: dict):

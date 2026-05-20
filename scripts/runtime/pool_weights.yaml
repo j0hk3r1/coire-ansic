@@ -345,7 +345,7 @@ pools:
     targets:
     - provider: cerebras
       model: zai-glm-4.7
-      weight: 0.25
+      weight: 0.28
     - provider: cerebras
       model: gpt-oss-120b
       weight: 0.22
@@ -357,14 +357,15 @@ pools:
       weight: 0.13
     - provider: openrouter
       model: openai/gpt-oss-120b:free
-      weight: 0.10
+      weight: 0.07
     - provider: cf-openai
       model: '@cf/moonshotai/kimi-k2.6'
       weight: 0.07
-    - provider: openrouter
-      model: deepseek/deepseek-v4-flash:free
+    - provider: nvidia-nim
+      model: meta/llama-3.3-70b-instruct
       weight: 0.05
     fallbacks:
+    - openrouter/deepseek/deepseek-v4-flash:free
     - cf-openai/@cf/moonshotai/kimi-k2.5
     - openrouter/z-ai/glm-4.5-air:free
     - nvidia-nim/moonshotai/kimi-k2.6
@@ -377,45 +378,48 @@ pools:
     - deepseek/deepseek-chat
 
   omo-gpt-5-5:
-    # 2026-05-20 EMPIRICALLY tuned. Hephaestus needs maxTokens=32000,
-    # Oracle/Momus send reasoning_effort=medium or xhigh. Primaries are
-    # GPT-substitutes that verified accept reasoning_effort=medium.
+    # 2026-05-20 BALANCED. Issue: openrouter had combined 0.40 weight
+    # but only has 50 RPD POOLED across ALL :free models — would
+    # exhaust in 1-2 heavy omo sessions. Reduced openrouter to 0.20
+    # total, redistributed to cerebras (huge headroom 14400 RPD/model)
+    # + nvidia-nim (40 RPM, accepts reasoning_effort=medium).
     #
-    # Verified ACCEPTS reasoning_effort + big max_tokens:
-    #   cerebras/gpt-oss-120b ✓ (60k TPM, 16k ctx_output, FAST)
-    #   openrouter/openai/gpt-oss-120b:free ✓ (alt GPT-OSS, p~14s)
-    #   openrouter/deepseek/deepseek-v4-flash:free ✓ (DeepSeek-GPT)
-    #   cerebras/zai-glm-4.7 ✓ (general capable, accepts RE)
-    #
-    # Verified REJECTS reasoning_effort=medium:
-    #   mistral/codestral-latest, mistral/* → moved to fallback
-    #   cerebras/qwen-3-235b → moved to fallback
-    #   github-models/gpt-4.1-mini → 8k ctx + reject → fallback only
+    # All primaries empirically verified accept reasoning_effort=medium:
+    #   cerebras/gpt-oss-120b ✓ (60k TPM, FAST)
+    #   cerebras/zai-glm-4.7 ✓
+    #   openrouter/openai/gpt-oss-120b:free ✓ (50 RPD POOLED — low weight)
+    #   openrouter/deepseek/deepseek-v4-flash:free ✓ (50 RPD POOLED)
+    #   gemini/gemini-flash-latest ✓ (250 RPD, 920ms)
+    #   nvidia-nim/meta/llama-3.3-70b-instruct ✓ (40 RPM, mid latency)
     targets:
     - provider: cerebras
       model: gpt-oss-120b
-      weight: 0.32
-    - provider: openrouter
-      model: openai/gpt-oss-120b:free
-      weight: 0.22
-    - provider: openrouter
-      model: deepseek/deepseek-v4-flash:free
-      weight: 0.18
+      weight: 0.40
     - provider: cerebras
       model: zai-glm-4.7
-      weight: 0.15
-    - provider: gemini
-      model: gemini-flash-latest
-      weight: 0.08
+      weight: 0.20
+    - provider: openrouter
+      model: openai/gpt-oss-120b:free
+      weight: 0.12
     - provider: nvidia-nim
       model: meta/llama-3.3-70b-instruct
-      weight: 0.05
+      weight: 0.10
+    - provider: gemini
+      model: gemini-flash-latest
+      weight: 0.10
+    - provider: openrouter
+      model: deepseek/deepseek-v4-flash:free
+      weight: 0.08
     fallbacks:
-    # Code-specialty (rejects reasoning_effort but useful for code work)
+    # Code-specialty (rejects reasoning_effort=medium but useful for
+    # code review work where omo may retry without RE)
     - mistral/codestral-latest
     - cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct
     - cerebras/qwen-3-235b-a22b-instruct-2507
     - cf-openai/@cf/moonshotai/kimi-k2.6
+    # 8k-context fallbacks (only useful for short code review chunks)
+    - github-models/openai/gpt-4.1-mini
+    - github-models/openai/gpt-4o-mini
     - sambanova/DeepSeek-V3.2
     - sambanova/DeepSeek-V3.1
     - nvidia-nim/moonshotai/kimi-k2.6

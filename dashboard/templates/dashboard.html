@@ -110,20 +110,51 @@
 
   <!-- FREE-TIER USAGE -->
   <section x-show="activeTab === 'overview' && usageEstimates" x-cloak class="panel p-5">
-    <div class="section-header"><span>Free-Tier Usage (24h)</span><span class="ml-auto text-xs text-slate-600 normal-case tracking-normal" x-text="usageEstimates?.note || ''"></span></div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+    <div class="section-header">
+      <span>Provider Limits — Real-time Usage</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal" x-text="usageEstimates?.note || ''"></span>
+    </div>
+    <div class="grid grid-cols-1 gap-3 text-xs">
       <template x-for="e in (usageEstimates?.estimates || [])" :key="e.provider">
-        <div class="flex items-center gap-2">
-          <span class="w-24 text-slate-400 font-mono" x-text="e.provider"></span>
-          <div class="flex-1 h-2 bg-slate-800/60 rounded overflow-hidden">
-            <div class="h-full transition-all"
-                 :class="e.pct_of_rpd >= 80 ? 'bg-rose-500' : e.pct_of_rpd >= 50 ? 'bg-amber-400' : 'bg-emerald-400'"
-                 :style="`width: ${Math.min(100, e.pct_of_rpd || 0)}%`"></div>
+        <div class="border-b border-slate-800/40 pb-2">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-28 text-slate-300 font-mono font-bold" x-text="e.provider"></span>
+            <span class="info-icon" :title="e.note || ''" x-show="e.note" x-cloak>ⓘ</span>
+            <span class="ml-auto text-[10px] text-slate-600 font-mono" x-text="e.note || ''"></span>
           </div>
-          <span class="w-44 text-right text-slate-500 font-mono"
-                x-text="e.used_24h + ' / ' + (e.rpd_cap ? e.rpd_cap + ' RPD' : '∞') + (e.rpd_cap ? ' (' + e.pct_of_rpd + '%)' : '')"></span>
-          <span class="w-28 text-slate-600 truncate font-mono text-[10px]" x-text="(e.rpm_cap ? e.rpm_cap+' RPM' : '') + (e.tpm_cap ? ' ' + (e.tpm_cap/1000)+'k TPM' : '')"></span>
-          <span class="info-icon" :title="e.note || ''" x-show="e.note" x-cloak>ⓘ</span>
+          <!-- RPD bar -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="w-10 text-[10px] uppercase text-slate-500">RPD</span>
+            <div class="flex-1 h-2 bg-slate-800/60 rounded overflow-hidden">
+              <div class="h-full transition-all"
+                   :class="e.pct_of_rpd >= 80 ? 'bg-rose-500' : e.pct_of_rpd >= 50 ? 'bg-amber-400' : 'bg-emerald-400'"
+                   :style="`width: ${Math.min(100, e.pct_of_rpd || 0)}%`"></div>
+            </div>
+            <span class="w-40 text-right text-slate-500 font-mono text-[10px]"
+                  x-text="e.rpd_cap ? (e.used_24h + ' / ' + e.rpd_cap + ' (' + e.pct_of_rpd + '%)') : (e.used_24h + ' / ∞')"></span>
+          </div>
+          <!-- RPM bar -->
+          <div class="flex items-center gap-2 mb-1" x-show="e.rpm_cap" x-cloak>
+            <span class="w-10 text-[10px] uppercase text-slate-500">RPM</span>
+            <div class="flex-1 h-2 bg-slate-800/60 rounded overflow-hidden">
+              <div class="h-full transition-all"
+                   :class="e.pct_of_rpm >= 80 ? 'bg-rose-500' : e.pct_of_rpm >= 50 ? 'bg-amber-400' : 'bg-emerald-400'"
+                   :style="`width: ${Math.min(100, e.pct_of_rpm || 0)}%`"></div>
+            </div>
+            <span class="w-40 text-right text-slate-500 font-mono text-[10px]"
+                  x-text="e.rpm_used_60s + ' / ' + e.rpm_cap + ' (' + e.pct_of_rpm + '%)'"></span>
+          </div>
+          <!-- TPM bar -->
+          <div class="flex items-center gap-2" x-show="e.tpm_cap" x-cloak>
+            <span class="w-10 text-[10px] uppercase text-slate-500">TPM</span>
+            <div class="flex-1 h-2 bg-slate-800/60 rounded overflow-hidden">
+              <div class="h-full transition-all"
+                   :class="e.pct_of_tpm >= 80 ? 'bg-rose-500' : e.pct_of_tpm >= 50 ? 'bg-amber-400' : 'bg-emerald-400'"
+                   :style="`width: ${Math.min(100, e.pct_of_tpm || 0)}%`"></div>
+            </div>
+            <span class="w-40 text-right text-slate-500 font-mono text-[10px]"
+                  x-text="e.tpm_used_60s.toLocaleString() + ' / ' + e.tpm_cap.toLocaleString() + ' (' + e.pct_of_tpm + '%)'"></span>
+          </div>
         </div>
       </template>
     </div>
