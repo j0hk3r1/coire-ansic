@@ -133,11 +133,11 @@ if [ -n "${NVIDIA_API_KEY:-}" ]; then
   post_provider nvidia-nim "$body" "$(simple_key nim-1 "$NVIDIA_API_KEY")"
 fi
 
-# cf-openai — same pattern, account-scoped URL
+# cloudflare — same pattern, account-scoped URL
 if [ -n "${CLOUDFLARE_API_KEY:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
   CF_BASE="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1"
   body=$(jq -n --arg k "$CLOUDFLARE_API_KEY" --arg b "$CF_BASE" '{
-    provider:"cf-openai",
+    provider:"cloudflare",
     network_config:{
       base_url:$b,
       extra_headers:{"Authorization":("Bearer "+$k)}
@@ -151,7 +151,7 @@ if [ -n "${CLOUDFLARE_API_KEY:-}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
       }
     }
   }')
-  post_provider cf-openai "$body" "$(simple_key cf-1 "$CLOUDFLARE_API_KEY")"
+  post_provider cloudflare "$body" "$(simple_key cf-1 "$CLOUDFLARE_API_KEY")"
 fi
 
 # github-models — GitHub-hosted Azure inference; massive free tier (20k RPM, 2M TPM)
@@ -250,17 +250,17 @@ print(json.dumps(kept))
 # best — frontier general reasoning. CF Kimi K2.6 (AA IQ 53.9, highest free) as final fallback escape valve.
 post_rule best \
   '[{"provider":"nvidia-nim","model":"deepseek-ai/deepseek-v4-pro","weight":0.40},{"provider":"cerebras","model":"qwen-3-235b-a22b-instruct-2507","weight":0.30},{"provider":"groq","model":"openai/gpt-oss-120b","weight":0.20},{"provider":"gemini","model":"gemini-3-flash-preview","weight":0.10}]' \
-  "$(filter_fbs '["groq/openai/gpt-oss-120b","openrouter/openai/gpt-oss-120b:free","mistral/mistral-medium-2505","gemini/gemini-flash-latest","cf-openai/@cf/moonshotai/kimi-k2.6"]')" 11
+  "$(filter_fbs '["groq/openai/gpt-oss-120b","openrouter/openai/gpt-oss-120b:free","mistral/mistral-medium-2505","gemini/gemini-flash-latest","cloudflare/@cf/moonshotai/kimi-k2.6"]')" 11
 
 # code — code+reasoning. Kimi K2.6 in fallbacks (code score 47.1, beats most peers).
 post_rule code \
   '[{"provider":"nvidia-nim","model":"qwen/qwen3-coder-480b-a35b-instruct","weight":0.40},{"provider":"cerebras","model":"qwen-3-235b-a22b-instruct-2507","weight":0.25},{"provider":"mistral","model":"magistral-medium-2509","weight":0.20},{"provider":"groq","model":"openai/gpt-oss-120b","weight":0.15}]' \
-  "$(filter_fbs '["groq/openai/gpt-oss-120b","mistral/magistral-small-latest","openrouter/openai/gpt-oss-120b:free","gemini/gemini-3-flash-preview","cf-openai/@cf/moonshotai/kimi-k2.6"]')" 12
+  "$(filter_fbs '["groq/openai/gpt-oss-120b","mistral/magistral-small-latest","openrouter/openai/gpt-oss-120b:free","gemini/gemini-3-flash-preview","cloudflare/@cf/moonshotai/kimi-k2.6"]')" 12
 
 # fast — low-latency 8B. CF llama-3.1-8b as 3rd source diversity.
 post_rule fast \
   '[{"provider":"groq","model":"llama-3.1-8b-instant","weight":0.70},{"provider":"cerebras","model":"llama3.1-8b","weight":0.30}]' \
-  "$(filter_fbs '["mistral/mistral-small-latest","gemini/gemini-3.1-flash-lite-preview","cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8"]')" 13
+  "$(filter_fbs '["mistral/mistral-small-latest","gemini/gemini-3.1-flash-lite-preview","cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8"]')" 13
 
 # vision — multimodal
 post_rule vision \
@@ -270,7 +270,7 @@ post_rule vision \
 # mid — IQ 25-35 cheap-fast workhorse for aux tasks (compression, web_extract, approval).
 # Per Nous docs: aux summarization/judging tasks should use cheap-fast tier, not flagship.
 post_rule mid \
-  '[{"provider":"mistral","model":"mistral-small-latest","weight":0.40},{"provider":"gemini","model":"gemini-3.1-flash-lite-preview","weight":0.25},{"provider":"cf-openai","model":"@cf/google/gemma-4-26b-a4b-it","weight":0.20},{"provider":"groq","model":"openai/gpt-oss-20b","weight":0.15}]' \
+  '[{"provider":"mistral","model":"mistral-small-latest","weight":0.40},{"provider":"gemini","model":"gemini-3.1-flash-lite-preview","weight":0.25},{"provider":"cloudflare","model":"@cf/google/gemma-4-26b-a4b-it","weight":0.20},{"provider":"groq","model":"openai/gpt-oss-20b","weight":0.15}]' \
   "$(filter_fbs '["cerebras/qwen-3-235b-a22b-instruct-2507","groq/llama-3.1-8b-instant"]')" 15
 
 echo "✓ seed complete"

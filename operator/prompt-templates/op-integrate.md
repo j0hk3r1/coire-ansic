@@ -26,7 +26,7 @@ Workflow:
 4. List models if `/v1/models` is reachable. Filter to chat-capable, ctx >= 32k.
 5. Decide provider kind:
    - If vendor is a built-in bifrost standard (`groq`, `gemini`, `mistral`, `cerebras`, `cohere`, `openrouter`) → simple `POST /api/providers` with `{"provider":"<name>"}` then `PUT /api/providers/<name>` w/ keys.
-   - Otherwise (custom OpenAI-compat) → use `custom_provider_config` with `request_path_overrides` like cf-openai/nvidia-nim/sambanova/github-models did.
+   - Otherwise (custom OpenAI-compat) → use `custom_provider_config` with `request_path_overrides` like cloudflare/nvidia-nim/sambanova/github-models did.
 6. Update `~/coire-ansic/.env` — add or update `<VENDOR>_API_KEY=<value>`. Use `sed -i` if line exists; append otherwise.
 7. Force-recreate bifrost container so env reaches it: `cd ~/coire-ansic && docker compose up -d --force-recreate bifrost`. Wait until /api/providers returns 200 (poll up to 30s).
 8. Run `python3 ~/coire-ansic/scripts/runtime/bifrost_tune_timeouts.py` — only if vendor is in its PLAN list; if NOT in plan, skip and log a TODO for human to add.

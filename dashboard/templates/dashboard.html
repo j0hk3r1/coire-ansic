@@ -109,6 +109,51 @@
   </nav>
 
   <!-- FREE-TIER USAGE -->
+  <!-- Per-model limits panel (NEW). Click section header to toggle. -->
+  <section x-show="activeTab === 'overview' && modelLimits" x-cloak class="panel p-5">
+    <div class="section-header cursor-pointer" @click="toggleCollapse('model_limits')">
+      <span :class="{ 'rotate-90': isCollapsed('model_limits') }" class="inline-block transition-transform">▾</span>
+      <span class="ml-2">Per-Model Limits</span>
+      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">
+        <span x-text="(modelLimits?.models || []).length + ' models'"></span>
+        · <span x-text="modelLimits?.note || ''"></span>
+      </span>
+    </div>
+    <div x-show="!isCollapsed('model_limits')" class="grid grid-cols-1 gap-2 text-xs">
+      <template x-for="m in (modelLimits?.models || [])" :key="m.key">
+        <div class="border-b border-slate-800/30 pb-1">
+          <div class="flex items-center gap-2">
+            <span class="w-72 text-slate-300 font-mono text-[11px] truncate" :title="m.key" x-text="m.key"></span>
+            <span class="w-12 text-[10px] text-slate-600 font-mono" x-text="m.latency_tier || ''"></span>
+            <span class="w-10 text-[10px] text-slate-600 font-mono" x-text="m.quality_score ? 'q'+m.quality_score : ''"></span>
+            <!-- 3 inline mini-bars: RPD / RPM / TPM -->
+            <div class="flex-1 flex items-center gap-1">
+              <span class="text-[9px] text-slate-600 w-6">RPD</span>
+              <div class="flex-1 h-1.5 bg-slate-800/60 rounded overflow-hidden" :title="m.rpd_cap ? (m.used_24h + '/' + m.rpd_cap + ' (' + m.pct_of_rpd + '%)') : (m.used_24h + ' / ∞')">
+                <div class="h-full transition-all"
+                     :class="m.rpd_cap ? (m.pct_of_rpd >= 80 ? 'bg-rose-500' : m.pct_of_rpd >= 50 ? 'bg-amber-400' : 'bg-emerald-400') : 'bg-slate-700'"
+                     :style="`width: ${m.rpd_cap ? Math.min(100, m.pct_of_rpd) : (m.used_24h > 0 ? 5 : 0)}%`"></div>
+              </div>
+              <span class="text-[9px] text-slate-600 w-6 ml-1">RPM</span>
+              <div class="flex-1 h-1.5 bg-slate-800/60 rounded overflow-hidden" :title="m.rpm_cap ? (m.rpm_used_60s + '/' + m.rpm_cap + ' (' + m.pct_of_rpm + '%)') : 'no cap'">
+                <div class="h-full transition-all"
+                     :class="m.rpm_cap ? (m.pct_of_rpm >= 80 ? 'bg-rose-500' : m.pct_of_rpm >= 50 ? 'bg-amber-400' : 'bg-emerald-400') : 'bg-slate-700'"
+                     :style="`width: ${m.rpm_cap ? Math.min(100, m.pct_of_rpm) : 0}%`"></div>
+              </div>
+              <span class="text-[9px] text-slate-600 w-6 ml-1">TPM</span>
+              <div class="flex-1 h-1.5 bg-slate-800/60 rounded overflow-hidden" :title="m.tpm_cap ? (m.tpm_used_60s + '/' + m.tpm_cap + ' (' + m.pct_of_tpm + '%)') : 'no cap'">
+                <div class="h-full transition-all"
+                     :class="m.tpm_cap ? (m.pct_of_tpm >= 80 ? 'bg-rose-500' : m.pct_of_tpm >= 50 ? 'bg-amber-400' : 'bg-emerald-400') : 'bg-slate-700'"
+                     :style="`width: ${m.tpm_cap ? Math.min(100, m.pct_of_tpm) : 0}%`"></div>
+              </div>
+            </div>
+            <span class="w-28 text-right text-slate-500 font-mono text-[10px]" x-text="m.used_24h + 'req/24h'"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+
   <section x-show="activeTab === 'overview' && usageEstimates" x-cloak class="panel p-5">
     <div class="section-header">
       <span>Provider Limits — Real-time Usage</span>

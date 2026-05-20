@@ -459,7 +459,7 @@ models:
     quality_source: estimate
     free_tier: ok
     latency_tier: fast
-  cf-openai/@cf/moonshotai/kimi-k2.6:
+  cloudflare/@cf/moonshotai/kimi-k2.6:
     ctx_input: 256000
     ctx_output: 16384
     rpm_cap: null
@@ -473,7 +473,7 @@ models:
     free_tier: ok
     notes: LMArena=1454; pooled neurons across CF
     latency_tier: mid
-  cf-openai/@cf/moonshotai/kimi-k2.5:
+  cloudflare/@cf/moonshotai/kimi-k2.5:
     ctx_input: 256000
     ctx_output: 16384
     rpm_cap: null
@@ -486,7 +486,7 @@ models:
     quality_source: AA
     free_tier: ok
     latency_tier: mid
-  cf-openai/@cf/nvidia/nemotron-3-120b-a12b:
+  cloudflare/@cf/nvidia/nemotron-3-120b-a12b:
     ctx_input: 131072
     ctx_output: 4096
     rpm_cap: null
@@ -499,7 +499,7 @@ models:
     quality_source: estimate
     free_tier: ok
     latency_tier: mid
-  cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct:
+  cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct:
     ctx_input: 32768
     ctx_output: 4096
     rpm_cap: null
@@ -514,7 +514,7 @@ models:
     notes: code-specialized
     latency_tier: fast
     code_specialty: true
-  cf-openai/@cf/google/gemma-4-26b-a4b-it:
+  cloudflare/@cf/google/gemma-4-26b-a4b-it:
     ctx_input: 131072
     ctx_output: 8192
     rpm_cap: null
@@ -527,7 +527,7 @@ models:
     quality_source: estimate
     free_tier: ok
     latency_tier: fast
-  cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8:
+  cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8:
     ctx_input: 131072
     ctx_output: 4096
     rpm_cap: null

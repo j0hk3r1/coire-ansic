@@ -9,10 +9,10 @@
 #   github-models 20000 RPM, 2M TPM, 60s renewal — massive headroom
 #   sambanova:    20 RPD (header-verified)
 #   nvidia-nim:   no rate-limit headers; 10k credits/month dev preview
-#   cf-openai:    no rate-limit headers; 10k neurons/day total across CF models
+#   cloudflare:    no rate-limit headers; 10k neurons/day total across CF models
 #   openrouter:   50 RPD pooled across all :free models on $0 credit account
 #
-# 2026-05-12 rebalance — close the OpenRouter overrun, redirect to cf-openai
+# 2026-05-12 rebalance — close the OpenRouter overrun, redirect to cloudflare
 # (0.2% utilized of 10k cap) + groq (0.014% utilized of 14400 RPD/model) +
 # cerebras (capped fast pool slot only — 30 RPM tight). Targets ordered by
 # weight desc. Sum per pool = 1.0.
@@ -31,7 +31,7 @@ pools:
     #   mistral-large-latest (Mistral flagship; 4 RPM cap so low weight)
     #   sambanova DeepSeek-V3.1 (256k ctx, 20 RPD cap, low weight)
     #   gemini-3-flash-preview (boosted — fast, big ctx, 250 RPD)
-    #   cf-openai kimi-k2.6 (small alt path)
+    #   cloudflare kimi-k2.6 (small alt path)
     - provider: cerebras
       model: qwen-3-235b-a22b-instruct-2507
       weight: 0.30
@@ -53,7 +53,7 @@ pools:
     - provider: sambanova
       model: DeepSeek-V3.1
       weight: 0.05
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/moonshotai/kimi-k2.6'
       weight: 0.03
     fallbacks:
@@ -62,11 +62,11 @@ pools:
     # stream timeouts when used as primary fallback.
     - mistral/mistral-medium-3.5
     - cohere/command-a-reasoning-08-2025
-    - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
+    - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/z-ai/glm-4.5-air:free
     - openrouter/deepseek/deepseek-v4-flash:free
-    - cf-openai/@cf/moonshotai/kimi-k2.5
+    - cloudflare/@cf/moonshotai/kimi-k2.5
     - sambanova/DeepSeek-V3.2
     # deepseek-chat / -reasoner — work only when user has balance on
     # DEEPSEEK_API_KEY. CB auto-demotes on 'Insufficient Balance' for 24h
@@ -98,10 +98,10 @@ pools:
     - provider: github-models
       model: openai/gpt-4.1-mini
       weight: 0.07
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/qwen/qwen2.5-coder-32b-instruct'
       weight: 0.05
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/moonshotai/kimi-k2.6'
       weight: 0.05
     - provider: cohere
@@ -119,7 +119,7 @@ pools:
     - cohere/command-a-reasoning-08-2025
     - openrouter/openai/gpt-oss-120b:free
     - openrouter/meta-llama/llama-3.3-70b-instruct:free
-    - cf-openai/@cf/moonshotai/kimi-k2.5
+    - cloudflare/@cf/moonshotai/kimi-k2.5
     - gemini/gemini-2.5-flash
     - sambanova/Llama-4-Maverick-17B-128E-Instruct
     - deepseek/deepseek-chat
@@ -147,10 +147,10 @@ pools:
     - provider: mistral
       model: mistral-large-latest
       weight: 0.1428
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/google/gemma-4-26b-a4b-it'
       weight: 0.0857
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/moonshotai/kimi-k2.6'
       weight: 0.0286
     fallbacks:
@@ -159,7 +159,7 @@ pools:
     - nvidia-nim/meta/llama-3.3-70b-instruct
     - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
     - openrouter/meta-llama/llama-3.3-70b-instruct:free
-    - cf-openai/@cf/moonshotai/kimi-k2.5
+    - cloudflare/@cf/moonshotai/kimi-k2.5
     - groq/qwen/qwen3-32b
   fast:
     # 2026-05-19: groq/llama-3.1-8b-instant + groq/openai/gpt-oss-20b moved
@@ -187,7 +187,7 @@ pools:
     - groq/llama-3.1-8b-instant
     - groq/openai/gpt-oss-20b
     - github-models/openai/gpt-4.1-nano
-    - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
+    - cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8
     - nvidia-nim/meta/llama-3.3-70b-instruct
     - mistral/codestral-latest
     - gemini/gemini-flash-lite-latest
@@ -211,10 +211,10 @@ pools:
     - provider: mistral
       model: mistral-medium-3.5
       weight: 0.0892
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/qwen/qwen2.5-coder-32b-instruct'
       weight: 0.0516
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/google/gemma-4-26b-a4b-it'
       weight: 0.0516
     - provider: groq
@@ -229,7 +229,7 @@ pools:
     - cohere/command-r-08-2024
     - openrouter/google/gemma-4-26b-a4b-it:free
     - nvidia-nim/meta/llama-3.3-70b-instruct
-    - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
+    - cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8
   vision:
     targets:
     - provider: gemini
@@ -273,7 +273,7 @@ pools:
     # All cerebras models tolerate parallel tools + 60k TPM headroom. Use
     # cerebras-only primaries; groq + mistral + nvidia kept as fallback
     # for the rare single-tool-call requests.
-    # No cf-openai (neuron-budget shared globally), no gemini (250 RPD shared
+    # No cloudflare (neuron-budget shared globally), no gemini (250 RPD shared
     # globally), no openrouter (50 RPD pool budget shared globally), no
     # github-models (hermes uses gpt-4.1-mini in mid pool).
     # 2026-05-19: spread across cerebras + github-models. nvidia-nim/kimi-k2.6
@@ -339,7 +339,7 @@ pools:
     #   mistral/* → 400 (only accept high/none)
     #   cohere/command-a → 400
     #
-    # cf-openai/kimi-k2.6 is Kimi's ideal substitute but cf-openai
+    # cloudflare/kimi-k2.6 is Kimi's ideal substitute but cloudflare
     # daily-quota cycles (10k neurons/day pooled). Keep as low-weight
     # primary so it serves SOME traffic, falls through to others on quota.
     targets:
@@ -358,7 +358,7 @@ pools:
     - provider: openrouter
       model: openai/gpt-oss-120b:free
       weight: 0.07
-    - provider: cf-openai
+    - provider: cloudflare
       model: '@cf/moonshotai/kimi-k2.6'
       weight: 0.07
     - provider: nvidia-nim
@@ -366,7 +366,7 @@ pools:
       weight: 0.05
     fallbacks:
     - openrouter/deepseek/deepseek-v4-flash:free
-    - cf-openai/@cf/moonshotai/kimi-k2.5
+    - cloudflare/@cf/moonshotai/kimi-k2.5
     - openrouter/z-ai/glm-4.5-air:free
     - nvidia-nim/moonshotai/kimi-k2.6
     # Last-resort: reject reasoning_effort=medium so cause 400 cascade
@@ -414,9 +414,9 @@ pools:
     # Code-specialty (rejects reasoning_effort=medium but useful for
     # code review work where omo may retry without RE)
     - mistral/codestral-latest
-    - cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct
+    - cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
     - cerebras/qwen-3-235b-a22b-instruct-2507
-    - cf-openai/@cf/moonshotai/kimi-k2.6
+    - cloudflare/@cf/moonshotai/kimi-k2.6
     # 8k-context fallbacks (only useful for short code review chunks)
     - github-models/openai/gpt-4.1-mini
     - github-models/openai/gpt-4o-mini
@@ -473,7 +473,7 @@ pools:
     #   nvidia-nim/llama-3.3-70b ✓ (slower but accepts ~12k)
     #
     # AVOID: groq (TPM 6k cap fails big_input), github-models small
-    # (8k ctx cap), cf-openai (quota cycling).
+    # (8k ctx cap), cloudflare (quota cycling).
     targets:
     - provider: gemini
       model: gemini-flash-latest
@@ -501,5 +501,5 @@ pools:
     - groq/openai/gpt-oss-20b
     - github-models/openai/gpt-4.1-mini
     - github-models/openai/gpt-4o-mini
-    - cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
+    - cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8
     - mistral/mistral-small-latest

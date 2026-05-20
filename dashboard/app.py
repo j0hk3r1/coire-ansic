@@ -862,7 +862,7 @@ async def api_providers():
 #   gemini:     dev docs + per-model 429 testing
 #   openrouter: /api/v1/auth/key + /api/v1/credits (account-specific)
 #   nvidia-nim: /v1/chat/completions (no headers; dev preview no per-day cap)
-#   cf-openai:  4006 error message on quota exhaustion
+#   cloudflare:  4006 error message on quota exhaustion
 PROVIDER_QUOTAS = {
     # All limits header-verified 2026-05-12 via x-ratelimit-*/x-trial-* probes.
     # See bifrost/candidate_providers.json for raw response captures.
@@ -872,7 +872,7 @@ PROVIDER_QUOTAS = {
     "gemini":     {"rpd": 250,   "rpm": 30,   "tpm": None,   "note": "no rate-limit headers — 429 on exhaust; flash=250 RPD, pro=25-50 RPD"},
     "openrouter": {"rpd": 50,    "rpm": None, "tpm": None,   "note": "$0-credit account = 50 RPD pooled across all :free; retry-after on burst (header-verified)"},
     "nvidia-nim": {"rpd": None,  "rpm": 40,   "tpm": None,   "note": "no rate-limit headers; 40 RPM/model documented (forum-verified), 10k credits/month dev preview; deepseek-v4-pro+flash intermittent <50% reliability per forum, gpt-oss-120b cold-start slow, kimi-k2.6 30-50s cold-start"},
-    "cf-openai":  {"rpd": 10000, "rpm": None, "tpm": None,   "note": "no rate-limit headers; 10k neurons/day pooled across CF Workers AI models"},
+    "cloudflare":  {"rpd": 10000, "rpm": None, "tpm": None,   "note": "no rate-limit headers; 10k neurons/day pooled across CF Workers AI models"},
     "sambanova":  {"rpd": 20,    "rpm": None, "tpm": None,   "note": "x-ratelimit-limit-requests-day=20 (header-verified — free tier hard floor)"},
     "github-models": {"rpd": None, "rpm": 20000, "tpm": 2000000, "note": "x-ratelimit-limit-requests=20000 per 60s, TPM=2M, per-model bucket (header-verified)"},
     "cohere":     {"rpd": None, "rpm": 20,   "tpm": None,   "note": "x-trial-endpoint-call-limit=20/min, x-endpoint-monthly-call-limit=1000 (header-verified trial tier)"},
@@ -946,6 +946,101 @@ async def api_usage_estimates():
         })
     out.sort(key=lambda x: -max(x["pct_of_rpd"], x["pct_of_rpm"], x["pct_of_tpm"]))
     return {"estimates": out, "note": "RPD=last 24h, RPM/TPM=last 60s; caps header-verified"}
+
+
+def _load_model_capabilities() -> dict:
+    """Read scripts/runtime/model_capabilities.yaml. Per-model caps may
+    differ from per-provider defaults (e.g. mistral-large=4 RPM vs
+    mistral-medium=50 RPM, cerebras qwen vs cerebras llama)."""
+    import yaml
+    caps_path = Path("/app/model_capabilities.yaml")
+    if not caps_path.exists():
+        # local dev fallback — when running outside container
+        caps_path = Path(__file__).resolve().parent.parent / "scripts" / "runtime" / "model_capabilities.yaml"
+    if not caps_path.exists():
+        return {}
+    try:
+        return (yaml.safe_load(caps_path.read_text()) or {}).get("models") or {}
+    except Exception:
+        return {}
+
+
+@app.get("/api/usage_estimates_by_model")
+async def api_usage_estimates_by_model():
+    """Per-model usage vs caps. Each (provider/model) gets its own bars
+    because per-model caps differ within a provider:
+        cerebras: 14400 RPD/MODEL, so qwen-3-235b and llama3.1-8b each
+                  have their own bucket.
+        mistral:  4 RPM for large, 50 for medium, 5 for magistral.
+        gemini:   250 RPD flash, 25-50 for pro variants.
+    """
+    import datetime as _dt
+    caps_db = _load_model_capabilities()
+    counts_24h: Counter = Counter()
+    counts_60s: Counter = Counter()
+    tokens_60s: Counter = Counter()
+    try:
+        cache = _LogsCache()
+        succ = load_recent_successes(24, 500, cache=cache).get("successes", [])
+        errs = load_recent_errors(24, 500, cache=cache).get("errors", [])
+        cutoff_60s = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(seconds=60)
+        for e in succ + errs:
+            p = (e.get("provider") or "").lower()
+            m = e.get("model") or ""
+            if not (p and m):
+                continue
+            key = f"{p}/{m}"
+            counts_24h[key] += 1
+            ts = e.get("timestamp") or e.get("ts") or ""
+            try:
+                ldt = _dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if ldt >= cutoff_60s:
+                counts_60s[key] += 1
+                tu = e.get("token_usage") or {}
+                tot = (tu.get("prompt_tokens") or 0) + (tu.get("completion_tokens") or 0)
+                tokens_60s[key] += tot
+    except Exception:
+        pass
+    # All unique seen + all known from capabilities
+    all_keys = set(counts_24h) | set(caps_db.keys())
+    out = []
+    for key in all_keys:
+        caps = caps_db.get(key, {})
+        rpd = caps.get("rpd_cap")
+        rpm = caps.get("rpm_cap")
+        tpm = caps.get("tpm_cap")
+        used = counts_24h.get(key, 0)
+        rpm_used = counts_60s.get(key, 0)
+        tpm_used = tokens_60s.get(key, 0)
+        pct_rpd = round(100 * used / rpd, 1) if rpd else 0
+        pct_rpm = round(100 * rpm_used / rpm, 1) if rpm else 0
+        pct_tpm = round(100 * tpm_used / tpm, 1) if tpm else 0
+        if used == 0 and rpm_used == 0 and not (rpd or rpm or tpm):
+            # No data, no caps -> uninteresting; skip
+            continue
+        out.append({
+            "key": key,
+            "provider": caps.get("provider") if "provider" in caps else key.split("/",1)[0],
+            "model": "/".join(key.split("/")[1:]),
+            "used_24h": used,
+            "rpm_used_60s": rpm_used,
+            "tpm_used_60s": tpm_used,
+            "rpd_cap": rpd,
+            "rpm_cap": rpm,
+            "tpm_cap": tpm,
+            "pct_of_rpd": pct_rpd,
+            "pct_of_rpm": pct_rpm,
+            "pct_of_tpm": pct_tpm,
+            "latency_tier": caps.get("latency_tier"),
+            "quality_score": caps.get("quality_score"),
+            "tools": caps.get("tools"),
+            "notes": caps.get("notes", ""),
+        })
+    # Sort by max-pct desc; models with any traffic float to top
+    out.sort(key=lambda x: -max(x["pct_of_rpd"], x["pct_of_rpm"], x["pct_of_tpm"], x["used_24h"]/100))
+    return {"models": out, "note": "Per-model RPD=last 24h, RPM/TPM=last 60s; per-model caps from model_capabilities.yaml"}
 
 
 def _bifrost_put_rule(rule_id: str, body: dict):

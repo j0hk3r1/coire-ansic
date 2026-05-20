@@ -56,7 +56,7 @@ def filter_rule_targets(rule, configured_providers):
     then re-normalize remaining target weights to sum=1.0 (bifrost requirement).
 
     Without this, a partial-provider install (user set only GROQ_API_KEY) gets
-    400 errors trying to PUT rules with cf-openai/cerebras/etc targets that
+    400 errors trying to PUT rules with cloudflare/cerebras/etc targets that
     bifrost doesn't know about. Skip silently — apply_pool_weights.py will
     fill in the canonical config from pool_weights.yaml afterward anyway.
     """

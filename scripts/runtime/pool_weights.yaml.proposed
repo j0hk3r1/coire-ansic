@@ -1,0 +1,258 @@
+pools:
+  best:
+    description: Frontier-tier quality, long-context user-facing chat
+    targets:
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.2857
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.2041
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.1531
+    - provider: mistral
+      model: mistral-medium-latest
+      weight: 0.102
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.5'
+      weight: 0.0816
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.0714
+    - provider: gemini
+      model: gemini-2.5-flash
+      weight: 0.0612
+    - provider: gemini
+      model: gemini-3.1-flash-lite-preview
+      weight: 0.0408
+    fallbacks:
+    - cerebras/zai-glm-4.7
+    - cerebras/gpt-oss-120b
+    - openrouter/openai/gpt-oss-120b:free
+    - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
+    - openrouter/deepseek/deepseek-v4-flash:free
+    - gemini/gemini-flash-latest
+    - gemini/gemini-2.5-flash-lite
+    - gemini/gemini-flash-lite-latest
+    - openrouter/z-ai/glm-4.5-air:free
+    - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
+    - mistral/pixtral-large-latest
+    - mistral/codestral-latest
+  code:
+    description: Code generation + review, long-context multi-file
+    targets:
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.2857
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.2041
+    - provider: openrouter
+      model: openai/gpt-oss-120b:free
+      weight: 0.1531
+    - provider: openrouter
+      model: deepseek/deepseek-v4-flash:free
+      weight: 0.102
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.0816
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.0714
+    - provider: mistral
+      model: mistral-medium-latest
+      weight: 0.0612
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.5'
+      weight: 0.0408
+    fallbacks:
+    - cerebras/zai-glm-4.7
+    - cerebras/gpt-oss-120b
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.1-flash-lite-preview
+    - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
+    - cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct
+    - gemini/gemini-flash-latest
+    - mistral/codestral-latest
+    - gemini/gemini-2.5-flash-lite
+    - gemini/gemini-flash-lite-latest
+    - openrouter/z-ai/glm-4.5-air:free
+    - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
+  mid:
+    description: "Mid-tier dialog + tool use, general agentic workloads \u2014 balanced"
+    targets:
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.2857
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.2041
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.1531
+    - provider: gemini
+      model: gemini-2.5-flash
+      weight: 0.102
+    - provider: mistral
+      model: mistral-medium-latest
+      weight: 0.0816
+    - provider: gemini
+      model: gemini-3.1-flash-lite-preview
+      weight: 0.0714
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.5'
+      weight: 0.0612
+    - provider: cerebras
+      model: gpt-oss-120b
+      weight: 0.0408
+    fallbacks:
+    - cerebras/zai-glm-4.7
+    - gemini/gemini-3-flash-preview
+    - gemini/gemini-flash-latest
+    - openrouter/openai/gpt-oss-120b:free
+    - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
+    - openrouter/deepseek/deepseek-v4-flash:free
+    - gemini/gemini-2.5-flash-lite
+    - gemini/gemini-flash-lite-latest
+    - openrouter/z-ai/glm-4.5-air:free
+    - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
+    - cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct
+    - mistral/pixtral-large-latest
+  fast:
+    description: Low-latency Q/A, short prompts, simple tools acceptable
+    targets:
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.2857
+    - provider: groq
+      model: openai/gpt-oss-120b
+      weight: 0.2041
+    - provider: groq
+      model: openai/gpt-oss-20b
+      weight: 0.1531
+    - provider: github-models
+      model: openai/gpt-4.1
+      weight: 0.102
+    - provider: gemini
+      model: gemini-2.5-flash
+      weight: 0.0816
+    - provider: gemini
+      model: gemini-3.1-flash-lite-preview
+      weight: 0.0714
+    - provider: cerebras
+      model: gpt-oss-120b
+      weight: 0.0612
+    - provider: gemini
+      model: gemini-flash-latest
+      weight: 0.0408
+    fallbacks:
+    - cerebras/zai-glm-4.7
+    - groq/qwen/qwen3-32b
+    - gemini/gemini-2.5-flash-lite
+    - gemini/gemini-flash-lite-latest
+    - github-models/openai/gpt-4.1-mini
+    - cerebras/llama3.1-8b
+    - groq/llama-3.3-70b-versatile
+    - github-models/openai/gpt-4o-mini
+    - groq/llama-3.1-8b-instant
+    - cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct
+    - cf-openai/@cf/google/gemma-4-26b-a4b-it
+    - mistral/mistral-small-latest
+  compress:
+    description: Long-input summarization, no tools required, latency tolerant
+    targets:
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.3182
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.2273
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.1705
+    - provider: mistral
+      model: mistral-medium-latest
+      weight: 0.1136
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.5'
+      weight: 0.0909
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.0795
+    fallbacks:
+    - cerebras/zai-glm-4.7
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.1-flash-lite-preview
+    - cerebras/gpt-oss-120b
+    - groq/openai/gpt-oss-120b
+    - openrouter/openai/gpt-oss-120b:free
+    - cf-openai/@cf/nvidia/nemotron-3-120b-a12b
+    - openrouter/deepseek/deepseek-v4-flash:free
+    - gemini/gemini-flash-latest
+    - gemini/gemini-2.5-flash-lite
+    - gemini/gemini-flash-lite-latest
+    - openrouter/z-ai/glm-4.5-air:free
+  vision:
+    description: Image-input tasks
+    targets:
+    - provider: gemini
+      model: gemini-3-flash-preview
+      weight: 0.3182
+    - provider: github-models
+      model: openai/gpt-4o-mini
+      weight: 0.2273
+    - provider: mistral
+      model: pixtral-large-latest
+      weight: 0.1705
+    - provider: cohere
+      model: command-a-vision-07-2025
+      weight: 0.1136
+    - provider: mistral
+      model: pixtral-12b-latest
+      weight: 0.0909
+    - provider: cohere
+      model: c4ai-aya-vision-32b
+      weight: 0.0795
+    fallbacks:
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.1-flash-lite-preview
+    - gemini/gemini-flash-latest
+    - gemini/gemini-2.5-flash-lite
+    - gemini/gemini-flash-lite-latest
+    - nvidia-nim/meta/llama-3.2-11b-vision-instruct
+  ops:
+    description: "Operator agents (pi-op-*) \u2014 isolated, tool-heavy, low quality\
+      \ OK"
+    targets:
+    - provider: cerebras
+      model: qwen-3-235b-a22b-instruct-2507
+      weight: 0.3182
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.6'
+      weight: 0.2273
+    - provider: cerebras
+      model: zai-glm-4.7
+      weight: 0.1705
+    - provider: cf-openai
+      model: '@cf/moonshotai/kimi-k2.5'
+      weight: 0.1136
+    - provider: cf-openai
+      model: '@cf/nvidia/nemotron-3-120b-a12b'
+      weight: 0.0909
+    - provider: mistral
+      model: mistral-medium-3.5
+      weight: 0.0795
+    fallbacks:
+    - cerebras/gpt-oss-120b
+    - mistral/mistral-medium-latest
+    - github-models/openai/gpt-4.1
+    - gemini/gemini-3-flash-preview
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.1-flash-lite-preview
+    - openrouter/openai/gpt-oss-120b:free
+    - openrouter/deepseek/deepseek-v4-flash:free
+    - cerebras/llama3.1-8b
+    - gemini/gemini-flash-latest
+    - cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct
+    - gemini/gemini-2.5-flash-lite

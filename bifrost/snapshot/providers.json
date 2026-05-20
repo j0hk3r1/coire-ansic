@@ -22,7 +22,7 @@
       "_keys_count": 1
     },
     {
-      "name": "cf-openai",
+      "name": "cloudflare",
       "network_config": {
         "base_url": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1",
         "extra_headers": {

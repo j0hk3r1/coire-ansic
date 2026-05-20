@@ -17,7 +17,7 @@ Our free equivalents (Kimi + GLM + Qwen-235b + Cohere Command-a) ARE the
 Claude-substitutes per omo's doc.
 
 ```
-0.22  cf-openai/@cf/moonshotai/kimi-k2.6        (AA=43, primary Claude-substitute)
+0.22  cloudflare/@cf/moonshotai/kimi-k2.6        (AA=43, primary Claude-substitute)
 0.20  cerebras/qwen-3-235b-a22b-instruct-2507  (Claude-like reasoning, fast)
 0.15  cerebras/zai-glm-4.7                     (GLM-5 substitute)
 0.13  cohere/command-a-03-2025                 (Cohere — communicator-style)
@@ -40,9 +40,9 @@ Our gpt-oss + deepseek + qwen-coder fit.
 0.18  openrouter/openai/gpt-oss-120b:free               (alt GPT-OSS path)
 0.15  openrouter/deepseek/deepseek-v4-flash:free        (DeepSeek — GPT-equivalent OSS)
 0.12  mistral/codestral-latest                          (code-specialized)
-0.10  cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct     (code-specialized)
+0.10  cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct     (code-specialized)
 0.10  cerebras/qwen-3-235b-a22b-instruct-2507           (general capable)
-0.07  cf-openai/@cf/moonshotai/kimi-k2.6                (last-resort Claude fallback)
+0.07  cloudflare/@cf/moonshotai/kimi-k2.6                (last-resort Claude fallback)
 0.03  mistral/mistral-medium-3.5                        (small slot)
 ```
 Removed groq primaries — 6k TPM cap kills multi-file code reasoning.
@@ -67,13 +67,13 @@ Removed pixtral-12b (smaller than large). Removed cohere/c4ai-aya-vision-32b
 ### `compress` (Writing pool — writing category, Kimi K2.5 default per omo)
 
 ```
-0.25  cf-openai/@cf/moonshotai/kimi-k2.5       (Kimi K2.5 — exact omo match)
-0.20  cf-openai/@cf/moonshotai/kimi-k2.6       (Kimi K2.6 — newer)
+0.25  cloudflare/@cf/moonshotai/kimi-k2.5       (Kimi K2.5 — exact omo match)
+0.20  cloudflare/@cf/moonshotai/kimi-k2.6       (Kimi K2.6 — newer)
 0.18  gemini/gemini-3-flash-preview            (1M ctx, fast)
 0.15  mistral/mistral-medium-3.5               (capable)
 0.10  cerebras/qwen-3-235b-a22b-instruct-2507  (Qwen alt)
 0.07  mistral/mistral-medium-latest            (Mistral medium)
-0.05  cf-openai/@cf/google/gemma-4-26b-a4b-it  (small slot)
+0.05  cloudflare/@cf/google/gemma-4-26b-a4b-it  (small slot)
 ```
 
 ### `fast` (Utility pool — Explore / Librarian / quick category)
@@ -99,14 +99,14 @@ All inst/fast tier. Zero frontier models. omo wins here vs current state
 Balanced quality + latency mid-tier.
 
 ```
-0.20  cf-openai/@cf/moonshotai/kimi-k2.6        (Sonnet-substitute)
+0.20  cloudflare/@cf/moonshotai/kimi-k2.6        (Sonnet-substitute)
 0.18  cerebras/qwen-3-235b-a22b-instruct-2507  (general capable)
 0.15  gemini/gemini-3-flash-preview            (fast capable)
 0.12  mistral/mistral-medium-3.5               (Mistral medium)
 0.10  github-models/openai/gpt-4.1-mini        (fast GPT-mini)
 0.10  groq/qwen/qwen3-32b                      (inst Qwen)
 0.08  mistral/mistral-medium-latest            (Mistral medium)
-0.07  cf-openai/@cf/qwen/qwen2.5-coder-32b-instruct  (code-tilt)
+0.07  cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct  (code-tilt)
 ```
 
 ### `ops` (Operator agents — pi-op-* / sub-agent fan-out)
@@ -158,7 +158,7 @@ High-RPD inst/fast tier only. Quality not needed.
 2. **Visual work avoids Claude/Kimi** — vision pool led by Gemini variants; only Cohere-vision (lowest weight) sneaks in.
 3. **Utility agents don't get Opus** — fast pool has zero frontier models; only inst/fast-tier small models.
 4. **Communicator/Sonnet-tier agents get Claude-family substitutes** — best + mid lead with Kimi K2.6, GLM-4.7, Qwen-235b, Cohere.
-5. **Writing category gets Kimi K2.5 exact match** — compress pool leads with cf-openai/@cf/moonshotai/kimi-k2.5.
+5. **Writing category gets Kimi K2.5 exact match** — compress pool leads with cloudflare/@cf/moonshotai/kimi-k2.5.
 6. **No MiniMax for deep agents** — we don't have MiniMax, no issue.
 
 ## What this re-tuning does NOT solve

@@ -77,9 +77,9 @@ prompts (cohere/mistral DROPPED from primary — they cap at 8k + reject medium)
 
 ```
 weight  provider/model                          ctx_out  notes
-0.28    cf-openai/@cf/moonshotai/kimi-k2.6      16384    Kimi K2.6 = omo's exact target substitute
+0.28    cloudflare/@cf/moonshotai/kimi-k2.6      16384    Kimi K2.6 = omo's exact target substitute
 0.22    cerebras/qwen-3-235b                    16384    Claude-substitute per omo doc
-0.18    cf-openai/@cf/moonshotai/kimi-k2.5      16384    Kimi K2.5 alt
+0.18    cloudflare/@cf/moonshotai/kimi-k2.5      16384    Kimi K2.5 alt
 0.15    cerebras/zai-glm-4.7                    16384    GLM-substitute
 0.10    gemini/gemini-3-flash-preview           65536    safety net (1M ctx, big output)
 0.07    cerebras/gpt-oss-120b                   16384    GPT fallback within Kimi pool
@@ -105,9 +105,9 @@ weight  provider/model                              ctx_out  notes
 0.20    openrouter/openai/gpt-oss-120b:free         16384    Same model via OR
 0.15    openrouter/deepseek/deepseek-v4-flash:free  16384    DeepSeek (GPT-equivalent per omo)
 0.12    mistral/codestral-latest                    16384    Code-specialized
-0.10    cf-openai/@cf/qwen/qwen2.5-coder-32b        4096     CAUTION: 4k ctx_output — low weight
+0.10    cloudflare/@cf/qwen/qwen2.5-coder-32b        4096     CAUTION: 4k ctx_output — low weight
 0.08    cerebras/qwen-3-235b                        16384    general capable
-0.05    cf-openai/@cf/moonshotai/kimi-k2.6          16384    last-resort Claude fallback
+0.05    cloudflare/@cf/moonshotai/kimi-k2.6          16384    last-resort Claude fallback
 fallbacks:
   sambanova/DeepSeek-V3.2
   sambanova/DeepSeek-V3.1
@@ -158,7 +158,7 @@ fallbacks (all small-ctx — only useful for short handoffs):
   github-models/openai/gpt-4.1-mini
   github-models/openai/gpt-4o-mini
   github-models/openai/gpt-4.1-nano
-  cf-openai/@cf/meta/llama-3.1-8b-instruct-fp8
+  cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8
   mistral/mistral-small-latest
   groq/qwen/qwen3-32b
   groq/llama-3.3-70b-versatile

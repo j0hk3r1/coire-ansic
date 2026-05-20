@@ -45,7 +45,7 @@ autonomous operator layer.
 | openrouter | 50 RPD pooled across :free on $0-credit |
 | gemini | 250 RPD flash, 25-50 RPD pro |
 | nvidia-nim | 40 RPM/model, 10k credits/month preview |
-| cf-openai | 10k neurons/day total |
+| cloudflare | 10k neurons/day total |
 
 ### Adapters (opt-in via install.sh flags)
 

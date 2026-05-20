@@ -133,7 +133,7 @@ def candidates_from_aa(aa_models: list, configured: set[str]) -> list:
             "google": "gemini", "google-ai-studio": "gemini",
             "groqcloud": "groq",
             "nvidia": "nvidia-nim", "nvidia-nim": "nvidia-nim",
-            "cloudflare": "cf-openai", "cloudflare-workers-ai": "cf-openai",
+            "cloudflare": "cloudflare", "cloudflare-workers-ai": "cloudflare",
             "mistral-ai": "mistral",
         }.get(slug, slug)
         by_provider.setdefault(slug, []).append(m)

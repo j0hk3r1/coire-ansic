@@ -321,7 +321,7 @@ hermes-agent updates if `--with-hermes`.
 - The strip-shim is required because Mistral magistral and Cerebras qwen-235b
   reject `reasoning_content` fields on follow-up turns. Without it, agents
   loop after first reasoning response.
-- Bifrost `nvidia-nim` and `cf-openai` providers use custom
+- Bifrost `nvidia-nim` and `cloudflare` providers use custom
   `request_path_overrides` to work around Bifrost issue #2356 (Authorization
   not forwarded for OpenAI-compat custom endpoints).
 

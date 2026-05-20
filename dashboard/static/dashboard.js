@@ -22,6 +22,7 @@ function bifrostApp() {
     activeTab: STORAGE.get('activeTab', 'overview'),
     status: null,
     usageEstimates: null,
+    modelLimits: null,
     latency: null,
     weightDrift: null,
     pollInterval: null,
@@ -45,10 +46,12 @@ function bifrostApp() {
       if (['overview','stream','pools','providers','curator','latency'].includes(hash)) this.activeTab = hash;
       this.fetchStatus();
       this.fetchUsage();
+      this.fetchModelLimits();
       this.fetchLatency();
       this.fetchDrift();
       setInterval(() => { this.fetchStatus(); }, 15000);
       setInterval(() => { this.fetchUsage(); }, 60000);
+      setInterval(() => { this.fetchModelLimits(); }, 60000);
       setInterval(() => { this.fetchLatency(); }, 30000);
       setInterval(() => { this.fetchDrift(); }, 60000);
     },
@@ -70,6 +73,13 @@ function bifrostApp() {
       try {
         const r = await fetch('/api/usage_estimates', { cache: 'no-store' });
         if (r.ok) this.usageEstimates = await r.json();
+      } catch (e) { /* keep stale */ }
+    },
+
+    async fetchModelLimits() {
+      try {
+        const r = await fetch('/api/usage_estimates_by_model', { cache: 'no-store' });
+        if (r.ok) this.modelLimits = await r.json();
       } catch (e) { /* keep stale */ }
     },
 

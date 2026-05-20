@@ -61,7 +61,7 @@ PROVIDER_TO_ENV = {
     "mistral":       "MISTRAL_API_KEY",
     "cerebras":      "CEREBRAS_API_KEY",
     "nvidia-nim":    "NVIDIA_API_KEY",
-    "cf-openai":     "CLOUDFLARE_API_KEY",
+    "cloudflare":     "CLOUDFLARE_API_KEY",
     "openrouter":    "OPENROUTER_API_KEY",
     "deepseek":      "DEEPSEEK_API_KEY",
     "sambanova":     "SAMBANOVA_API_KEY",

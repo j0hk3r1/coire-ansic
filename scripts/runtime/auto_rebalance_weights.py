@@ -65,7 +65,7 @@ def fetch_usage(max_attempts: int = 4):
 
 def saturated_providers() -> set:
     """Read CB state directly — return set of providers with >= N daily-quota
-    demoted targets. These have hit a hidden cap (e.g. cf-openai neurons, not
+    demoted targets. These have hit a hidden cap (e.g. cloudflare neurons, not
     visible in request-count usage data) and must NOT be weight-raised even if
     their RPD utilization looks low."""
     if not CB_STATE_PATH.exists():

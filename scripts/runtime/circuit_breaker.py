@@ -125,14 +125,14 @@ def is_daily_quota_msg(text: str, provider: str = "", model: str = "") -> bool:
 
 # Providers with small daily caps where any 429 is overwhelmingly a daily-cap
 # exhaustion (vs burst). Verified via live probe:
-#   cf-openai: 10000 neurons/day total — exhausts in hours of normal use
+#   cloudflare: 10000 neurons/day total — exhausts in hours of normal use
 #   gemini Pro: 25-50 RPD; gemini Flash: 250-1000 RPD
 #   openrouter free models w/ $0 credit: 50 RPD pooled
 #   github-models high-tier (gpt-4o/4.1/o-series): per-model daily cap.
 #     Header x-ratelimit-type=UserByModelByDay; retry-after up to 50000s.
 #     LOW-TIER variants (*-mini, *-nano) use 60s rolling window instead —
 #     do NOT flag those as daily.
-_DAILY_CAP_PROVIDERS = ("cf-openai",)
+_DAILY_CAP_PROVIDERS = ("cloudflare",)
 _DAILY_CAP_MODEL_PATTERNS = (
     ("gemini", "pro"),                    # gemini-3-pro-preview, gemini-2.5-pro etc
     ("openrouter", ":free"),              # openrouter :free on $0-credit
@@ -426,7 +426,7 @@ def demote_target(provider: str, model: str, pools: dict, state: dict, is_daily_
 _SMOKE_TIMEOUT_BY_PROVIDER = {
     "nvidia-nim": 150,    # deepseek-v4-pro cold-start hits 90s+ with no traffic
     "openrouter": 60,
-    "cf-openai": 30,
+    "cloudflare": 30,
     "gemini": 20,
     "mistral": 15,
     "groq": 10,
@@ -695,7 +695,7 @@ def tick(state, error_window, once_mode=False):
                     is_quota = True
                 # bifrost log API frequently drops upstream status_code (we
                 # see error_details={} on log entries even for 429 responses).
-                # Fallback: if this target is on the daily-cap list (cf-openai,
+                # Fallback: if this target is on the daily-cap list (cloudflare,
                 # gemini pro, openrouter :free, github-models openai/* high
                 # tier) and we have NO classification yet, assume daily.
                 # Restore-check smoke-probe will confirm/correct if wrong.

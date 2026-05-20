@@ -122,6 +122,7 @@ services:
       - ./bifrost/excluded_models.json:/app/bifrost/excluded_models.json:ro
       - ./bifrost/candidate_providers.json:/app/bifrost/candidate_providers.json:ro
       - ./scripts/runtime/pool_weights.yaml:/app/scripts/runtime/pool_weights.yaml:ro
+      - ./scripts/runtime/model_capabilities.yaml:/app/model_capabilities.yaml:ro
     environment:
       BIFROST_URL: http://172.17.0.1:4001
       BIFROST_USER: admin

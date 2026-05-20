@@ -80,7 +80,7 @@ Workflow:
 2. Probe key directly against upstream (use `curl` w/ Authorization header)
 3. Capture rate-limit headers (`x-ratelimit-*`, `x-trial-*`) — these define real free tier
 4. List available models via `/v1/models` if reachable
-5. Decide: standard bifrost provider (groq/gemini/mistral/cohere/etc — built-in) or custom (cf-openai-style request_path_overrides)
+5. Decide: standard bifrost provider (groq/gemini/mistral/cohere/etc — built-in) or custom (cloudflare-style request_path_overrides)
 6. Register via `POST /api/providers` then `PUT /api/providers/<name>` w/ keys (see existing seed.sh + integration commits for patterns)
 7. Update `.env` to persist
 8. Update `~/coire-ansic/dashboard/app.py` PROVIDER_QUOTAS w/ real caps

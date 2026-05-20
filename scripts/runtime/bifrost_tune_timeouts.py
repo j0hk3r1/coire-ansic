@@ -37,7 +37,7 @@ KEY_ENV = {
     "cerebras":   "CEREBRAS_API_KEY",
     "mistral":    "MISTRAL_API_KEY",
     "gemini":     "GEMINI_API_KEY",
-    "cf-openai":  "CLOUDFLARE_API_KEY",
+    "cloudflare":  "CLOUDFLARE_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "nvidia-nim":    "NVIDIA_API_KEY",
     "sambanova":     "SAMBANOVA_API_KEY",
@@ -55,7 +55,7 @@ KEY_ENV = {
 #   gemini:     gemini-pro free is 5 RPM (= one call every 12s). Other
 #               variants have more headroom. concurrency=3 avoids burst on
 #               flash variants.
-#   cf-openai:  10k neurons/day. NOT RPM-bound but parallel calls drain
+#   cloudflare:  10k neurons/day. NOT RPM-bound but parallel calls drain
 #               cap fast. concurrency=4.
 #   openrouter: 50 RPD pooled across all :free models on $0-credit accounts.
 #               concurrency=1 — one at a time keeps the daily budget visible.
@@ -65,7 +65,7 @@ PLAN = [
     ("cerebras",      30,  2, 4),
     ("mistral",       120, 1, 2),
     ("gemini",        120, 1, 3),
-    ("cf-openai",     120, 1, 4),
+    ("cloudflare",     120, 1, 4),
     ("openrouter",    600, 1, 1),  # 600s — :free 70b models routinely take >300s
     ("nvidia-nim",    300, 1, 8),
     ("sambanova",     60,  1, 1),  # 20 RPD free tier — strict conc=1
