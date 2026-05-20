@@ -130,6 +130,39 @@ def strip_reasoning(messages: list) -> list:
     return cleaned
 
 
+# Some pool primaries cap max_tokens lower than the 16k we advertise.
+# cohere/command-a-03-2025 = 8192. mistral-* = 8192. Clamp here so a
+# client asking for 16k doesn't 400 the cascade with "too many tokens".
+# Power users routing to a provider that supports more can bypass via
+# direct model selection (bifrost-level — provider/model bypasses pools).
+MAX_OUTPUT_CAP = int(os.environ.get("STRIP_SHIM_MAX_OUTPUT_CAP", "8192"))
+
+# OpenAI's reasoning_effort field: some providers (mistral) only accept
+# {"high", "none"} on certain models; cohere ignores it; gpt-oss/* uses
+# it via thinking. Safest is to drop UNRECOGNIZED values rather than the
+# field entirely — providers that DO use it stay supported.
+_OK_REASONING_EFFORT = {"high", "low", "medium", "xhigh", "minimal", "none"}
+
+
+def clamp_max_tokens(data: dict) -> None:
+    """Cap max_tokens in-place if it exceeds MAX_OUTPUT_CAP."""
+    mt = data.get("max_tokens")
+    if isinstance(mt, int) and mt > MAX_OUTPUT_CAP:
+        log.info("clamped max_tokens %d -> %d (provider safety cap)", mt, MAX_OUTPUT_CAP)
+        data["max_tokens"] = MAX_OUTPUT_CAP
+
+
+def sanitize_reasoning_effort(data: dict) -> None:
+    """Drop reasoning_effort if the value is one that mistral or others
+    specifically reject. mistral-medium-3.5 only accepts {high, none}.
+    cohere ignores it. Dropping "low"/"medium"/"minimal" prevents 400s
+    while keeping "high" and "none" through for providers that use them."""
+    re_val = data.get("reasoning_effort")
+    if isinstance(re_val, str) and re_val.lower() in ("low", "medium", "minimal"):
+        log.info("dropping reasoning_effort=%r (rejected by mistral; cohere ignores)", re_val)
+        del data["reasoning_effort"]
+
+
 def normalize_roles(messages: list) -> list:
     """Coerce OpenAI's newer `developer` role to `system`.
 
@@ -336,6 +369,8 @@ async def proxy(path: str, request: Request):
             log.warning("malformed JSON body: %s", e)
             data = None
         if isinstance(data, dict) and "messages" in data:
+            clamp_max_tokens(data)
+            sanitize_reasoning_effort(data)
             data["messages"] = normalize_roles(data["messages"])
             data["messages"] = strip_reasoning(data["messages"])
             data["messages"] = drop_orphan_tool_results(data["messages"])
