@@ -136,29 +136,31 @@ def strip_reasoning(messages: list) -> list:
 # Clamp PER POOL so we don't strangle the orchestrator on pools where
 # the primaries support more.
 _POOL_OUTPUT_CAP = {
-    # Pools whose primaries lead with cohere/mistral (8k cap)
-    "omo-kimi": 8192,
-    "compress": 8192,
-    # Pools whose primaries support 16k+ output
+    # Bumped 2026-05-20 after reading omo source: Sisyphus + Junior expect
+    # maxTokens=64000, Hephaestus 32000. Pools tuned to support those
+    # within the actual ctx_output of their primaries.
+    "omo-kimi": 16384,      # kimi/qwen/glm primaries all support 16k+
+    "omo-gpt-5-5": 32768,   # Hephaestus 32k requirement; cerebras-gpt-oss handles
+    "omo-gemini": 32768,    # Gemini supports up to 65k
+    "omo-utility": 8192,    # gemini-flash variants cap at 8k output
     "best": 16384,
     "code": 16384,
     "mid": 16384,
-    "fast": 8192,           # fast = small models; 8k typical
+    "fast": 8192,
+    "compress": 8192,
     "vision": 8192,
-    "ops": 8192,
-    "omo-gpt-5-5": 16384,   # gpt-oss + deepseek + qwen-coder all 16k
-    "omo-gemini": 32768,    # gemini supports up to 65k, allow plenty
-    "omo-utility": 8192,
+    "ops": 4096,
 }
 # Fallback when model is a direct provider/model (not a pool alias)
 DEFAULT_OUTPUT_CAP = int(os.environ.get("STRIP_SHIM_MAX_OUTPUT_CAP", "16384"))
 
 
 # Pool-name → drop "medium"/"low"/"minimal" reasoning_effort?
-# Only true when the pool's primaries are known to reject those values.
-# omo-kimi leads with mistral-medium (rejects "medium"/"low"). Other
-# pools have gpt-oss/gemini/qwen primaries that ACCEPT reasoning_effort.
-_POOL_DROPS_RE = {"omo-kimi", "compress", "mid", "vision"}
+# 2026-05-20 revised: now omo-kimi leads with kimi/qwen/glm (all accept the
+# field; gemini ignores). mistral/cohere are fallback-only. Only `mid`
+# and `compress` lead with mistral-medium (which rejects medium) — keep
+# drops there. `vision` Gemini family doesn't use the field — safe to keep.
+_POOL_DROPS_RE = {"compress", "mid"}
 
 
 def clamp_max_tokens(data: dict) -> None:
