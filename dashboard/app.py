@@ -381,6 +381,7 @@ def load_recent_errors(window_hours: int = 24, limit: int = 500, cache: _LogsCac
             is_cancelled = err_type == "request_cancelled" or "cancelled" in err_msg.lower() or "client disconnected" in err_msg.lower()
             out.append({
                 "ts": (l.get("timestamp") or "")[:19].replace("T", " "),
+                "timestamp": l.get("timestamp") or "",  # raw isoformat
                 "pool": l.get("routing_rule_name") or "—",
                 "provider": l.get("provider", ""),
                 "model": l.get("model", ""),
@@ -390,6 +391,7 @@ def load_recent_errors(window_hours: int = 24, limit: int = 500, cache: _LogsCac
                 "err": err_msg,
                 "err_type": err_type,
                 "cancelled": is_cancelled,
+                "token_usage": l.get("token_usage") or {},
             })
         return {"errors": out, "window_hours": window_hours}
     except Exception as e:
@@ -418,12 +420,14 @@ def load_recent_successes(window_hours: int = 24, limit: int = 500, cache: _Logs
                 continue  # skip non-pool calls (model_listing etc)
             out.append({
                 "ts": (l.get("timestamp") or "")[:19].replace("T", " "),
+                "timestamp": l.get("timestamp") or "",  # raw isoformat for downstream consumers
                 "pool": l.get("routing_rule_name") or "—",
                 "provider": l.get("provider", ""),
                 "model": l.get("model", ""),
                 "latency_s": round((l.get("latency") or 0) / 1000, 1),
                 "fb": l.get("fallback_index") or 0,
                 "stream": bool(l.get("stream")),
+                "token_usage": l.get("token_usage") or {},
             })
         return {"successes": out, "window_hours": window_hours}
     except Exception as e:
