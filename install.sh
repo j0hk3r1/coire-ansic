@@ -119,31 +119,60 @@ python3 bifrost/sync_key_models.py 2>&1 | tail -5 || warn "sync_key_models faile
 python3 scripts/runtime/apply_pool_weights.py 2>&1 | tail -8 || warn "apply_pool_weights failed"
 ok "pool config applied"
 
-# ─── core 5. ops tools (CLI + opencode skills) ────────────────────────────
-step "[core] ops tools — deploy ~/coire-tools/ + opencode skills"
-if [ -x scripts/ops/deploy.sh ]; then
-  # deploy.sh handles ssh to .93 by default. For local install, copy to
-  # local ~/coire-tools/ instead.
-  TARGET="${OPS_TARGET:-localhost}"
-  if [ "$TARGET" = "localhost" ]; then
-    mkdir -p "$HOME/coire-tools"
-    for f in scripts/ops/coire-health scripts/ops/coire-kill-opencode \
-             scripts/ops/coire-restart scripts/ops/coire-cascade-show \
-             scripts/ops/coire-check-quotas scripts/ops/coire-diagnose; do
-      cp "$f" "$HOME/coire-tools/$(basename $f)"
-      chmod +x "$HOME/coire-tools/$(basename $f)"
-    done
-    mkdir -p "$HOME/.config/opencode/skills" "$HOME/.config/opencode/command"
-    cp -r .opencode/skills/* "$HOME/.config/opencode/skills/"
-    cp -r .opencode/command/* "$HOME/.config/opencode/command/"
-    ln -sf "$HOME/.config/opencode/skills/coire-monitor/scripts/monitor.py" "$HOME/coire-tools/coire-monitor"
-    ln -sf "$HOME/.config/opencode/skills/coire-probe/scripts/probe.py" "$HOME/coire-tools/coire-probe"
-    ok "ops tools deployed locally to ~/coire-tools + ~/.config/opencode/"
-  else
-    TARGET="$TARGET" bash scripts/ops/deploy.sh 2>&1 | tail -5
-    ok "ops tools deployed to $TARGET"
-  fi
+# ─── core 5. opencode + omo config ────────────────────────────────────────
+step "[core] opencode + omo config — deploy ~/.config/opencode/"
+mkdir -p "$HOME/.config/opencode/skills" "$HOME/.config/opencode/command"
+
+# opencode.json — merge mode if user already has one (preserves LSP + extra MCPs)
+if [ -f "$HOME/.config/opencode/opencode.json" ]; then
+  # User already has opencode.json — merge coire provider in, leave rest alone.
+  cp "$HOME/.config/opencode/opencode.json" "$HOME/.config/opencode/opencode.json.bak.$(date +%s)"
+  python3 - <<'PY'
+import json, pathlib
+src = pathlib.Path("adapters/opencode/opencode.json.template")
+dst = pathlib.Path.home() / ".config" / "opencode" / "opencode.json"
+template = json.loads(src.read_text())
+current = json.loads(dst.read_text())
+# Replace coire provider section (and any subsections we own)
+current.setdefault("provider", {})["coire"] = template["provider"]["coire"]
+# Merge MCPs by key (don't overwrite user's own MCPs)
+for k, v in template.get("mcp", {}).items():
+    current.setdefault("mcp", {}).setdefault(k, v)
+# Ensure omo plugin in plugin list
+plugins = current.setdefault("plugin", [])
+omo = "oh-my-openagent@latest"
+if not any(p.startswith("oh-my-openagent") for p in plugins):
+    plugins.append(omo)
+dst.write_text(json.dumps(current, indent=2))
+print(f"  merged coire provider into {dst}")
+PY
+  ok "opencode.json merged (backed up existing)"
+else
+  cp adapters/opencode/opencode.json.template "$HOME/.config/opencode/opencode.json"
+  ok "opencode.json deployed (fresh)"
 fi
+
+# omo agent → pool mapping
+cp adapters/omo/oh-my-openagent.json "$HOME/.config/opencode/oh-my-openagent.json"
+ok "oh-my-openagent.json deployed"
+
+# ─── core 6. ops tools (CLI + opencode skills) ────────────────────────────
+step "[core] ops tools — deploy ~/coire-tools/ + opencode skills"
+mkdir -p "$HOME/coire-tools"
+for f in scripts/ops/coire-health scripts/ops/coire-kill-opencode \
+         scripts/ops/coire-restart scripts/ops/coire-cascade-show \
+         scripts/ops/coire-check-quotas scripts/ops/coire-diagnose \
+         scripts/ops/coire-snapshot-sync; do
+  cp "$f" "$HOME/coire-tools/$(basename $f)"
+  chmod +x "$HOME/coire-tools/$(basename $f)"
+done
+cp -r .opencode/skills/* "$HOME/.config/opencode/skills/"
+cp -r .opencode/command/* "$HOME/.config/opencode/command/"
+ln -sf "$HOME/.config/opencode/skills/coire-monitor/scripts/monitor.py" "$HOME/coire-tools/coire-monitor"
+ln -sf "$HOME/.config/opencode/skills/coire-probe/scripts/probe.py" "$HOME/coire-tools/coire-probe"
+chmod +x "$HOME/.config/opencode/skills/coire-monitor/scripts/monitor.py"
+chmod +x "$HOME/.config/opencode/skills/coire-probe/scripts/probe.py"
+ok "ops tools deployed (~/coire-tools + ~/.config/opencode/{skills,command})"
 
 # ════════════════════════════════════════════════════════════════════════════
 # OPTIONAL ADAPTERS
