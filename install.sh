@@ -97,8 +97,7 @@ if [ $WITH_CAMOFOX -eq 1 ]; then
   fi
   if [ $WITH_CAMOFOX -eq 1 ] && [ -f camofox/src/Dockerfile ]; then
     PROFILES="$PROFILES,camofox"
-    # CAMOFOX_API_KEY auto-generated if missing (local LAN — loopback wouldn't need it
-    # but we bind 0.0.0.0 to be reachable from omo).
+    # CAMOFOX_API_KEY auto-generated if missing
     if [ -z "${CAMOFOX_API_KEY:-}" ]; then
       GEN_CFK=$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 32)
       if grep -q '^CAMOFOX_API_KEY=' .env; then
@@ -108,6 +107,12 @@ if [ $WITH_CAMOFOX -eq 1 ]; then
       fi
       export CAMOFOX_API_KEY="$GEN_CFK"
       ok "generated CAMOFOX_API_KEY"
+    fi
+    # Camofox container runs as UID 1000 (node user). Pre-chown so writes
+    # to the bind-mounted profile dir don't EACCES on first start.
+    mkdir -p camofox/data
+    if [ "$(stat -c %u camofox/data)" != "1000" ]; then
+      sudo chown -R 1000:1000 camofox/data 2>/dev/null || warn "could not chown camofox/data — container may fail on first write"
     fi
   else
     warn "camofox/src/Dockerfile not present after clone — skipping"
