@@ -892,20 +892,43 @@ async def api_usage_estimates():
 
 
 def _load_model_capabilities() -> dict:
-    """Read scripts/runtime/model_capabilities.yaml. Per-model caps may
-    differ from per-provider defaults (e.g. mistral-large=4 RPM vs
-    mistral-medium=50 RPM, cerebras qwen vs cerebras llama)."""
-    import yaml
-    caps_path = Path("/app/model_capabilities.yaml")
-    if not caps_path.exists():
-        # local dev fallback — when running outside container
-        caps_path = Path(__file__).resolve().parent.parent / "scripts" / "runtime" / "model_capabilities.yaml"
-    if not caps_path.exists():
-        return {}
-    try:
-        return (yaml.safe_load(caps_path.read_text()) or {}).get("models") or {}
-    except Exception:
-        return {}
+    """Per-model rate-limit overrides. Provider-wide caps in PROVIDER_QUOTAS
+    fit most models, but some have wildly different caps within the same
+    provider (mistral-large vs medium, cerebras qwen vs llama).
+
+    Verified 2026-05-27 via x-ratelimit-* headers + provider docs."""
+    return {
+        # mistral — per-model RPM/TPM widely vary
+        "mistral/mistral-large-2512":   {"rpm_cap": 4,   "tpm_cap": 250000},
+        "mistral/mistral-large-latest": {"rpm_cap": 4,   "tpm_cap": 250000},
+        "mistral/mistral-medium-3.5":   {"rpm_cap": 50,  "tpm_cap": 50000},
+        "mistral/mistral-medium-latest":{"rpm_cap": 50,  "tpm_cap": 50000},
+        "mistral/codestral-latest":     {"rpm_cap": 50,  "tpm_cap": 50000},
+        # cerebras — RPD per-model (5 RPM / 2400 RPD / 30k TPM each)
+        "cerebras/zai-glm-4.7":                       {"rpm_cap": 5, "rpd_cap": 2400, "tpm_cap": 30000},
+        "cerebras/qwen-3-235b-a22b-instruct-2507":    {"rpm_cap": 5, "rpd_cap": 2400, "tpm_cap": 30000},
+        "cerebras/gpt-oss-120b":                      {"rpm_cap": 5, "rpd_cap": 2400, "tpm_cap": 30000},
+        # gemini — per-model 20 RPM / 250 RPD per flash variant
+        "gemini/gemini-3-flash-preview":      {"rpm_cap": 20, "rpd_cap": 250, "tpm_cap": 250000},
+        "gemini/gemini-3.5-flash":            {"rpm_cap": 20, "rpd_cap": 250, "tpm_cap": 250000},
+        "gemini/gemini-3.1-flash-lite-preview":{"rpm_cap": 20, "rpd_cap": 250, "tpm_cap": 250000},
+        "gemini/gemini-flash-latest":         {"rpm_cap": 20, "rpd_cap": 250, "tpm_cap": 250000},
+        "gemini/gemini-2.5-flash":            {"rpm_cap": 20, "rpd_cap": 250, "tpm_cap": 250000},
+        "gemini/gemini-2.5-flash-lite":       {"rpm_cap": 20, "rpd_cap": 250, "tpm_cap": 250000},
+        "gemini/gemini-3.1-pro-preview":      {"rpm_cap": 0, "rpd_cap": 0, "note": "paid-only — free tier limit=0"},
+        # zai — per-model RPM, only flash models free
+        "zai/glm-4.7-flash": {"rpm_cap": 2, "note": "free tier"},
+        "zai/glm-4.5-flash": {"rpm_cap": 2, "note": "free tier"},
+        # sambanova — 20 RPD per-model
+        "sambanova/DeepSeek-V3.2": {"rpd_cap": 20, "note": "32k ctx limit"},
+        "sambanova/DeepSeek-V3.1": {"rpd_cap": 20, "note": "broken tool-calling"},
+        "sambanova/Llama-4-Maverick-17B-128E-Instruct": {"rpd_cap": 20},
+        # opencode-zen — demo tier pooled
+        "opencode-zen/deepseek-v4-flash-free": {"rpd_cap": 10, "note": "pooled demo tier"},
+        "opencode-zen/nemotron-3-super-free":  {"rpd_cap": 10, "note": "pooled demo tier"},
+        # openrouter :free — 50 RPD pooled account-wide
+        # nvidia-nim — no per-model headers, just monthly credit pool
+    }
 
 
 @app.get("/api/usage_estimates_by_model")
