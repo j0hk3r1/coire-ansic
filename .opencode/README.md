@@ -83,3 +83,57 @@ Scripts emit `## <name> vX.Y` headers. Bump when output format or behavior chang
 ## Memory of this stack
 
 See `~/.claude/projects/-home-jkr-Repos-coire-ansic/memory/` for project memory entries (provider quirks, tool-call matrix, omo internals, etc).
+
+## Driving opencode + omo autonomously via HTTP
+
+opencode web exposes a REST API. Useful for remote testing or running prompts from another machine (e.g. claude-code on `.68`).
+
+**Endpoint base**: `http://192.168.1.93:4040`
+**Auth**: none by default (set `OPENCODE_SERVER_PASSWORD` env if needed)
+
+### Quickstart
+
+```bash
+# 1. Create session
+SID=$(curl -sS -X POST http://192.168.1.93:4040/session \
+    -H "Content-Type: application/json" -d '{}' | jq -r .id)
+
+# 2. Send prompt (blocks until omo replies)
+curl -sS -X POST "http://192.168.1.93:4040/session/$SID/message" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model":{"providerID":"coire","modelID":"omo-main"},
+      "parts":[{"type":"text","text":"build a python rate limiter"}]
+    }'
+```
+
+Response: `{ info: Message, parts: Part[] }` where parts contains `step-start`, `text`, `tool`, `tool-result`, `reasoning`, `step-finish`. Text parts hold the visible reply.
+
+### Other useful endpoints
+
+| | |
+|---|---|
+| `GET /config/providers` | list providers + models opencode sees |
+| `POST /session` | create session, returns `{id, ...}` |
+| `POST /session/:id/message` | send prompt, BLOCKS for reply |
+| `POST /session/:id/prompt_async` | non-blocking send |
+| `GET /event` | SSE stream of session events |
+| `GET /global/event` | SSE stream of global events |
+| `GET /doc` | OpenAPI 3.1 spec |
+
+### Agents
+
+`agent` field accepts omo agent names. Sisyphus is default. Examples:
+`sisyphus-junior`, `atlas`, `metis`, `prometheus`, `hephaestus`, `oracle`, `librarian`, `explore`, `multimodal-looker`.
+
+### Validated working
+
+Tested 2026-05-27 — `POST /session/<id>/message` with `model={providerID:"coire",modelID:"omo-main"}` + `parts:[{type:"text",text:"What is 2+2?"}]` → returned `text:"4"` in 8.7s. Full cascade traversal worked.
+
+### Watch outs
+
+- Default model is **NOT** auto-selected — must pass `model` field explicitly
+- `agent` field expects the slug name without quotes/formatting
+- POST `/message` blocks for the entire reply (including tool calls + subagents). Long tasks → use `prompt_async` + SSE.
+- Tool calls + file edits happen on the .93 filesystem (where opencode lives) — be careful when testing destructive workflows
+- Every API call counts toward provider quotas like normal omo usage
