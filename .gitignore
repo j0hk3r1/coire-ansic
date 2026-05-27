@@ -1,31 +1,20 @@
 .env
 bifrost/data/
+
+# camofox auto-cloned at install — not bundled
 camofox/src/
-hermes/memory_store.db*
-hermes/sessions/
-hermes/logs/
-hermes/cron/
-hermes/state.db*
+camofox/data/
+
 *.log
 __pycache__/
 *.pyc
 
-# .68 install artifacts
-.idea/
-scripts/circuit_history.jsonl
-scripts/circuit_state.json
-.env.bak.*
-
 # Dev tooling
-.claude/
 .idea/
 .vscode/
+.claude/
 
-# Local snapshot has been sanitized (env-var placeholders) — safe to commit.
-# But pool_weights.yaml.bak is local-only:
-scripts/runtime/pool_weights.yaml.bak
-
-# Operator runtime state (not source-of-truth)
-.hermes-state/
-openwebui-data/
+# Backups
+.env.bak.*
 *.bak.*
+scripts/runtime/pool_weights.yaml.bak

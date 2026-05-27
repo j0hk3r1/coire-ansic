@@ -1,46 +1,49 @@
-# camofox/ — anti-detect Firefox adapter (BYO source)
+# camofox/ — anti-detect Firefox adapter
 
-## Why this is opt-in
+Auto-fetched from [redf0x1/camofox-browser](https://github.com/redf0x1/camofox-browser) (MIT) by `install.sh --with-camofox`. REST API on `:9378` (host) → `:9377` (container) wrapping the Camoufox stealth browser engine.
 
-The vanilla [Camoufox](https://github.com/daijro/camoufox) upstream is a
-Python library (`pip install camoufox`) + a stealth-patched Firefox
-binary. It does **not** ship a REST/HTTP server out of the box — only a
-Playwright-protocol launcher.
+## Why opt-in
 
-The docker service in `docker-compose.yml` expects a REST wrapper exposed
-on port 9377 (see `Dockerfile.ci`). That wrapper does not exist in the
-public Camoufox repo — it has to come from a fork that adds it.
+Camoufox brings ~500 MB of patched Firefox binary + downloads ~150 MB on first run. Most users don't need stealth browsing — searxng + firecrawl handle 90 % of web-extract needs.
 
-So `--with-camofox` is **not** included in `--all` and is **not** the
-out-of-the-box experience. If you want it, you bring your own source.
-
-## How to enable it
+## Install
 
 ```bash
-# 1. Put a camofox-with-REST-wrapper source tree at ./camofox/src/
-#    (must contain Dockerfile.ci and serve an HTTP endpoint on :9377)
-git clone <your-camofox-fork> camofox/src
-
-# 2. Install with the flag
 ./install.sh --with-camofox
-
-# 3. Or, if already installed:
-COMPOSE_PROFILES=dashboard,camofox docker compose up -d --build
 ```
 
-If `camofox/src/` is missing, `install.sh --with-camofox` skips the
-profile with a clear warning instead of failing.
+What happens:
+1. `git clone https://github.com/redf0x1/camofox-browser camofox/src/`
+2. Generates `CAMOFOX_API_KEY` in `.env` if missing
+3. `docker compose --profile camofox up -d --build`
 
-## Why we don't bundle it
+## Endpoints
 
-- Camoufox is GPL-licensed; bundling a derived REST wrapper would impose
-  GPL terms on this repo.
-- Most users don't need anti-detect browsing — it's a niche feature for
-  scraping behind detection. omo's librarian can use it via `CAMOFOX_URL`;
-  otherwise it falls back to searxng or external services.
+| | |
+|---|---|
+| API base | `http://localhost:9378` (or `http://172.17.0.1:9378` from inside docker) |
+| Health | `GET /health` |
+| Create tab | `POST /tabs` |
+| Snapshot | `GET /tabs/:tabId/snapshot` |
+| Navigate | `POST /tabs/:tabId/navigate` |
+| Click | `POST /tabs/:tabId/click` |
+| noVNC viewer | `http://localhost:6080` (loopback only) |
 
-## Alternatives
+See [redf0x1/camofox-browser README](https://github.com/redf0x1/camofox-browser) for full API.
 
-If you want web browsing without the Camoufox dependency:
-- `--with-searxng` for meta-search + page fetch
-- `--with-firecrawl` for full JS-rendered page extraction (Playwright under the hood)
+## Hook into omo
+
+omo's librarian agent uses `CAMOFOX_URL` env var to route stealth-fetch tools. Set:
+```bash
+CAMOFOX_URL=http://localhost:9378
+```
+in `.env` (already templated). API key gets passed in `Authorization: Bearer $CAMOFOX_API_KEY`.
+
+## Persistent profiles
+
+Browser profiles + cookies persist at `camofox/data/` (mounted into container). Wipe with `rm -rf camofox/data/` if you want a clean slate.
+
+## License
+
+Wrapper code is MIT (redf0x1/camofox-browser).
+Underlying Camoufox engine is MPL-2.0 (daijro/camoufox). MPL is file-level copyleft — using Camoufox via the REST wrapper is fine for any downstream use.

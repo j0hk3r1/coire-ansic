@@ -84,21 +84,27 @@ services:
       start_period: 20s
 
   # Optional — opt in via: docker compose --profile camofox up -d
-  # or install.sh --with-camofox. Requires ./camofox/src/ cloned first
-  # (camofox-browser repo, set up by adapters/camofox/install.sh).
+  # or install.sh --with-camofox. install.sh auto-clones redf0x1/camofox-browser
+  # (MIT — REST API on :9377 wrapping the Camoufox stealth browser engine).
   camofox:
     profiles: ["camofox"]
     build:
       context: ./camofox/src
-      dockerfile: Dockerfile.ci
     image: coire-camofox:latest
     container_name: coire-camofox
     ports:
-      - "127.0.0.1:9378:9377"
+      - "0.0.0.0:9378:9377"  # host :9378 → container :9377 (REST API)
+      - "127.0.0.1:6080:6080" # noVNC viewer (loopback only)
+    environment:
+      CAMOFOX_HOST: 0.0.0.0
+      CAMOFOX_API_KEY: ${CAMOFOX_API_KEY:-}
+      CAMOFOX_AUTH_MODE: ${CAMOFOX_AUTH_MODE:-auto}
+    volumes:
+      - ./camofox/data:/home/node/.camofox  # persist profiles + cookies across restarts
     restart: unless-stopped
     shm_size: 2gb
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:9377/',r=>process.exit(r.statusCode==200?0:1)).on('error',()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9377/health >/dev/null || exit 1"]
       interval: 60s
       timeout: 5s
       retries: 3

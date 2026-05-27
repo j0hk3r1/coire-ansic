@@ -8,10 +8,10 @@
 # monitoring + diagnostics.
 #
 # Optional adapters (opt-in via flags):
-#   --with-camofox     Anti-detect browser (free web browsing for omo)
+#   --with-camofox     Anti-detect Firefox (auto-clones redf0x1/camofox-browser, MIT)
 #   --with-searxng     Self-hosted meta-search (omo librarian backend)
 #   --with-firecrawl   Local web-extract backend (omo librarian)
-#   --all              Above + dashboard (camofox needs source — see camofox/README.md)
+#   --all              searxng + firecrawl + camofox (camofox clones ~50MB + downloads ~150MB browser on first run)
 #
 # Idempotent — safe to re-run. Skips steps already done.
 
@@ -29,10 +29,9 @@ for arg in "$@"; do
     --with-camofox)   WITH_CAMOFOX=1 ;;
     --with-searxng)   WITH_SEARXNG=1 ;;
     --with-firecrawl) WITH_FIRECRAWL=1 ;;
-    # --all excludes --with-camofox: Camoufox upstream ships a Python lib
-    # (no REST server), so the docker service needs an out-of-band fork
-    # cloned into ./camofox/src/. Users who want it must opt in explicitly.
-    --all)            WITH_SEARXNG=1; WITH_FIRECRAWL=1 ;;
+    # --all now includes camofox since install.sh auto-clones redf0x1/camofox-browser.
+    # Skip --with-camofox if you don't want the ~150MB browser binary download.
+    --all)            WITH_SEARXNG=1; WITH_FIRECRAWL=1; WITH_CAMOFOX=1 ;;
     -h|--help)
       grep -E "^# " "$0" | sed 's/^# //'; exit 0 ;;
     *) echo "unknown flag: $arg (try --help)"; exit 64 ;;
@@ -87,11 +86,31 @@ chmod 777 bifrost/data 2>/dev/null || true
 
 PROFILES="dashboard"
 if [ $WITH_CAMOFOX -eq 1 ]; then
-  if [ -f camofox/src/Dockerfile.ci ]; then
-    PROFILES="$PROFILES,camofox"
+  # Auto-fetch redf0x1/camofox-browser (MIT — REST API wrapping Camoufox engine,
+  # port 9377). Clone if missing, pull if present.
+  if [ ! -d camofox/src/.git ]; then
+    rm -rf camofox/src 2>/dev/null
+    git clone --depth 1 https://github.com/redf0x1/camofox-browser camofox/src 2>&1 | tail -3 \
+      || { warn "git clone redf0x1/camofox-browser failed — skipping camofox"; WITH_CAMOFOX=0; }
   else
-    warn "--with-camofox set but camofox/src/ not populated. Skipping."
-    warn "  Clone Camoufox-browser source into ./camofox/src/ then re-run."
+    (cd camofox/src && git pull --ff-only 2>&1 | tail -2) || warn "camofox/src git pull failed (continuing)"
+  fi
+  if [ $WITH_CAMOFOX -eq 1 ] && [ -f camofox/src/Dockerfile ]; then
+    PROFILES="$PROFILES,camofox"
+    # CAMOFOX_API_KEY auto-generated if missing (local LAN — loopback wouldn't need it
+    # but we bind 0.0.0.0 to be reachable from omo).
+    if [ -z "${CAMOFOX_API_KEY:-}" ]; then
+      GEN_CFK=$(head -c 24 /dev/urandom | base64 | tr -d '/+=' | head -c 32)
+      if grep -q '^CAMOFOX_API_KEY=' .env; then
+        sed -i "s|^CAMOFOX_API_KEY=.*|CAMOFOX_API_KEY=$GEN_CFK|" .env
+      else
+        printf '\nCAMOFOX_API_KEY=%s\n' "$GEN_CFK" >> .env
+      fi
+      export CAMOFOX_API_KEY="$GEN_CFK"
+      ok "generated CAMOFOX_API_KEY"
+    fi
+  else
+    warn "camofox/src/Dockerfile not present after clone — skipping"
     WITH_CAMOFOX=0
   fi
 fi
