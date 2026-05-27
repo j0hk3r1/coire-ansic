@@ -36,6 +36,15 @@
       "environment": {
         "FIRECRAWL_API_URL": "http://localhost:3002"
       }
+    },
+    "camofox": {
+      "type": "local",
+      "command": ["npx", "-y", "camofox-mcp@latest"],
+      "enabled": true,
+      "environment": {
+        "CAMOFOX_URL": "http://localhost:9378",
+        "CAMOFOX_API_KEY": "${CAMOFOX_API_KEY}"
+      }
     }
   },
   "plugin": ["oh-my-openagent@latest"]
