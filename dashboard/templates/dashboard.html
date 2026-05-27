@@ -93,14 +93,14 @@
       <div class="text-3xl stat-value neon-lime" x-text="state ? (state.pool_health?.total || 0) : {{ pool_health.total or 0 }}"></div>
     </div>
     <div class="panel p-4">
-      <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">AA Models</div>
-      <div class="text-3xl stat-value neon-pink" x-text="state ? (state.curator_recommendations?.total_models || 0) : {{ curator_recommendations.total_models or 0 }}"></div>
+      <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">Providers</div>
+      <div class="text-3xl stat-value neon-pink" x-text="state ? (state.bifrost_metrics?.by_provider ? Object.keys(state.bifrost_metrics.by_provider).length : 0) : 0"></div>
     </div>
   </section>
 
   <!-- TAB NAV -->
   <nav class="tab-nav flex gap-1 border-b border-white/10 mb-3">
-    <template x-for="tab in [['overview','OVERVIEW'],['stream','STREAM'],['pools','POOLS'],['providers','PROVIDERS'],['latency','LATENCY'],['curator','CURATOR']]" :key="tab[0]">
+    <template x-for="tab in [['overview','OVERVIEW'],['stream','STREAM'],['pools','POOLS'],['providers','PROVIDERS'],['latency','LATENCY']]" :key="tab[0]">
       <button class="tab-btn px-4 py-2 text-xs uppercase tracking-widest"
               :class="activeTab === tab[0] ? 'tab-active' : 'text-slate-500 hover:text-violet-300'"
               @click="setTab(tab[0])"
@@ -552,80 +552,8 @@
   </section>
 
   <!-- CURATOR — TOP MODELS BY POOL -->
-  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
-    <div class="section-header cursor-pointer" @click="toggleCollapse('curator')">
-      <span :class="{ 'rotate-90': isCollapsed('curator') }" class="inline-block transition-transform">▸</span>
-      <span>Curator · Top Free Models</span>
-      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">live AA scores · {{ curator_recommendations.total_models or 0 }} tracked</span>
-    </div>
-    <div x-show="!isCollapsed('curator')">
-    {% if curator_recommendations.error %}
-      <p class="neon-rose text-sm">{{ curator_recommendations.error }}</p>
-    {% else %}
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {% for pool_name in ['best','code','mid','fast'] %}
-          {% set pool_data = curator_recommendations[pool_name] %}
-          <div class="pool-card">
-            <h4 class="neon-pink mb-3">{{ pool_name|upper }}</h4>
-            <ol class="space-y-1.5 text-xs">
-            {% for m in pool_data[:8] %}
-              <li class="flex justify-between gap-2">
-                <span class="truncate flex-1">
-                  <span class="text-slate-500">{{ loop.index }}.</span>
-                  <span class="text-rose-300">{{ m.provider }}</span>/<span>{{ m.model[:25] }}{% if m.model|length > 25 %}…{% endif %}</span>
-                </span>
-                <span class="num shrink-0">
-                  {% if pool_name == 'code' and m.code %}{{ m.code }}
-                  {% elif m.iq %}{{ m.iq }}
-                  {% else %}—{% endif %}
-                </span>
-              </li>
-            {% endfor %}
-            </ol>
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-    </div>
-  </section>
 
   <!-- EXCLUDED MODELS -->
-  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
-    <div class="section-header cursor-pointer" @click="toggleCollapse('excluded_models')">
-      <span :class="{ 'rotate-90': isCollapsed('excluded_models') }" class="inline-block transition-transform">▸</span>
-      <span>Curator Excludes</span>
-      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">{{ excluded_models.excluded|length }} permanent · plus circuit-breaker cooldowns</span>
-    </div>
-    <div x-show="!isCollapsed('excluded_models')">
-    {% if excluded_models.error %}
-      <p class="neon-rose text-sm">{{ excluded_models.error }}</p>
-    {% elif not excluded_models.excluded %}
-      <p class="text-sm text-slate-500">No permanent excludes configured.</p>
-    {% else %}
-      <p class="text-xs text-slate-500 mb-3">Permanent — these won't be re-proposed by the auto-curator. Distinct from circuit-breaker cooldowns (transient quota/error). Edit <code class="neon-cyan">{{ excluded_models.source or 'bifrost/excluded_models.json' }}</code> to update.</p>
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-left text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700/40">
-            <th class="py-1 pr-3">Model</th>
-            <th class="py-1 pr-3">Reason</th>
-            <th class="py-1 pr-3">Scope</th>
-            <th class="py-1 pr-3">Added</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for e in excluded_models.excluded %}
-          <tr class="border-b border-slate-800/50">
-            <td class="py-2 pr-3 font-mono text-xs neon-pink">{{ e.id }}</td>
-            <td class="py-2 pr-3 text-slate-300">{{ e.reason }}</td>
-            <td class="py-2 pr-3 text-xs text-slate-500">{{ e.scope or 'all pools' }}</td>
-            <td class="py-2 pr-3 text-xs text-slate-500">{{ e.added_at }}{% if e.added_by %} · {{ e.added_by }}{% endif %}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    {% endif %}
-    </div>
-  </section>
 
   <!-- ACTIVE POOL CONFIG -->
   <section x-show="activeTab === 'pools'" x-cloak class="panel p-5">
@@ -731,47 +659,6 @@
   </section>
 
   <!-- PROVIDER CANDIDATES (scouted free-inference opportunities) -->
-  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
-    <div class="section-header cursor-pointer" @click="toggleCollapse('candidates')">
-      <span :class="{ 'rotate-90': isCollapsed('candidates') }" class="inline-block transition-transform">▸</span>
-      <span>Provider Candidates</span>
-      <span class="ml-auto text-xs text-slate-600 normal-case tracking-normal">{{ candidates.count }} discovered · scout cron weekly</span>
-    </div>
-    <div x-show="!isCollapsed('candidates')">
-    {% if candidates.error %}
-      <p class="neon-rose text-sm">{{ candidates.error }}</p>
-    {% elif candidates.count == 0 %}
-      <p class="text-sm text-slate-500">No new candidates yet. The scout runs Mondays 04:00 — or trigger manually with <code class="neon-cyan">python3 scripts/scout_free_providers.py</code>.</p>
-    {% else %}
-      <p class="text-xs text-slate-500 mb-3">Free-inference providers + new free models discovered by <code>scripts/scout_free_providers.py</code>. Review → sign up → add key to <code>.env</code> → append provider to <code>bifrost/seed.sh</code> + <code>bifrost/snapshot/routing-rules.json</code>.</p>
-      <div class="grid md:grid-cols-2 gap-4">
-      {% for c in candidates.candidates %}
-        <div class="pool-card">
-          <div class="flex justify-between items-baseline mb-1">
-            <h4 class="neon-pink">{{ c.provider }}</h4>
-            <span class="text-xs text-slate-500">{{ c.discovered_via }}</span>
-          </div>
-          {% if c.signup_url %}<p class="text-xs mb-2"><a href="{{ c.signup_url }}" target="_blank" class="neon-cyan hover:underline">{{ c.signup_url }}</a></p>{% endif %}
-          {% if c.notes %}<p class="text-sm text-slate-300 mb-2">{{ c.notes }}</p>{% endif %}
-          {% if c.free_tier %}<p class="text-xs text-slate-500 mb-2"><span class="text-slate-400">free-tier:</span> {{ c.free_tier }}</p>{% endif %}
-          {% if c.models %}
-          <div class="text-xs">
-            <div class="text-slate-500 mb-1">{{ c.models|length }} model(s):</div>
-            <ul class="space-y-0.5">
-            {% for m in c.models[:6] %}
-              <li class="font-mono text-slate-300">{{ m.name }}{% if m.iq is not none %} <span class="text-slate-500">· iq {{ m.iq }}</span>{% endif %}{% if m.code is not none %} <span class="text-slate-500">· code {{ m.code }}</span>{% endif %}</li>
-            {% endfor %}
-            {% if c.models|length > 6 %}<li class="text-slate-600">… +{{ c.models|length - 6 }} more</li>{% endif %}
-            </ul>
-          </div>
-          {% endif %}
-          <div class="text-xs text-slate-600 mt-3">discovered {{ c.discovered_at }}</div>
-        </div>
-      {% endfor %}
-      </div>
-    {% endif %}
-    </div>
-  </section>
 
   <!-- PROVIDER ERRORS -->
   <section x-show="activeTab === 'providers'" x-cloak class="panel p-5">
@@ -1023,72 +910,6 @@
   </section>
 
   <!-- CURATOR HISTORY -->
-  <section x-show="activeTab === 'curator'" x-cloak class="panel p-5">
-    <div class="section-header cursor-pointer" @click="toggleCollapse('curator_history')">
-      <span :class="{ 'rotate-90': isCollapsed('curator_history') }" class="inline-block transition-transform">▸</span>
-      <span>Curator + Breaker History</span>
-      <div class="ml-auto flex items-center gap-3">
-        <span class="text-xs text-slate-600 normal-case tracking-normal">last {{ curator_history.events|length if curator_history.events else 0 }} events</span>
-        <div class="flex gap-2">
-          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
-                  @click="exportSection(state?.curator_history?.events, 'curator_history', 'csv')">CSV</button>
-          <button class="text-xs px-2 py-0.5 border border-white/10 hover:bg-white/5 rounded"
-                  @click="exportSection(state?.curator_history?.events, 'curator_history', 'json')">JSON</button>
-        </div>
-      </div>
-    </div>
-    <div x-show="!isCollapsed('curator_history')">
-    <div class="overflow-auto max-h-80 scroll-fade">
-    <table>
-      <thead><tr><th>Time</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
-      <tbody x-show="!state" x-cloak>
-      {% for e in curator_history.events or [] %}
-        <tr>
-          <td class="text-slate-500 text-xs font-mono">{{ (e.ts or e.timestamp or '')[:19] }}</td>
-          <td>
-            {% if e.action == 'demote' %}<span class="badge badge-warn">demote</span>
-            {% elif e.action == 'restored' %}<span class="badge badge-ok">restored</span>
-            {% elif e.action == 'restore_failed' %}<span class="badge badge-fail">restore fail</span>
-            {% elif e.action == 'applied' %}<span class="badge badge-info">curator apply</span>
-            {% elif e.action == 'demote_failed' %}<span class="badge badge-fail">demote fail</span>
-            {% elif e.action == 'tick_error' %}<span class="badge badge-fail">tick err</span>
-            {% else %}<span class="badge">{{ e.action }}</span>{% endif %}
-          </td>
-          <td class="text-xs">{% if e.provider %}<span class="text-rose-300">{{ e.provider }}</span><span class="text-slate-600">/</span>{{ e.model }}{% else %}{{ e.pool or '—' }}{% endif %}</td>
-          <td class="text-xs text-slate-400">{{ e.reason or e.error or (e.next_cooldown_s and (e.next_cooldown_s|string + 's next')) or '' }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-      <tbody x-show="state" x-cloak>
-        <template x-for="e in (state?.curator_history?.events || [])" :key="(e.ts || e.timestamp || '') + (e.action || '') + (e.provider || e.pool || '')">
-          <tr>
-            <td class="text-slate-500 text-xs font-mono" x-text="(e.ts || e.timestamp || '').slice(0,19)"></td>
-            <td>
-              <span class="badge"
-                    :class="e.action === 'demote' ? 'badge-warn' :
-                            e.action === 'restored' ? 'badge-ok' :
-                            e.action === 'restore_failed' ? 'badge-fail' :
-                            e.action === 'applied' ? 'badge-info' :
-                            e.action === 'demote_failed' ? 'badge-fail' :
-                            e.action === 'tick_error' ? 'badge-fail' : ''"
-                    x-text="e.action"></span>
-            </td>
-            <td class="text-xs">
-              <template x-if="e.provider">
-                <span><span class="text-rose-300" x-text="e.provider"></span><span class="text-slate-600">/</span><span x-text="e.model"></span></span>
-              </template>
-              <template x-if="!e.provider">
-                <span x-text="e.pool || '—'"></span>
-              </template>
-            </td>
-            <td class="text-xs text-slate-400" x-text="e.reason || e.error || (e.next_cooldown_s ? e.next_cooldown_s + 's next' : '')"></td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
-    </div>
-    </div>
-  </section>
 
   <!-- PROVIDERS -->
   <section x-show="activeTab === 'providers'" x-cloak class="panel p-5">
@@ -1145,9 +966,9 @@
 
   <footer class="text-center text-xs text-slate-700 pt-4 pb-2">
     <span class="display-font tracking-widest">BIFROST</span> · {{ now }} ·
-    <a href="/api/circuit_breaker" class="hover:text-violet-400 transition">cb api</a> ·
+    <a href="/api/usage_estimates" class="hover:text-violet-400 transition">usage api</a> ·
     <a href="/api/recent_errors" class="hover:text-violet-400 transition">errors api</a> ·
-    <a href="/api/curator_recommendations" class="hover:text-violet-400 transition">curator api</a>
+    <a href="/api/latency" class="hover:text-violet-400 transition">latency api</a>
   </footer>
 
   <div class="toast-container" x-cloak>
@@ -1215,10 +1036,10 @@
 </div>
 <script>
   window.__BIFROST_INITIAL__ = {{ {
-    "pool_health": pool_health, "circuit_breaker": circuit_breaker, "pool_targets": pool_targets,
+    "pool_health": pool_health, "pool_targets": pool_targets,
     "provider_status": provider_status, "bifrost_metrics": bifrost_metrics, "provider_errors": provider_errors,
-    "recent_errors": recent_errors, "recent_successes": recent_successes, "curator_recommendations": curator_recommendations,
-    "curator_history": curator_history, "cron_status": cron_status, "now": now,
+    "recent_errors": recent_errors, "recent_successes": recent_successes,
+    "cron_status": cron_status, "now": now,
   } | tojson }};
 </script>
 </body>
