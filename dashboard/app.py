@@ -799,28 +799,22 @@ async def api_providers():
 
 # ── Action endpoints (write-side) ─────────────────────────────────────────
 
-# Provider quotas — verified via live-probe of each provider's API on
-# 2026-05-10. Numbers below are real, not estimates. Sources:
-#   groq:       /openai/v1/chat/completions response headers
-#   cerebras:   /v1/chat/completions response headers
-#   mistral:    /v1/chat/completions response headers
-#   gemini:     dev docs + per-model 429 testing
-#   openrouter: /api/v1/auth/key + /api/v1/credits (account-specific)
-#   nvidia-nim: /v1/chat/completions (no headers; dev preview no per-day cap)
-#   cloudflare:  4006 error message on quota exhaustion
+# Provider quotas — header-verified 2026-05-27 via direct x-ratelimit-*/
+# x-trial-* probes against each provider's primary model. Refresh by running
+# ~/coire-tools/coire-check-quotas + updating values here.
 PROVIDER_QUOTAS = {
-    # All limits header-verified 2026-05-12 via x-ratelimit-*/x-trial-* probes.
-    # See bifrost/candidate_providers.json for raw response captures.
-    "groq":       {"rpd": 14400, "rpm": None, "tpm": 6000,   "note": "x-ratelimit-limit-requests=14400/model, TPM=6000 (header-verified 2026-05-12)"},
-    "cerebras":   {"rpd": 14400, "rpm": 30,   "tpm": 60000,  "note": "RPM=30 / RPH=900 / RPD=14400 / TPM=60k / TPD=1M per-model (header-verified)"},
-    "mistral":    {"rpd": None,  "rpm": 50,   "tpm": 50000,  "note": "small=50RPM/50kTPM, magistral-medium=5RPM/75kTPM, large=4RPM/250kTPM (header-verified per-model)"},
-    "gemini":     {"rpd": 250,   "rpm": 30,   "tpm": None,   "note": "no rate-limit headers — 429 on exhaust; flash=250 RPD, pro=25-50 RPD"},
-    "openrouter": {"rpd": 50,    "rpm": None, "tpm": None,   "note": "$0-credit account = 50 RPD pooled across all :free; retry-after on burst (header-verified)"},
-    "nvidia-nim": {"rpd": None,  "rpm": 40,   "tpm": None,   "note": "no rate-limit headers; 40 RPM/model documented (forum-verified), 10k credits/month dev preview; deepseek-v4-pro+flash intermittent <50% reliability per forum, gpt-oss-120b cold-start slow, kimi-k2.6 30-50s cold-start"},
-    "cloudflare":  {"rpd": 10000, "rpm": None, "tpm": None,   "note": "no rate-limit headers; 10k neurons/day pooled across CF Workers AI models"},
-    "sambanova":  {"rpd": 20,    "rpm": None, "tpm": None,   "note": "x-ratelimit-limit-requests-day=20 (header-verified — free tier hard floor)"},
-    "github-models": {"rpd": None, "rpm": 20000, "tpm": 2000000, "note": "x-ratelimit-limit-requests=20000 per 60s, TPM=2M, per-model bucket (header-verified)"},
-    "cohere":     {"rpd": None, "rpm": 20,   "tpm": None,   "note": "x-trial-endpoint-call-limit=20/min, x-endpoint-monthly-call-limit=1000 (header-verified trial tier)"},
+    "cerebras":   {"rpd": 2400,  "rpm": 5,     "tpm": 30000,  "note": "5 RPM, 150 RPH, 2400 RPD, 30k TPM per model (header-verified 2026-05-27)"},
+    "cloudflare": {"rpd": 10000, "rpm": None,  "tpm": None,   "note": "10k neurons/day pooled across all CF Workers AI models"},
+    "cohere":     {"rpd": None,  "rpm": 20,    "tpm": None,   "note": "x-trial-endpoint-call-limit=20/day trial endpoint, ~1000/month overall"},
+    "gemini":     {"rpd": 250,   "rpm": 20,    "tpm": 250000, "note": "20 RPM per-model, 250 RPD per-flash, 250k input TPM (header-verified 2026-05-27)"},
+    "github-models": {"rpd": None, "rpm": 20000, "tpm": 2000000, "note": "20k RPM, 2M TPM per-model — but 8k ctx caps practical use"},
+    "groq":       {"rpd": 1000,  "rpm": None,  "tpm": 12000,  "note": "1000 RPD, 12k TPM per model — TPM too tight for big omo handoffs"},
+    "mistral":    {"rpd": None,  "rpm": 50,    "tpm": 50000,  "note": "large=4 RPM/250k TPM, medium=50 RPM/50k TPM (per-model — values shown are medium)"},
+    "nvidia-nim": {"rpd": None,  "rpm": 40,    "tpm": None,   "note": "no rate-limit headers; ~1000 monthly credits dev preview, 40 RPM doc'd"},
+    "openrouter": {"rpd": 50,    "rpm": None,  "tpm": None,   "note": "50 RPD pooled across all :free tier models on $0-credit account"},
+    "opencode-zen": {"rpd": 10,  "rpm": None,  "tpm": None,   "note": "~5-10 calls/day pooled (demo tier)"},
+    "sambanova":  {"rpd": 20,    "rpm": None,  "tpm": None,   "note": "20 RPD per-model hard cap, 32k ctx limit"},
+    "zai":        {"rpd": None,  "rpm": 2,     "tpm": None,   "note": "tight per-model RPM on free tier (glm-4.7-flash, glm-4.5-flash); paid tier for glm-5/5.1"},
 }
 
 
