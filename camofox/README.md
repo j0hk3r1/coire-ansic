@@ -36,9 +36,8 @@ profile with a clear warning instead of failing.
 - Camoufox is GPL-licensed; bundling a derived REST wrapper would impose
   GPL terms on this repo.
 - Most users don't need anti-detect browsing — it's a niche feature for
-  scraping behind detection (the hermes-agent `web_search` tool uses it
-  if `CAMOFOX_URL` is set; otherwise it falls back to searxng or
-  external services).
+  scraping behind detection. omo's librarian can use it via `CAMOFOX_URL`;
+  otherwise it falls back to searxng or external services.
 
 ## Alternatives
 

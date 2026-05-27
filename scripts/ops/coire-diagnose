@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""coire-diagnose — deeper stuck-session detection than coire-health.
+
+Reads opencode log to find stream-starts-without-completions (true hang signal).
+Combined with bifrost activity check. Emits actionable recommendation.
+
+Run on .93:  ~/coire-tools/coire-diagnose
+"""
+from __future__ import annotations
+import glob
+import json
+import os
+import re
+import subprocess
+import sys
+import urllib.request
+import urllib.error
+from datetime import datetime, timezone, timedelta
+
+LOG_DIR = os.path.expanduser("~/.local/share/opencode/log")
+
+
+def latest_log() -> str | None:
+    files = sorted(glob.glob(f"{LOG_DIR}/*.log"), key=os.path.getmtime, reverse=True)
+    return files[0] if files else None
+
+
+def analyze_log(path: str) -> dict:
+    """Find stream-start patterns without corresponding stream-finish."""
+    if not path or not os.path.exists(path):
+        return {"error": "no opencode log found"}
+
+    mtime = datetime.fromtimestamp(os.path.getmtime(path), timezone.utc)
+    age_sec = (datetime.now(timezone.utc) - mtime).total_seconds()
+
+    # Read last ~5000 lines (enough to catch recent activity)
+    try:
+        out = subprocess.check_output(["tail", "-n", "5000", path], text=True)
+        lines = out.splitlines()
+    except subprocess.CalledProcessError:
+        return {"error": f"cannot tail {path}"}
+
+    # Pattern: track session_id streams + finishes
+    # Stream START: `service=llm ... session.id=... stream`
+    # Stream END: next log line with completion OR error OR step-finish
+    streams = {}  # session_id → (start_ts, last_seen_ts)
+    errors = []
+    last_ts = None
+
+    for line in lines:
+        # Extract timestamp
+        m = re.match(r"\w+\s+(\S+)", line)
+        if not m:
+            continue
+        try:
+            ts = datetime.fromisoformat(m.group(1)).replace(tzinfo=timezone.utc) if "Z" not in m.group(1) else datetime.fromisoformat(m.group(1).replace("Z", "+00:00"))
+        except (ValueError, IndexError):
+            continue
+        last_ts = ts
+
+        # Look for stream starts
+        sm = re.search(r"session\.id=(\S+).*\bstream\b", line)
+        if sm and "service=llm" in line and "small=false" in line:
+            sid = sm.group(1)
+            streams[sid] = ts
+
+        # Look for ERROR (failed stream)
+        if "ERROR" in line and "service=llm" in line:
+            sm = re.search(r"session\.id=(\S+)", line)
+            if sm:
+                errors.append((ts, sm.group(1), "AI_APICallError or similar"))
+                streams.pop(sm.group(1), None)
+        # Stream-end signals (opencode uses several):
+        #   "step=N loop" → step N starting (implies prev stream ended)
+        #   "exiting loop" → session loop done (definitive end)
+        #   "step-finish" → some opencode versions
+        if "step-finish" in line or "exiting loop" in line or re.search(r"step=\d+ loop", line):
+            sm = re.search(r"session\.id=(\S+)", line)
+            if sm:
+                streams.pop(sm.group(1), None)
+
+    # Streams still open = potentially hung
+    now = datetime.now(timezone.utc)
+    hung_streams = [
+        (sid, ts, (now - ts).total_seconds())
+        for sid, ts in streams.items()
+        if (now - ts).total_seconds() > 60
+    ]
+
+    return {
+        "log_path": path,
+        "log_age_sec": age_sec,
+        "last_log_ts": last_ts,
+        "hung_streams": hung_streams,
+        "recent_errors": errors[-5:],
+    }
+
+
+def bifrost_recent_posts(window_sec: int = 120) -> int:
+    """Count bifrost POST /v1/chat/completions in last N seconds."""
+    since_iso = (datetime.now(timezone.utc) - timedelta(seconds=window_sec)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    try:
+        url = f"http://localhost:4001/api/logs?limit=100&order=desc&sort_by=timestamp&start_time={since_iso}"
+        r = urllib.request.urlopen(url, timeout=5)
+        logs = json.loads(r.read()).get("logs", [])
+        return sum(1 for L in logs if L.get("routing_rule_name"))
+    except urllib.error.URLError:
+        return -1
+
+
+def main():
+    print(f"## coire-diagnose v0.1 — {datetime.now(timezone.utc).strftime('%H:%M:%S')}Z")
+    print()
+
+    # Check bifrost reachable
+    posts = bifrost_recent_posts(120)
+    if posts < 0:
+        print("✗ bifrost unreachable — can't diagnose. Run: ~/coire-tools/coire-restart bifrost")
+        sys.exit(1)
+    print(f"### Bifrost activity (last 2 min): {posts} cascade attempts")
+    print()
+
+    # Analyze opencode log
+    log_path = latest_log()
+    if not log_path:
+        print("(no opencode log found — opencode may never have run)")
+        sys.exit(0)
+
+    analysis = analyze_log(log_path)
+    if "error" in analysis:
+        print(f"✗ log analysis failed: {analysis['error']}")
+        sys.exit(1)
+
+    print(f"### opencode log: `{os.path.basename(analysis['log_path'])}`")
+    age_min = analysis["log_age_sec"] / 60
+    print(f"  mtime: {age_min:.1f} min ago")
+
+    if analysis["hung_streams"]:
+        print(f"  ⚠ {len(analysis['hung_streams'])} stream(s) started without completion:")
+        for sid, ts, age in analysis["hung_streams"][:5]:
+            print(f"    session={sid[:30]}... open for {age:.0f}s")
+    else:
+        print("  ✓ no orphan streams (all stream-starts have matching ends)")
+
+    if analysis["recent_errors"]:
+        print(f"  ⚠ {len(analysis['recent_errors'])} recent ERROR event(s):")
+        for ts, sid, msg in analysis["recent_errors"][-3:]:
+            print(f"    {ts.strftime('%H:%M:%S')} session={sid[:24]}... {msg}")
+    print()
+
+    # Verdict + action
+    print("### Verdict")
+    hung_count = len(analysis["hung_streams"])
+    if hung_count > 0 and posts == 0:
+        print(f"  🔴 HUNG SESSION — {hung_count} stream(s) waiting, 0 bifrost activity")
+        print(f"  → Recommend: ~/coire-tools/coire-kill-opencode --tui")
+    elif hung_count > 0 and posts > 0:
+        print(f"  🟡 PARTIAL HANG — {hung_count} stream(s) open but cascade still firing")
+        print(f"  → Wait 1 min, re-run /coire-diagnose. If unchanged, kill TUI.")
+    elif analysis["recent_errors"] and posts == 0:
+        print(f"  🟡 ERROR LOOP — recent errors + no cascade activity")
+        print(f"  → Recommend: ~/coire-tools/coire-kill-opencode --tui")
+    elif posts > 0:
+        print(f"  🟢 ACTIVELY WORKING — {posts} cascade attempts in last 2min")
+    elif age_min < 5:
+        print(f"  🟢 IDLE between turns (log fresh, no current cascade)")
+    elif age_min < 30:
+        print(f"  🟢 SESSION LIKELY ENDED (log mtime {age_min:.0f}min ago)")
+    else:
+        print(f"  ⚫ NO ACTIVE SESSION (log mtime {age_min:.0f}min ago)")
+
+
+if __name__ == "__main__":
+    main()

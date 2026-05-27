@@ -43,6 +43,9 @@ services:
     environment:
       BIFROST_URL: http://bifrost:8080
       MODELS_JSON_PATH: /root/.coire/models.json
+      # Z.ai path-rewrite proxy (bifrost calls /zai-proxy/v4/v1/chat/completions →
+      # shim rewrites to z.ai's /api/paas/v4/chat/completions with auth)
+      ZAI_API_KEY: "${ZAI_API_KEY:-}"
     # Read-only mount of ~/.coire so /v1/models can serve the live-generated
     # models.json (built by scripts/runtime/build_models_list.py). Missing
     # file is fine — the endpoint falls back to a static pool list.
@@ -132,38 +135,3 @@ services:
       bifrost:
         condition: service_healthy
 
-  # Open WebUI — OpenAI-compatible chat UI. Optional, opt-in via --with-webui
-  # (or COMPOSE_PROFILES=webui). Points at strip-shim for response normalization
-  # (reasoning_content, tool-call IDs) — same path hermes-agent uses.
-  # Web auth on by default; first user becomes admin. Disable with WEBUI_AUTH=false
-  # if running on a trusted LAN.
-  openwebui:
-    profiles: ["webui"]
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: coire-openwebui
-    # Bound to :3030 (not the open-webui default :3000) because :3000 is often
-    # already taken on shared hosts (jellyfin/aiostreams/grafana/etc.).
-    # Override with OPENWEBUI_PORT=<other> in .env if you need.
-    ports:
-      - "0.0.0.0:${OPENWEBUI_PORT:-3030}:8080"
-    volumes:
-      - ./openwebui-data:/app/backend/data
-    environment:
-      # Two backends so the model picker offers BOTH chat-only routing
-      # (coire pools) AND hermes-agent (full agent loop + memory + tools).
-      # strip-shim's /v1/models now returns the 7 pool names directly.
-      # hermes-gateway's api_server (port 8642 on host) exposes a single
-      # 'hermes-agent' model that invokes the agent loop.
-      OPENAI_API_BASE_URLS: "http://coire-strip-shim:4002/v1;http://172.17.0.1:8642/v1"
-      OPENAI_API_KEYS: "${BIFROST_API_KEY};${API_SERVER_KEY}"
-      ENABLE_OLLAMA_API: "false"
-      WEBUI_AUTH: ${OPENWEBUI_AUTH:-true}
-      # Disable phone-home model catalog fetches — we know our pools.
-      ENABLE_COMMUNITY_SHARING: "false"
-      ENABLE_OPENAI_API_MODELS: "true"
-    restart: unless-stopped
-    depends_on:
-      bifrost:
-        condition: service_healthy
-      strip-shim:
-        condition: service_started

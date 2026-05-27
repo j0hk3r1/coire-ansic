@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# coire-kill-opencode — find + kill hung opencode processes safely.
+# Run on .93 directly. Prompts for confirmation unless --force.
+# Default: kills TUI sessions only (preserves long-running web server).
+#
+# Usage:
+#   ~/coire-tools/coire-kill-opencode           # kill TUI (default, safe)
+#   ~/coire-tools/coire-kill-opencode --force   # no confirm prompt
+#   ~/coire-tools/coire-kill-opencode --tui     # explicit TUI only
+#   ~/coire-tools/coire-kill-opencode --web     # web only
+#   ~/coire-tools/coire-kill-opencode --all     # both TUI and web
+
+set -u
+
+MODE="tui"  # default: TUI only (preserve long-running web server)
+FORCE=0
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE=1 ;;
+    --tui) MODE="tui" ;;
+    --web) MODE="web" ;;
+    --all) MODE="all" ;;
+    -h|--help) grep '^#' "$0" | head -12 | sed 's/^# \?//' ; exit 0 ;;
+  esac
+done
+
+echo "# coire-kill-opencode v0.1"
+echo
+
+# Find candidate PIDs
+case "$MODE" in
+  tui) PATTERN='opencode tui' ;;
+  web) PATTERN='opencode web' ;;
+  all) PATTERN='opencode (tui|web)' ;;
+esac
+
+mapfile -t HITS < <(ps -eo pid,etime,cmd --no-headers | grep -E "$PATTERN" | grep -v 'grep\|coire-kill\|oh-my-openagent')
+
+if [ "${#HITS[@]}" -eq 0 ]; then
+  echo "no opencode processes match '$PATTERN'"
+  exit 0
+fi
+
+echo "found ${#HITS[@]} process(es):"
+for h in "${HITS[@]}"; do
+  echo "  $h"
+done
+echo
+
+if [ "$FORCE" -ne 1 ]; then
+  read -rp "kill these? [y/N] " ans
+  case "$ans" in
+    y|Y|yes) ;;
+    *) echo "aborted"; exit 1 ;;
+  esac
+fi
+
+# Try SIGTERM first, escalate to SIGKILL
+for h in "${HITS[@]}"; do
+  pid=$(echo "$h" | awk '{print $1}')
+  echo "TERM $pid"
+  kill -TERM "$pid" 2>/dev/null || true
+done
+
+sleep 2
+
+for h in "${HITS[@]}"; do
+  pid=$(echo "$h" | awk '{print $1}')
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "still alive — KILL $pid"
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
+done
+
+sleep 1
+
+# Verify
+alive=$(ps -eo pid,cmd --no-headers | grep -E "$PATTERN" | grep -v 'grep\|coire-kill\|oh-my-openagent' | wc -l)
+if [ "$alive" -eq 0 ]; then
+  echo "✓ all matched opencode processes killed"
+else
+  echo "⚠ $alive still alive after KILL — may need manual check"
+fi

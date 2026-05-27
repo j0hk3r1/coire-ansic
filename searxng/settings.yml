@@ -13,6 +13,14 @@ search:
     - html
     - json                   # required for Hermes/MCP queries
 
+# 2026-05-21: bumped from default 3s — engines (DDG/Google/Bing/Startpage)
+# kept timing out at 3s on shared net. 10s/15s makes searches actually return.
+outgoing:
+  request_timeout: 10.0
+  max_request_timeout: 15.0
+  pool_connections: 100
+  pool_maxsize: 20
+
 server:
   port: 8080
   bind_address: "0.0.0.0"

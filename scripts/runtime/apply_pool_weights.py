@@ -17,7 +17,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PLAN = ROOT / "scripts" / "runtime" / "pool_weights.yaml"
-CB_STATE = Path.home() / ".hermes" / "curator-pool" / "circuit_state.json"
 
 BIFROST_URL = os.environ.get("BIFROST_URL", "http://localhost:4001")
 BIFROST_USER = os.environ.get("BIFROST_USER", "admin")
@@ -57,20 +56,6 @@ def normalize(targets):
         out[0] = {**out[0], "weight": round(out[0]["weight"] + diff, 4)}
     return out
 
-def load_demoted_keys() -> set:
-    """Returns set of 'provider/model' strings currently demoted by circuit
-    breaker. Entries flagged daily_quota or pruned should NOT be re-added to
-    pools — they will just generate 429/error traffic until their cooldown
-    elapses. Daemon's own restore path handles re-adding via half-weight ramp.
-    """
-    if not CB_STATE.exists():
-        return set()
-    try:
-        d = json.loads(CB_STATE.read_text())
-        return set(d.get("demoted", {}).keys())
-    except Exception:
-        return set()
-
 def load_configured_providers() -> set:
     """Providers actually registered in bifrost. Pool targets / fallbacks
     referencing a not-yet-configured provider are skipped — otherwise
@@ -88,11 +73,7 @@ def apply(plan, dry_run=False):
     # an unused priority value or POST 500s with "priority already exists".
     # Track max so we can hand out priority = max+1, +2, ... for each new pool.
     next_priority = max([r.get("priority", 0) for r in rules.values()] + [0]) + 1
-    demoted = load_demoted_keys()
     configured = load_configured_providers()
-    if demoted:
-        print(f"  [info] circuit-breaker has {len(demoted)} demoted target(s) — they will be filtered from this plan:")
-        for k in sorted(demoted): print(f"    skip: {k}")
     if configured:
         print(f"  [info] {len(configured)} provider(s) configured in bifrost: {sorted(configured)}")
     changed = 0
@@ -108,14 +89,11 @@ def apply(plan, dry_run=False):
         #       target is required").
         new_targets = []
         for t in pool_plan.get("targets", []):
-            key = f"{t['provider']}/{t['model']}"
-            if key in demoted:
-                continue  # CB has this demoted — skip, daemon will re-add when smoke passes
             if configured and t["provider"] not in configured:
                 continue  # provider not registered in bifrost (no key in .env) — skip
             new_targets.append({"provider": t["provider"], "model": t["model"], "weight": float(t["weight"])})
         if not new_targets:
-            reason = "no configured-provider targets" if configured else "all planned targets are CB-demoted"
+            reason = "no configured-provider targets"
             if rule and rule.get("id") and not dry_run:
                 try:
                     req("DELETE", f"/governance/routing-rules/{rule['id']}")
@@ -134,51 +112,11 @@ def apply(plan, dry_run=False):
             print(f"  [WARN] pool '{pool_name}' has only {len(new_targets)} "
                   f"primary target(s) after filtering — pool intent (depth=3+) "
                   f"degraded", file=sys.stderr)
-        # Cross-check against the freeness-probe digest. Primaries classified
-        # free_zero / needs_balance / not_available are auto-DEMOTED to the
-        # pool's fallback chain (was WARN-only). Re-probing dead primaries
-        # wastes RPM and cascades user traffic into 400s before reaching a
-        # working target. Safety: only demote if ≥3 primaries remain.
-        probe_demoted_keys: list[str] = []
-        try:
-            probe_path = Path.home() / ".coire" / "curator-pool" / "free_tier_probe.json"
-            if probe_path.exists():
-                probe = json.loads(probe_path.read_text()).get("results", {})
-                bad = ("free_zero", "needs_balance", "not_available")
-                bad_targets = [t for t in new_targets
-                               if (probe.get(f"{t['provider']}/{t['model']}") or {}).get("summary") in bad]
-                if bad_targets:
-                    remaining = [t for t in new_targets if t not in bad_targets]
-                    if len(remaining) >= 3:
-                        for t in bad_targets:
-                            k = f"{t['provider']}/{t['model']}"
-                            summary = probe[k]["summary"]
-                            print(f"  [PROBE-DEMOTE] pool '{pool_name}' {k} "
-                                  f"classified '{summary}' — moving to fallback")
-                            probe_demoted_keys.append(k)
-                        new_targets = remaining
-                    else:
-                        for t in bad_targets:
-                            k = f"{t['provider']}/{t['model']}"
-                            summary = probe[k]["summary"]
-                            print(f"  [WARN] pool '{pool_name}' primary {k} "
-                                  f"classified '{summary}' but auto-demote would "
-                                  f"drop primaries below 3 — manual fix needed",
-                                  file=sys.stderr)
-        except Exception as e:
-            print(f"  [info] probe-json check failed: {e}", file=sys.stderr)
         new_targets = normalize(new_targets)
         new_fallbacks = [
             fb for fb in (pool_plan.get("fallbacks") or (rule.get("fallbacks", []) if rule else []))
-            if fb not in demoted
-            and (not configured or ("/" in fb and fb.split("/", 1)[0] in configured))
+            if not configured or ("/" in fb and fb.split("/", 1)[0] in configured)
         ]
-        # Append probe-demoted primaries to fallback chain (de-duplicated).
-        # Placed AFTER yaml-declared fallbacks so the curated cascade order
-        # remains primary, with auto-demoted ones serving as last resort.
-        for k in probe_demoted_keys:
-            if k not in new_fallbacks:
-                new_fallbacks.append(k)
 
         if is_new:
             print(f"\n=== {pool_name} (CREATING NEW) ===")

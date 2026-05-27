@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
-"""Generate ~/.coire/models.json from live bifrost + CB + probe state.
+"""Generate ~/.coire/models.json from live bifrost.
 
 Output is consumed by strip-shim's /v1/models endpoint so OpenAI-compatible
-clients (Open WebUI etc.) see both pool aliases (best/code/mid/fast/compress/
-vision/ops) AND every direct provider/model target that bifrost is configured
-to route to. Status tags in `description` let power users avoid known-bad
-targets while still being able to pin them when needed.
+clients (opencode/omo etc.) see both pool aliases (omo-main/omo-utility/
+omo-gemini) AND every direct provider/model target that bifrost is configured
+to route to.
 
 Sources (read-only):
   GET  /api/governance/routing-rules  -> pool aliases + which targets belong
   GET  /api/providers                 -> registered keys + .models[]
-  ~/.coire/curator-pool/circuit_state.json  -> currently CB-demoted targets
-  ~/.coire/curator-pool/free_tier_probe.json -> probe classifications
 
 Output: ~/.coire/models.json — OpenAI list format with description-tags.
 
 Run hooks (caller responsibility):
   * install.sh first-run     — after bifrost seed completes
   * apply_pool_weights.py    — after sync_key_models runs
-  * probe_free_tier.py       — after probe digest written
 """
 from __future__ import annotations
 import base64
@@ -32,8 +28,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT_PATH = Path.home() / ".coire" / "models.json"
-CB_STATE = Path.home() / ".coire" / "curator-pool" / "circuit_state.json"
-PROBE_PATH = Path.home() / ".coire" / "curator-pool" / "free_tier_probe.json"
 BIFROST_URL = os.environ.get("BIFROST_URL", "http://localhost:4001")
 USER = os.environ.get("BIFROST_USER", "admin")
 PASS = os.environ.get("BIFROST_PASS", "")
@@ -69,8 +63,6 @@ def main() -> int:
     except urllib.error.URLError as e:
         sys.exit(f"FAIL: bifrost unreachable at {BIFROST_URL}: {e}")
     providers = jget("/api/providers").get("providers", [])
-    cb = safe_json(CB_STATE).get("demoted", {})
-    probe_results = safe_json(PROBE_PATH).get("results", {})
 
     # Map target_key -> set of pools where this target is a PRIMARY
     primary_of: dict[str, list[str]] = {}
@@ -126,16 +118,6 @@ def main() -> int:
                 tags.append("fallback · " + ",".join(sorted(set(fallback_of[key]))))
             else:
                 tags.append("unrouted")
-            if key in cb:
-                cb_info = cb[key]
-                if cb_info.get("daily_quota"):
-                    tags.append("cb:daily-quota")
-                else:
-                    tags.append("cb:demoted")
-            probe = probe_results.get(key) or {}
-            psum = probe.get("summary")
-            if psum and psum not in ("ok",):
-                tags.append(f"probe:{psum}")
             direct_entries.append({
                 "id": key,
                 "object": "model",

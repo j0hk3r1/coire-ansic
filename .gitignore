@@ -28,3 +28,4 @@ scripts/runtime/pool_weights.yaml.bak
 # Operator runtime state (not source-of-truth)
 .hermes-state/
 openwebui-data/
+*.bak.*

@@ -1,11 +1,11 @@
-"""Hermes Bifrost monitoring dashboard.
+"""coire-ansic Bifrost monitoring dashboard.
 
-Reads live data from Bifrost gateway (logs + routing rules) and the
-circuit-breaker daemon (cooldown_status.json). No litellm dependencies.
+Reads live data from Bifrost gateway (logs + routing rules).
+Circuit breaker was removed 2026-05-27 — bifrost's built-in cascade is the
+failover mechanism now. CB-related endpoints/widgets are stubbed.
 """
 from __future__ import annotations
 import base64
-import fcntl
 import json
 import os
 import subprocess
@@ -13,7 +13,6 @@ import time
 import urllib.parse
 import urllib.request
 from collections import Counter, defaultdict
-from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -22,7 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-app = FastAPI(title="Hermes Bifrost Dashboard")
+app = FastAPI(title="coire-ansic Bifrost Dashboard")
 app.mount("/static", StaticFiles(directory="./static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -30,48 +29,8 @@ templates = Jinja2Templates(directory="templates")
 BIFROST_URL = os.environ.get("BIFROST_URL", "http://172.17.0.1:4001")
 BIFROST_USER = os.environ.get("BIFROST_USER", "admin")
 BIFROST_PASS = os.environ.get("BIFROST_PASS", "")
-COOLDOWN_FILE = os.environ.get("COOLDOWN_FILE", "/root/.coire/curator-pool/cooldown_status.json")
-CB_STATE_FILE = os.environ.get("CB_STATE_FILE", "/root/.coire/curator-pool/circuit_state.json")
-CB_STATE_LOCK = os.environ.get("CB_STATE_LOCK", "/root/.coire/curator-pool/circuit_state.lock")
 
 AUTH = "Basic " + base64.b64encode(f"{BIFROST_USER}:{BIFROST_PASS}".encode()).decode()
-
-
-@contextmanager
-def cb_state_lock(timeout: float = 30.0):
-    """Acquire exclusive lock on CB state file. Must wrap any read-modify-write.
-
-    Mirrors scripts/runtime/circuit_breaker.py:state_lock — same lockfile path.
-    Without this, two writers (dashboard restore endpoint + CB daemon) can
-    silently overwrite each other's edits.
-    """
-    Path(CB_STATE_LOCK).parent.mkdir(parents=True, exist_ok=True)
-    fp = open(CB_STATE_LOCK, "w")
-    deadline = time.time() + timeout
-    while True:
-        try:
-            fcntl.flock(fp.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            break
-        except BlockingIOError:
-            if time.time() >= deadline:
-                fp.close()
-                raise TimeoutError(f"cb_state_lock: could not acquire within {timeout}s")
-            time.sleep(0.1)
-    try:
-        yield
-    finally:
-        try:
-            fcntl.flock(fp.fileno(), fcntl.LOCK_UN)
-        finally:
-            fp.close()
-
-
-def _cb_state_atomic_write(state: dict):
-    """Atomic write of CB state file (tmp + rename). Caller must hold cb_state_lock."""
-    tmp_path = CB_STATE_FILE + ".tmp"
-    with open(tmp_path, "w") as f:
-        json.dump(state, f, indent=2)
-    os.replace(tmp_path, CB_STATE_FILE)
 
 # ── helpers ─────────────────────────────────────────────────────────────
 def now_utc():
@@ -211,23 +170,9 @@ def load_pool_health(window_hours: int = 24, cache: _LogsCache | None = None):
 
 
 def load_circuit_breaker():
-    """Read cooldown_status.json written by circuit_breaker daemon."""
-    try:
-        with open(COOLDOWN_FILE) as f:
-            d = json.load(f)
-        now = now_utc()
-        for entry in d.get("demoted", []):
-            try:
-                restore = parse_ts(entry["restore_at"])
-                entry["seconds_until_check"] = max(0, int((restore - now).total_seconds()))
-            except Exception:
-                pass
-        return d
-    except FileNotFoundError:
-        return {"error": "circuit-breaker not running (cooldown_status.json missing)",
-                "demoted": [], "demoted_count": 0}
-    except Exception as e:
-        return {"error": str(e), "demoted": [], "demoted_count": 0}
+    """Stub — circuit breaker removed 2026-05-27. Bifrost's built-in cascade
+    handles failover natively. Returns empty so existing template still renders."""
+    return {"demoted": [], "demoted_count": 0, "updated_at": "", "removed": True}
 
 
 def load_pool_targets():
@@ -1089,70 +1034,11 @@ async def _parse_target_payload(request: Request) -> tuple[str | None, str | Non
 
 
 @app.post("/api/circuit_breaker/restore")
-async def api_cb_restore(request: Request):
-    """Force-restore a demoted target.
-
-    Accepts:
-      {"provider": "p", "model": "m"}
-      {"target": "p/m"}
-
-    Removes from circuit_state.json's "demoted" map. The CB daemon will
-    pick this up on its next tick and add the target back to the pools
-    it was demoted from. Lighter than PUT-ing live bifrost rules from here.
-    """
-    provider, model, err = await _parse_target_payload(request)
-    if err:
-        return JSONResponse({"ok": False, "error": err}, status_code=400)
-    try:
-        with cb_state_lock():
-            with open(CB_STATE_FILE) as f:
-                state = json.load(f)
-            key = f"{provider}/{model}"
-            if key in state.get("demoted", {}):
-                info = state["demoted"][key]
-                # Refuse to restore structurally-dead targets; matches CB daemon
-                # restore_all() guard so dashboard + daemon agree on what's
-                # permanently dead. Caller (pi-op-react) can move on.
-                if info.get("structurally_dead") and (time.time() - info.get("last_pruned_at", 0)) < 3 * 86400:
-                    eta_h = int((3 * 86400 - (time.time() - info.get("last_pruned_at", 0))) / 3600)
-                    return JSONResponse({
-                        "ok": False,
-                        "error": f"{key} marked structurally_dead (pruned {info.get('prune_count')}x); retry in {eta_h}h",
-                        "structurally_dead": True,
-                        "retry_in_hours": eta_h,
-                    }, status_code=409)
-                # Set restore_at to now so CB picks up on next poll
-                info["restore_at"] = time.time()
-                info.pop("pruned", None)
-                _cb_state_atomic_write(state)
-                return {"ok": True, "scheduled": "next CB tick (~30s)"}
-            # 'not demoted' is a soft no-op, not an error — pi-op-react
-            # parses non-200 as failure and loops/spams. Return 200 + ok=False.
-            return {"ok": False, "error": f"{key} not currently demoted"}
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-
 @app.post("/api/circuit_breaker/prune")
-async def api_cb_prune(request: Request):
-    """Mark a demoted target as permanently pruned (CB stops trying to
-    restore until manually unpruned). Accepts {provider, model} OR {target}."""
-    provider, model, err = await _parse_target_payload(request)
-    if err:
-        return JSONResponse({"ok": False, "error": err}, status_code=400)
-    try:
-        with cb_state_lock():
-            with open(CB_STATE_FILE) as f:
-                state = json.load(f)
-            key = f"{provider}/{model}"
-            if key in state.get("demoted", {}):
-                state["demoted"][key]["pruned"] = True
-                state["demoted"][key]["restore_at"] = time.time() + 86400
-                _cb_state_atomic_write(state)
-                return {"ok": True}
-            return {"ok": False, "error": f"{key} not currently demoted"}
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+async def api_cb_removed(request: Request):
+    """CB was removed 2026-05-27. Endpoint kept as 410 Gone so existing UI
+    handlers degrade gracefully instead of throwing."""
+    return JSONResponse({"ok": False, "error": "circuit-breaker removed; bifrost cascade is the failover mechanism"}, status_code=410)
 
 
 @app.get("/api/health_status")

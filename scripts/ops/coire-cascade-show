@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""coire-cascade-show — pretty-print current omo-* routing rules with arena scores.
+
+Pulls live bifrost config + annotates each target with MT-arena score (if known)
++ provider quota class. Useful for snapshot before/after pool edits.
+"""
+from __future__ import annotations
+import argparse
+import json
+import sys
+import urllib.request
+import urllib.error
+
+# MT-arena scores (lmarena.ai/leaderboard/text/multi-turn, snapshot 2026-05-22).
+# Bump when leaderboard moves materially.
+ARENA_MT = {
+    "gemini-3.1-pro-preview": 1498, "gemini-3.5-flash": 1487, "gemini-3-flash-preview": 1484,
+    "z-ai/glm-5.1": 1478, "glm-5.1": 1478, "moonshotai/kimi-k2.6": 1467,
+    "@cf/moonshotai/kimi-k2.6": 1467, "kimi-k2.6": 1467, "gemma-4-31b-it": 1464,
+    "google/gemma-4-31b-it": 1464, "kimi-k2.5-thinking": 1452,
+    "deepseek-ai/deepseek-v4-pro": 1473, "deepseek-v4-pro": 1473,
+    "deepseek/deepseek-v4-flash:free": 1450, "deepseek-v4-flash": 1450,
+    "zai-glm-4.7": 1460, "@cf/google/gemma-4-26b-a4b-it": 1438,
+    "gemini-3.1-flash-lite-preview": 1443,
+    "qwen3.6-plus": 1444, "qwen-3-235b-a22b-instruct-2507": 1437,
+    "deepseek-v3.2": 1424, "DeepSeek-V3.2": 1424,
+    "mistral-large-2512": 1421, "mistral-large-latest": 1421,
+    "mistral-medium-3.5": 1412, "mistral-medium-latest": 1412,
+    "minimaxai/minimax-m2.7": 1409,
+    "qwen/qwen3-next-80b-a3b-instruct:free": 1404,
+    "openai/gpt-oss-120b": 1353, "openai/gpt-oss-120b:free": 1353,
+    "gpt-oss-120b": 1353,
+    "glm-4.7-flash": 1430,  # estimate — no public MT score; treat as ~1430
+    "glm-4.5-flash": 1380,  # estimate
+}
+
+# Provider quota class (rough — see project memory for detail)
+PROVIDER_QUOTA = {
+    "cerebras": "5 RPM, 2400 RPD, 30k TPM per model",
+    "cloudflare": "10k neurons/day account pool",
+    "gemini": "20 RPM per model, 250 RPD per flash",
+    "mistral": "4 RPM (large) / 50 RPM (medium)",
+    "nvidia-nim": "~1000 monthly credits, 300s timeout",
+    "openrouter": "50 RPD account pool (:free tier)",
+    "groq": "12k TPM (too small for omo handoffs)",
+    "sambanova": "20 RPD per model, 32k ctx",
+    "cohere": "20 trial calls/day, 1000/month",
+    "github-models": "20k RPM, 8k ctx (too small)",
+    "opencode-zen": "~5-10/day pooled",
+    "zai": "tight per-model RPM, separate pool",
+}
+
+def lookup_arena(provider: str, model: str) -> str:
+    candidates = [
+        f"{provider}/{model}",
+        model,
+        model.split("/")[-1] if "/" in model else model,
+    ]
+    for k in candidates:
+        if k in ARENA_MT:
+            return str(ARENA_MT[k])
+    # Try by suffix
+    for key, score in ARENA_MT.items():
+        if model.endswith(key) or model.split("/")[-1] == key:
+            return str(score)
+    return "?"
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--pool", help="Filter to one pool (e.g., omo-main)")
+    p.add_argument("--bifrost", default="http://localhost:4001", help="Bifrost URL")
+    args = p.parse_args()
+
+    try:
+        r = urllib.request.urlopen(f"{args.bifrost}/api/governance/routing-rules", timeout=5)
+        data = json.loads(r.read())
+    except urllib.error.URLError as e:
+        sys.exit(f"✗ bifrost unreachable @ {args.bifrost} — {e}")
+
+    rules = data if isinstance(data, list) else data.get("data", data.get("rules", []))
+    if isinstance(rules, dict):
+        rules = rules.get("rules") or rules.get("items", [])
+
+    print("## coire-cascade-show v0.1")
+    print()
+
+    for rule in rules:
+        name = rule.get("name", "?")
+        if args.pool and name != args.pool:
+            continue
+        if not name.startswith("omo-"):
+            continue
+
+        targets = rule.get("targets") or []
+        fallbacks = rule.get("fallbacks") or []
+        print(f"### {name}")
+        print(f"({len(targets)} primary + {len(fallbacks)} fallbacks)")
+        print()
+        print(f"{'fb':>3} | {'provider':<14} | {'model':<48} | {'arena':>5} | quota class")
+        print("-" * 110)
+
+        # Primary
+        for t in targets:
+            prov = t.get("provider", "?")
+            model = t.get("model", "?")
+            arena = lookup_arena(prov, model)
+            quota = PROVIDER_QUOTA.get(prov, "?")
+            print(f"{'0*':>3} | {prov:<14} | {model[:48]:<48} | {arena:>5} | {quota}")
+
+        # Fallbacks
+        for i, fb in enumerate(fallbacks, 1):
+            if "/" in fb:
+                prov, model = fb.split("/", 1)
+            else:
+                prov, model = "?", fb
+            arena = lookup_arena(prov, model)
+            quota = PROVIDER_QUOTA.get(prov, "?")
+            print(f"{i:>3} | {prov:<14} | {model[:48]:<48} | {arena:>5} | {quota}")
+        print()
+
+if __name__ == "__main__":
+    main()

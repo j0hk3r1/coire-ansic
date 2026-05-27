@@ -1,9 +1,0 @@
-[Unit]
-Description=Circuit-breaker deadman — ensure CB daemon is running
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/bin/sh -c 'systemctl --user is-active --quiet circuit-breaker || (echo "[deadman $(date -Iseconds)] CB inactive — starting" >&2; systemctl --user start circuit-breaker)'
-StandardOutput=journal
-StandardError=journal

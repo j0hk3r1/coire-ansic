@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# coire-health — stack health check that works when other stuff is broken.
+# Pure observation. No mutations. No dependencies on opencode/bifrost being responsive.
+#
+# Run on .93 directly:  ~/coire-tools/coire-health
+# Or from anywhere:     ssh jkr@192.168.1.93 '~/coire-tools/coire-health'
+
+set -u
+
+OK="\033[32m✓\033[0m"
+WARN="\033[33m⚠\033[0m"
+BAD="\033[31m✗\033[0m"
+RESET="\033[0m"
+
+echo "# coire-health v0.1 — $(date -u +%H:%M:%S)Z"
+echo
+
+# === Containers ===
+echo "## Containers"
+for svc in coire-bifrost coire-strip-shim coire-dashboard coire-searxng coire-camofox; do
+  status=$(docker ps --filter "name=$svc" --format "{{.Status}}" 2>/dev/null)
+  if [ -z "$status" ]; then
+    echo -e "  $BAD $svc — not running"
+  elif echo "$status" | grep -qiE "unhealthy|restart"; then
+    echo -e "  $WARN $svc — $status"
+  else
+    echo -e "  $OK $svc — $status"
+  fi
+done
+echo
+
+# === Bifrost API ===
+echo "## Bifrost API"
+bf_code=$(curl -sS -o /tmp/.bf.json -w "%{http_code}" -m 5 http://localhost:4001/api/providers 2>/dev/null)
+if [ "$bf_code" = "200" ]; then
+  n_provs=$(python3 -c "import json; d=json.load(open('/tmp/.bf.json')); print(len(d.get('providers',d) if isinstance(d,dict) else d))" 2>/dev/null || echo "?")
+  echo -e "  $OK http://localhost:4001 responding · providers=$n_provs"
+else
+  echo -e "  $BAD http://localhost:4001 — HTTP $bf_code (bifrost API unreachable)"
+fi
+
+# Routing rules
+rr_count=$(curl -sS -m 5 http://localhost:4001/api/governance/routing-rules 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); rs=d.get('data',d.get('rules',d)) if isinstance(d,dict) else d; print(len(rs))" 2>/dev/null || echo "?")
+echo "  routing rules: $rr_count"
+echo
+
+# === Shim ===
+echo "## Strip-shim"
+sh_code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 http://localhost:4002/health 2>/dev/null)
+if [ "$sh_code" = "200" ] || [ "$sh_code" = "503" ]; then
+  body=$(curl -sS -m 5 http://localhost:4002/health 2>/dev/null | head -c 200)
+  if echo "$body" | grep -q '"ok"'; then
+    echo -e "  $OK http://localhost:4002 healthy · $body"
+  else
+    echo -e "  $WARN http://localhost:4002 responds but: $body"
+  fi
+else
+  echo -e "  $BAD http://localhost:4002 — HTTP $sh_code (shim unreachable)"
+fi
+echo
+
+# === opencode processes ===
+echo "## opencode processes"
+oc_count=$(pgrep -af 'opencode' | grep -v 'oh-my-openagent\|coire-tools\|coire-health' | wc -l)
+if [ "$oc_count" -eq 0 ]; then
+  echo -e "  $OK no opencode running (clean state)"
+else
+  pgrep -af 'opencode' | grep -v 'oh-my-openagent\|coire-tools\|coire-health' | while IFS= read -r line; do
+    echo "  $line"
+  done
+fi
+echo
+
+# === Recent activity ===
+echo "## Recent activity (last 5 min)"
+posts_5m=$(docker logs coire-bifrost --since 5m 2>&1 | grep -cE '"http.target":"/v1/chat/completions"' || true)
+posts_1h=$(docker logs coire-bifrost --since 1h 2>&1 | grep -cE '"http.target":"/v1/chat/completions"' || true)
+posts_5m=${posts_5m:-0}; posts_1h=${posts_1h:-0}
+echo "  bifrost POSTs: ${posts_5m} in last 5min · ${posts_1h} in last 1h"
+
+# Latest opencode log
+latest_log=$(ls -t ~/.local/share/opencode/log/*.log 2>/dev/null | head -1)
+if [ -n "$latest_log" ]; then
+  mtime=$(stat -c %Y "$latest_log")
+  now=$(date +%s)
+  age=$((now - mtime))
+  age_min=$((age / 60))
+  # Heuristic for state:
+  # - log <30min ago + posts_5m > 0 → actively running
+  # - log <30min ago + posts_5m = 0 → idle between turns OR ended
+  # - log >30min ago → long idle / finished
+  # We don't classify STUCK from here — coire-diagnose can detect hangs via
+  # stream-start-without-end pattern in opencode log.
+  if [ "$age_min" -lt 30 ] && [ "$posts_5m" -gt 0 ]; then
+    state="active"
+    icon="$OK"
+  elif [ "$age_min" -lt 30 ]; then
+    state="idle (between turns or session ended)"
+    icon="$OK"
+  else
+    state="long idle / session likely ended"
+    icon="$OK"
+  fi
+  echo -e "  $icon latest log: $(basename $latest_log) — mtime ${age_min}min ago — $state"
+fi
+echo
+
+# === Recent errors (shim) ===
+echo "## Recent shim errors (last 10min)"
+shim_errs=$(docker logs coire-strip-shim --since 10m 2>&1 | grep -cE 'ERROR|ReadTimeout|500 Internal' || true)
+shim_errs=${shim_errs:-0}
+if [ "$shim_errs" -gt 0 ]; then
+  echo -e "  $WARN $shim_errs error event(s) in shim"
+  docker logs coire-strip-shim --since 10m 2>&1 | grep -E 'ERROR|ReadTimeout|500 Internal' | tail -3 | sed 's/^/    /'
+else
+  echo -e "  $OK no errors"
+fi
+echo
+
+# === Disk + memory ===
+echo "## Resources"
+disk_pct=$(df -h / | awk 'NR==2 {gsub("%",""); print $5}')
+if [ "$disk_pct" -gt 90 ]; then
+  echo -e "  $BAD disk: ${disk_pct}% used (critical)"
+elif [ "$disk_pct" -gt 80 ]; then
+  echo -e "  $WARN disk: ${disk_pct}% used"
+else
+  echo -e "  $OK disk: ${disk_pct}% used"
+fi
+mem=$(free -m | awk 'NR==2 {print $3"/"$2"MB used ("int($3*100/$2)"%)"}')
+echo "  mem:  $mem"
+echo
+
+# === Suggested action ===
+echo "## Suggested next step"
+if [ "$bf_code" != "200" ]; then
+  echo "  → bifrost down. Run: ~/coire-tools/coire-restart bifrost"
+elif [ "$sh_code" != "200" ] && [ "$sh_code" != "503" ]; then
+  echo "  → shim down. Run: ~/coire-tools/coire-restart strip-shim"
+elif [ "$shim_errs" -gt 5 ]; then
+  echo "  → high shim error rate. Check 'docker logs coire-strip-shim' tail."
+else
+  echo "  → ✅ everything looks healthy"
+fi

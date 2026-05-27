@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# coire-check-quotas — ping each provider with tiny request, grab rate-limit headers.
+# Useful end-of-day check: see who's burned + who's healthy for tomorrow.
+#
+# Run on .93. Reads keys from ~/coire-ansic/.env.
+
+set -u
+
+ENV_FILE="${ENV_FILE:-$HOME/coire-ansic/.env}"
+[ -f "$ENV_FILE" ] || { echo "✗ no .env at $ENV_FILE"; exit 1; }
+set -a; source "$ENV_FILE"; set +a
+
+echo "# coire-check-quotas v0.1 — $(date -u +%H:%M:%S)Z"
+echo
+
+probe() {
+  local name="$1" url="$2" key="$3" model="$4"
+  local resp
+  resp=$(curl -sSi -m 10 "$url" \
+    -H "Authorization: Bearer $key" -H "Content-Type: application/json" \
+    -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":3}" 2>&1)
+  local code=$(echo "$resp" | grep -E "^HTTP/" | head -1 | awk '{print $2}')
+  printf "### %s · HTTP %s\n" "$name" "$code"
+  echo "$resp" | grep -iE "^(x-ratelimit|x-trial|x-quota|retry-after|x-tokens)" | sort | sed 's/^/  /'
+  # Show error if non-2xx
+  if [[ "$code" != "2"* ]]; then
+    local body=$(echo "$resp" | awk '/^\r?$/{flag=1; next} flag' | head -c 200)
+    [ -n "$body" ] && echo "  body: $body" | head -c 250
+  fi
+  echo
+}
+
+probe "cerebras/zai-glm-4.7" "https://api.cerebras.ai/v1/chat/completions" "$CEREBRAS_API_KEY" "zai-glm-4.7"
+probe "cloudflare/kimi-k2.6" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/ai/v1/chat/completions" "$CLOUDFLARE_API_KEY" "@cf/moonshotai/kimi-k2.6"
+probe "gemini/3-flash-preview" "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" "$GEMINI_API_KEY" "gemini-3-flash-preview"
+probe "mistral/large-2512" "https://api.mistral.ai/v1/chat/completions" "$MISTRAL_API_KEY" "mistral-large-2512"
+probe "mistral/medium-3.5" "https://api.mistral.ai/v1/chat/completions" "$MISTRAL_API_KEY" "mistral-medium-3.5"
+probe "nvidia-nim/deepseek-v4-pro" "https://integrate.api.nvidia.com/v1/chat/completions" "$NVIDIA_API_KEY" "deepseek-ai/deepseek-v4-pro"
+probe "openrouter/glm-5.1" "https://openrouter.ai/api/v1/chat/completions" "$OPENROUTER_API_KEY" "z-ai/glm-5.1"
+probe "groq/llama-3.3-70b" "https://api.groq.com/openai/v1/chat/completions" "$GROQ_API_KEY" "llama-3.3-70b-versatile"
+probe "sambanova/DeepSeek-V3.2" "https://api.sambanova.ai/v1/chat/completions" "$SAMBANOVA_API_KEY" "DeepSeek-V3.2"
+probe "cohere/command-a-03" "https://api.cohere.com/compatibility/v1/chat/completions" "$COHERE_API_KEY" "command-a-03-2025"
+probe "zai/glm-4.7-flash" "https://api.z.ai/api/paas/v4/chat/completions" "$ZAI_API_KEY" "glm-4.7-flash"
+
+echo "## OpenRouter account-wide usage"
+curl -sS -m 10 "https://openrouter.ai/api/v1/auth/key" -H "Authorization: Bearer $OPENROUTER_API_KEY" 2>&1 | \
+  python3 -c "
+import json, sys
+try:
+  d = json.load(sys.stdin).get('data', {})
+  for k in ('usage', 'usage_daily', 'usage_weekly', 'usage_monthly', 'limit', 'limit_remaining'):
+    if k in d: print(f'  {k}: {d[k]}')
+except Exception as e: print(f'  err: {e}')
+"

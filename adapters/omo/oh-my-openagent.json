@@ -1,158 +1,31 @@
 {
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
-  "_doc": "omo agent->pool mapping. Pool ALIAS names contain family substring (kimi/gpt-5-5/gemini) so omo's variant matcher in src/agents/types.ts auto-loads the correct prompt variant. Each agent has a primary pool + ordered fallback chain across pools matching its cognitive style. `variant` field flows through as reasoning_effort to providers that accept it (gpt-oss/deepseek). See docs/omo-perfect-config.md.",
+  "_doc": "PROPOSED 2026-05-22: omo-kimi + omo-gpt-5-5 merged into omo-main (family-agnostic). Pool name no longer contains kimi/gpt-5-5 substring so omo loads buildDynamicSisyphusPrompt (default variant — adapts dynamically to whichever model bifrost serves, including auto gemini overrides when gemini fires). variant field still flows through as reasoning_effort. omo-utility + omo-gemini unchanged.",
+
+  "runtime_fallback": false,
 
   "agents": {
-    "sisyphus": {
-      "model": "coire/omo-kimi",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/best"},
-        {"model": "coire/omo-gpt-5-5", "variant": "medium"},
-        {"model": "coire/mid"}
-      ]
-    },
-    "atlas": {
-      "model": "coire/omo-kimi",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/mid"},
-        {"model": "coire/best"}
-      ]
-    },
-    "metis": {
-      "model": "coire/omo-kimi",
-      "variant": "high",
-      "fallback_models": [
-        {"model": "coire/best"},
-        {"model": "coire/omo-gpt-5-5", "variant": "high"}
-      ]
-    },
-    "sisyphus-junior": {
-      "model": "coire/omo-kimi",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/mid"},
-        {"model": "coire/best"}
-      ]
-    },
-    "prometheus": {
-      "model": "coire/omo-gpt-5-5",
-      "variant": "high",
-      "fallback_models": [
-        {"model": "coire/omo-kimi", "variant": "high"},
-        {"model": "coire/best"}
-      ]
-    },
-    "hephaestus": {
-      "model": "coire/omo-gpt-5-5",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/code"}
-      ]
-    },
-    "oracle": {
-      "model": "coire/omo-gpt-5-5",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/omo-gemini"},
-        {"model": "coire/omo-kimi", "variant": "medium"},
-        {"model": "coire/best"}
-      ]
-    },
-    "momus": {
-      "model": "coire/omo-gpt-5-5",
-      "variant": "xhigh",
-      "fallback_models": [
-        {"model": "coire/omo-gpt-5-5", "variant": "medium"},
-        {"model": "coire/omo-kimi", "variant": "high"},
-        {"model": "coire/best"}
-      ]
-    },
-    "librarian": {
-      "model": "coire/omo-utility",
-      "fallback_models": [
-        {"model": "coire/fast"},
-        {"model": "coire/mid"}
-      ]
-    },
-    "explore": {
-      "model": "coire/omo-utility",
-      "fallback_models": [
-        {"model": "coire/fast"},
-        {"model": "coire/mid"}
-      ]
-    },
-    "multimodal-looker": {
-      "model": "coire/omo-gemini",
-      "fallback_models": [
-        {"model": "coire/vision"}
-      ]
-    }
+    "sisyphus":          {"model": "coire/omo-main",    "variant": "medium"},
+    "sisyphus-junior":   {"model": "coire/omo-main",    "variant": "medium"},
+    "atlas":             {"model": "coire/omo-main",    "variant": "medium"},
+    "metis":             {"model": "coire/omo-main",    "variant": "high"},
+    "prometheus":        {"model": "coire/omo-main",    "variant": "high"},
+    "hephaestus":        {"model": "coire/omo-main",    "variant": "medium"},
+    "oracle":            {"model": "coire/omo-main",    "variant": "medium"},
+    "momus":             {"model": "coire/omo-main",    "variant": "xhigh"},
+    "librarian":         {"model": "coire/omo-utility"},
+    "explore":           {"model": "coire/omo-utility"},
+    "multimodal-looker": {"model": "coire/omo-gemini"}
   },
 
   "categories": {
-    "visual-engineering": {
-      "model": "coire/omo-gemini",
-      "variant": "high",
-      "fallback_models": [
-        {"model": "coire/vision"}
-      ]
-    },
-    "artistry": {
-      "model": "coire/omo-gemini",
-      "variant": "xhigh",
-      "fallback_models": [
-        {"model": "coire/vision"},
-        {"model": "coire/omo-kimi", "variant": "high"}
-      ]
-    },
-    "ultrabrain": {
-      "model": "coire/omo-gpt-5-5",
-      "variant": "xhigh",
-      "fallback_models": [
-        {"model": "coire/omo-gemini"},
-        {"model": "coire/omo-kimi", "variant": "high"},
-        {"model": "coire/best"}
-      ]
-    },
-    "deep": {
-      "model": "coire/omo-gpt-5-5",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/code"},
-        {"model": "coire/omo-kimi", "variant": "medium"},
-        {"model": "coire/best"}
-      ]
-    },
-    "quick": {
-      "model": "coire/omo-utility",
-      "fallback_models": [
-        {"model": "coire/fast"}
-      ]
-    },
-    "writing": {
-      "model": "coire/omo-kimi",
-      "fallback_models": [
-        {"model": "coire/compress"},
-        {"model": "coire/best"}
-      ]
-    },
-    "unspecified-high": {
-      "model": "coire/omo-kimi",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/best"},
-        {"model": "coire/omo-gpt-5-5", "variant": "high"}
-      ]
-    },
-    "unspecified-low": {
-      "model": "coire/omo-kimi",
-      "variant": "medium",
-      "fallback_models": [
-        {"model": "coire/mid"},
-        {"model": "coire/best"}
-      ]
-    }
+    "visual-engineering": {"model": "coire/omo-gemini",  "variant": "high"},
+    "artistry":           {"model": "coire/omo-gemini",  "variant": "xhigh"},
+    "ultrabrain":         {"model": "coire/omo-main",    "variant": "xhigh"},
+    "deep":               {"model": "coire/omo-main",    "variant": "medium"},
+    "quick":              {"model": "coire/omo-utility"},
+    "writing":            {"model": "coire/omo-main"},
+    "unspecified-high":   {"model": "coire/omo-main",    "variant": "medium"},
+    "unspecified-low":    {"model": "coire/omo-main",    "variant": "medium"}
   }
 }

@@ -1,505 +1,93 @@
-# Pool weight plan — capacity-aware routing.
+# Pool weight plan — applied 2026-05-22 (omo-main merge)
 #
-# Live-verified rate limits (2026-05-12 via x-ratelimit-* / x-trial-* headers):
-#   groq:         14400 RPD/model, 6000 TPM (TPM tight, RPD massive headroom)
-#   cerebras:     14400 RPD, 30 RPM, 60k TPM, 1M TPD/model
-#   gemini:       250 RPD flash, 25-50 RPD pro (no rate-limit headers; 429s only)
-#   mistral:      50 RPM small, 4 RPM large, 5 RPM magistral (header-verified)
-#   cohere:       20 RPM trial, 1000 monthly-call ceiling
-#   github-models 20000 RPM, 2M TPM, 60s renewal — massive headroom
-#   sambanova:    20 RPD (header-verified)
-#   nvidia-nim:   no rate-limit headers; 10k credits/month dev preview
-#   cloudflare:    no rate-limit headers; 10k neurons/day total across CF models
-#   openrouter:   50 RPD pooled across all :free models on $0 credit account
+# Merges omo-kimi + omo-gpt-5-5 → omo-main (default-variant, family-agnostic).
+# Goals:
+#  1. End the gpt-5-5 pool dead-weight (3 calls/4.8h session = 4% utilization)
+#  2. Drop the 66s nvidia/glm-5.1 LLM bottleneck from primary cascade
+#  3. Add 4 untapped providers: mistral, sambanova, gemini-3-flash, OR qwen3-next
+#  4. Dedupe within pool — every fallback is a distinct provider quota pool
+#  5. Drop gpt-oss-120b entirely (~1353 arena + 12k TPM ceiling = useless slot)
+#  6. Slow/problematic kept at fb=10 as last-resort cushion
 #
-# 2026-05-12 rebalance — close the OpenRouter overrun, redirect to cloudflare
-# (0.2% utilized of 10k cap) + groq (0.014% utilized of 14400 RPD/model) +
-# cerebras (capped fast pool slot only — 30 RPM tight). Targets ordered by
-# weight desc. Sum per pool = 1.0.
+# Verified live 2026-05-22 ~10:11 UTC:
+#   - Cerebras zai-glm-4.7: 200 OK, alive (5 RPM, 2400 RPD)
+#   - Gemini-3-flash-preview: 200 OK, alive (250 RPD/model)
+#   - Sambanova DeepSeek-V3.2: TOOLCALL ok, 2.0s, 20 RPD/model
+#   - Sambanova DeepSeek-V3.1: TEXT-ONLY (broken tools) — EXCLUDED
+#   - Mistral large-2512: TOOLCALL ok, 0.6s, 4 RPM tight
+#   - Mistral medium-3.5: TOOLCALL ok, 0.33s, 50 RPM (huge headroom)
+#   - Groq llama-3.3-70b: TOOLCALL ok, 0.24s, BUT 12k TPM — DROPPED (too small for omo)
+#   - NVIDIA nemotron-49b: TEXT-ONLY (broken tools) — EXCLUDED
+#
+# LMArena Elo (verified arena.ai/leaderboard/text May 2026):
+#   gemini-3.1-pro-preview: 1488 | gemini-3.5-flash: 1480 | gemini-3-flash-preview: 1473
+#   glm-5.1: 1472 | kimi-k2.6: 1462 | deepseek-v4-pro: 1459 | kimi-k2.5-thinking: 1449
+#   qwen3.6-plus: 1444 | glm-4.7: 1443 | deepseek-v4-flash: 1433 | deepseek-v3.2: 1424
+#   mistral-large-3 (=2512): 1415 | qwen3-next-80b-instruct: 1402 | gpt-oss-120b: 1353
 
 pools:
-  best:
-    targets:
-    # 2026-05-19 UX pass: groq primaries removed — 6k TPM ceiling 413s on
-    # any non-trivial conversation (>2k input tokens), and every hermes
-    # turn carries 15k+ history. Was wasting cascade slots before landing
-    # on a long-context-capable target. groq stays in fast/ops where
-    # prompts are short.
-    # Frontier-tier long-context survivors:
-    #   cerebras qwen-3-235b + gpt-oss-120b + zai-glm-4.7 (60k TPM, fast)
-    #   cohere command-a-03-2025 (256k ctx, 20 RPM)
-    #   mistral-large-latest (Mistral flagship; 4 RPM cap so low weight)
-    #   sambanova DeepSeek-V3.1 (256k ctx, 20 RPD cap, low weight)
-    #   gemini-3-flash-preview (boosted — fast, big ctx, 250 RPD)
-    #   cloudflare kimi-k2.6 (small alt path)
-    - provider: cerebras
-      model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.30
-    - provider: cerebras
-      model: gpt-oss-120b
-      weight: 0.23
-    - provider: cohere
-      model: command-a-03-2025
-      weight: 0.15
-    - provider: gemini
-      model: gemini-3-flash-preview
-      weight: 0.10
-    - provider: mistral
-      model: mistral-large-latest
-      weight: 0.08
-    - provider: cerebras
-      model: zai-glm-4.7
-      weight: 0.06
-    - provider: sambanova
-      model: DeepSeek-V3.1
-      weight: 0.05
-    - provider: cloudflare
-      model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.03
-    fallbacks:
-    # Ordered fastest-cascade-recovery first. nvidia-nim/kimi-k2.6 moved
-    # to LAST because cold-start is 30-40s — was burning client-side
-    # stream timeouts when used as primary fallback.
-    - mistral/mistral-medium-3.5
-    - cohere/command-a-reasoning-08-2025
-    - cloudflare/@cf/nvidia/nemotron-3-120b-a12b
-    - openrouter/openai/gpt-oss-120b:free
-    - openrouter/z-ai/glm-4.5-air:free
-    - openrouter/deepseek/deepseek-v4-flash:free
-    - cloudflare/@cf/moonshotai/kimi-k2.5
-    - sambanova/DeepSeek-V3.2
-    # deepseek-chat / -reasoner — work only when user has balance on
-    # DEEPSEEK_API_KEY. CB auto-demotes on 'Insufficient Balance' for 24h
-    # so a depleted account doesn't add latency to every cascade.
-    - deepseek/deepseek-chat
-    - deepseek/deepseek-reasoner
-    # Last-resort slow cold-start path:
-    - nvidia-nim/moonshotai/kimi-k2.6
-  code:
-    # 2026-05-19: nvidia-nim/kimi-k2.6 (p95 >100s sustained) + github-models/
-    # openai/gpt-4.1 (free-tier 8k token cap, every hermes-agent call 413s)
-    # moved to fallback. Re-normalized 8 remaining primaries to 1.0.
-    targets:
-    - provider: groq
-      model: openai/gpt-oss-120b
-      weight: 0.28
-    - provider: mistral
-      model: codestral-latest
-      weight: 0.18
-    - provider: cerebras
-      model: gpt-oss-120b
-      weight: 0.15
-    - provider: groq
-      model: llama-3.3-70b-versatile
-      weight: 0.10
-    - provider: mistral
-      model: mistral-medium-3.5
-      weight: 0.08
-    - provider: github-models
-      model: openai/gpt-4.1-mini
-      weight: 0.07
-    - provider: cloudflare
-      model: '@cf/qwen/qwen2.5-coder-32b-instruct'
-      weight: 0.05
-    - provider: cloudflare
-      model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.05
-    - provider: cohere
-      model: command-a-03-2025
-      weight: 0.02
-    - provider: sambanova
-      model: DeepSeek-V3.1
-      weight: 0.02
-    fallbacks:
-    - nvidia-nim/moonshotai/kimi-k2.6
-    # github-models full models (gpt-4o, gpt-4.1) removed from this
-    # fallback chain — free tier has 8k token cap, every hermes-agent
-    # call (15k+) 413s and wastes the cascade slot. Kept in fast/mid
-    # fallbacks where prompts are short.
-    - cohere/command-a-reasoning-08-2025
-    - openrouter/openai/gpt-oss-120b:free
-    - openrouter/meta-llama/llama-3.3-70b-instruct:free
-    - cloudflare/@cf/moonshotai/kimi-k2.5
-    - gemini/gemini-2.5-flash
-    - sambanova/Llama-4-Maverick-17B-128E-Instruct
-    - deepseek/deepseek-chat
-  compress:
-    # Compress = long-context summarization (8-30k token prompts typical).
-    # History:
-    # - 2026-05-19a: groq/llama-3.3-70b-versatile moved primary→fallback
-    #   (6k TPM per-call ceiling 413s ~10% of traffic)
-    # - 2026-05-19b: TRIED github-models/openai/gpt-4.1 as primary at w=0.30
-    #   but github-models free tier has an 8k token request cap, immediate
-    #   413s on every compress request. Moved to fallback (where short
-    #   probes might still benefit).
-    # nvidia-nim/meta/llama-3.3-70b-instruct stays in fallback only —
-    # 400 'single tool-calls at once' rejects parallel tool_calls.
-    targets:
-    - provider: gemini
-      model: gemini-3-flash-preview
-      weight: 0.3143
-    - provider: mistral
-      model: mistral-medium-3.5
-      weight: 0.2857
-    - provider: mistral
-      model: mistral-medium-latest
-      weight: 0.1429
-    - provider: mistral
-      model: mistral-large-latest
-      weight: 0.1428
-    - provider: cloudflare
-      model: '@cf/google/gemma-4-26b-a4b-it'
-      weight: 0.0857
-    - provider: cloudflare
-      model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.0286
-    fallbacks:
-    - github-models/openai/gpt-4.1
-    - groq/llama-3.3-70b-versatile
-    - nvidia-nim/meta/llama-3.3-70b-instruct
-    - openrouter/qwen/qwen3-next-80b-a3b-instruct:free
-    - openrouter/meta-llama/llama-3.3-70b-instruct:free
-    - cloudflare/@cf/moonshotai/kimi-k2.5
-    - groq/qwen/qwen3-32b
-  fast:
-    # 2026-05-19: groq/llama-3.1-8b-instant + groq/openai/gpt-oss-20b moved
-    # primary→fallback (6k TPM bucket 413s). 2026-05-19 also moved
-    # mistral/mistral-small-latest primary→fallback (50 RPM bursting 7×/h).
-    # Remaining 5 primaries renormalized to 1.0.
-    targets:
-    - provider: cerebras
-      model: llama3.1-8b
-      weight: 0.3594
-    - provider: github-models
-      model: openai/gpt-4o-mini
-      weight: 0.2932
-    - provider: gemini
-      model: gemini-3.1-flash-lite-preview
-      weight: 0.1319
-    - provider: groq
-      model: llama-3.3-70b-versatile
-      weight: 0.1257
-    - provider: groq
-      model: qwen/qwen3-32b
-      weight: 0.0898
-    fallbacks:
-    - mistral/mistral-small-latest
-    - groq/llama-3.1-8b-instant
-    - groq/openai/gpt-oss-20b
-    - github-models/openai/gpt-4.1-nano
-    - cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8
-    - nvidia-nim/meta/llama-3.3-70b-instruct
-    - mistral/codestral-latest
-    - gemini/gemini-flash-lite-latest
-  mid:
-    # 2026-05-19: mistral/mistral-small-latest moved primary→fallback —
-    # hitting mistral RPM (50/m for small) bursting 7×/h. Same fix in fast.
-    # Remaining 9 primaries renormalized to 1.0.
-    targets:
-    - provider: github-models
-      model: openai/gpt-4.1-mini
-      weight: 0.3181
-    - provider: gemini
-      model: gemini-3-flash-preview
-      weight: 0.1857
-    - provider: gemini
-      model: gemini-2.5-flash-lite
-      weight: 0.1239
-    - provider: groq
-      model: qwen/qwen3-32b
-      weight: 0.1124
-    - provider: mistral
-      model: mistral-medium-3.5
-      weight: 0.0892
-    - provider: cloudflare
-      model: '@cf/qwen/qwen2.5-coder-32b-instruct'
-      weight: 0.0516
-    - provider: cloudflare
-      model: '@cf/google/gemma-4-26b-a4b-it'
-      weight: 0.0516
-    - provider: groq
-      model: llama-3.3-70b-versatile
-      weight: 0.0420
-    - provider: cohere
-      model: command-r7b-12-2024
-      weight: 0.0255
-    fallbacks:
-    - mistral/mistral-small-latest
-    - github-models/openai/gpt-4o-mini
-    - cohere/command-r-08-2024
-    - openrouter/google/gemma-4-26b-a4b-it:free
-    - nvidia-nim/meta/llama-3.3-70b-instruct
-    - cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8
-  vision:
-    targets:
-    - provider: gemini
-      model: gemini-2.5-flash
-      weight: 0.2895
-    - provider: nvidia-nim
-      model: meta/llama-3.2-90b-vision-instruct
-      weight: 0.201
-    - provider: mistral
-      model: pixtral-large-latest
-      weight: 0.1675
-    - provider: gemini
-      model: gemini-3-flash-preview
-      weight: 0.1176
-    - provider: gemini
-      model: gemini-flash-latest
-      weight: 0.0904
-    - provider: cohere
-      model: command-a-vision-07-2025
-      weight: 0.0782
-    - provider: nvidia-nim
-      model: meta/llama-3.2-11b-vision-instruct
-      weight: 0.0558
-    fallbacks:
-    - openrouter/nvidia/nemotron-nano-12b-v2-vl:free
-    - cohere/c4ai-aya-vision-32b
-    - mistral/pixtral-12b-latest
-    - gemini/gemini-2.5-flash-lite
-
-  ops:
-    # Operator-agent (pi-op-react / pi-op-health) traffic ONLY. Designed to
-    # absorb pi-mono's ~30 internal-tool-call bursts per run WITHOUT eating
-    # the user-facing pools' (best/code/mid/fast) provider budgets.
-    #
-    # Pi-op prompts often run 8-15k tokens (full bifrost log dumps + tool
-    # definitions + skill content) AND send parallel tool_calls. Two hard
-    # constraints rule out most providers:
-    #  - groq free-tier 8b models 413 on >6k token requests (TPM bucket)
-    #  - nvidia-nim/meta/llama-3.3-70b-instruct rejects parallel tool_calls
-    #    with HTTP 400 ("single tool-calls at once")
-    # All cerebras models tolerate parallel tools + 60k TPM headroom. Use
-    # cerebras-only primaries; groq + mistral + nvidia kept as fallback
-    # for the rare single-tool-call requests.
-    # No cloudflare (neuron-budget shared globally), no gemini (250 RPD shared
-    # globally), no openrouter (50 RPD pool budget shared globally), no
-    # github-models (hermes uses gpt-4.1-mini in mid pool).
-    # 2026-05-19: spread across cerebras + github-models. nvidia-nim/kimi-k2.6
-    # tried as primary (w=0.20) but observed p95=227s + recurring 504 timeouts
-    # under pi-op burst — moved to fallback. All remaining primaries support
-    # parallel tool_calls.
-    targets:
-    - provider: cerebras
-      model: qwen-3-235b-a22b-instruct-2507
-      weight: 0.375
-    - provider: github-models
-      model: openai/gpt-4.1-mini
-      weight: 0.25
-    - provider: cerebras
-      model: llama3.1-8b
-      weight: 0.225
-    - provider: cerebras
-      model: gpt-oss-120b
-      weight: 0.15
-    fallbacks:
-    - nvidia-nim/moonshotai/kimi-k2.6
-    - mistral/mistral-small-latest
-    - groq/llama-3.1-8b-instant
-    - groq/openai/gpt-oss-20b
-    - nvidia-nim/meta/llama-3.3-70b-instruct
-
-  # ─── omo-* pools (oh-my-openagent tailored) ───────────────────────────────
-  # Designed for code-yeongyu/oh-my-openagent multi-agent harness.
-  # Pool ALIAS names contain family-substring (kimi/gpt-5-5/gemini) so omo's
-  # extractModelName + isXxxModel matchers (src/agents/types.ts) auto-select
-  # the correct prompt variant when an agent is pinned to one of these pools.
-  #
-  # Mapping (see adapters/omo/oh-my-openagent.json):
-  #   sisyphus, atlas, prometheus, metis, junior        -> omo-kimi
-  #   hephaestus, oracle, momus, ultrabrain, deep       -> omo-gpt-5-5
-  #   multimodal-looker, visual-engineering, artistry   -> omo-gemini
-  #   explore, librarian, quick                         -> omo-utility
-  #   writing, unspecified-high/-low                    -> omo-kimi
-  #
-  # Per-pool composition follows omo's agent-model-matching.md:
-  #   - Communicator pools lead with Kimi K2.6 / Qwen-235b / GLM (Claude substitutes)
-  #   - Deep pool leads with gpt-oss-120b / deepseek-v4-flash (GPT substitutes)
-  #   - Visual pool leads with Gemini family (no Claude/Kimi per omo doc)
-  #   - Utility pool leads with inst-tier small models (no frontier — wasteful per omo)
-
-  omo-kimi:
-    # 2026-05-20 EMPIRICALLY tuned (probe_limits.py). omo Sisyphus sends
-    # reasoning_effort="medium" + maxTokens=64000. Primaries MUST:
-    #   1. Accept reasoning_effort=medium (not all do — many 400)
-    #   2. Handle 16k+ ctx_output
-    #   3. Tolerate Claude-style instruction prompts (kimi variant)
-    #
-    # Verified ACCEPTS reasoning_effort=medium:
-    #   cerebras/zai-glm-4.7 ✓ (GLM family, fast)
-    #   cerebras/gpt-oss-120b ✓ (general capable)
-    #   gemini/gemini-flash-latest ✓ (fast, big ctx)
-    #   gemini/gemini-3-flash-preview ✓ (slower 10s but capable)
-    #   openrouter/openai/gpt-oss-120b:free ✓ (alt GPT path)
-    #   openrouter/deepseek/deepseek-v4-flash:free ✓ (GPT-substitute)
-    #
-    # Verified REJECTS reasoning_effort=medium (moved out of primaries):
-    #   cerebras/qwen-3-235b → 400 "reasoning_effort not enabled"
-    #   mistral/* → 400 (only accept high/none)
-    #   cohere/command-a → 400
-    #
-    # cloudflare/kimi-k2.6 is Kimi's ideal substitute but cloudflare
-    # daily-quota cycles (10k neurons/day pooled). Keep as low-weight
-    # primary so it serves SOME traffic, falls through to others on quota.
+  omo-main:
+    # FAMILY-AGNOSTIC pool — name does NOT contain kimi/gpt-5-5/gemini, so
+    # omo loads buildDynamicSisyphusPrompt (default variant) which adapts
+    # to whichever model bifrost serves (auto-injects gemini overrides when gemini fires).
     targets:
     - provider: cerebras
       model: zai-glm-4.7
-      weight: 0.28
-    - provider: cerebras
-      model: gpt-oss-120b
-      weight: 0.22
-    - provider: gemini
-      model: gemini-flash-latest
-      weight: 0.18
-    - provider: gemini
-      model: gemini-3-flash-preview
-      weight: 0.13
-    - provider: openrouter
-      model: openai/gpt-oss-120b:free
-      weight: 0.07
-    - provider: cloudflare
-      model: '@cf/moonshotai/kimi-k2.6'
-      weight: 0.07
-    - provider: nvidia-nim
-      model: meta/llama-3.3-70b-instruct
-      weight: 0.05
+      weight: 1.0
     fallbacks:
-    - openrouter/deepseek/deepseek-v4-flash:free
-    - cloudflare/@cf/moonshotai/kimi-k2.5
-    - openrouter/z-ai/glm-4.5-air:free
-    - nvidia-nim/moonshotai/kimi-k2.6
-    # Last-resort: reject reasoning_effort=medium so cause 400 cascade
-    # but acceptable in dire fallback. omo may retry without RE.
-    - cerebras/qwen-3-235b-a22b-instruct-2507
-    - mistral/mistral-large-latest
-    - cohere/command-a-03-2025
-    - sambanova/DeepSeek-V3.1
-    - deepseek/deepseek-chat
-
-  omo-gpt-5-5:
-    # 2026-05-20 BALANCED. Issue: openrouter had combined 0.40 weight
-    # but only has 50 RPD POOLED across ALL :free models — would
-    # exhaust in 1-2 heavy omo sessions. Reduced openrouter to 0.20
-    # total, redistributed to cerebras (huge headroom 14400 RPD/model)
-    # + nvidia-nim (40 RPM, accepts reasoning_effort=medium).
+    # 2026-05-22 13:55 UTC: scores now reference MULTI-TURN arena (more
+    # relevant for omo's orchestration workload). Added qwen-3-235b (cerebras)
+    # at fb=4 — shim param-rejection retry verified working, 1437 MT.
+    # Removed nvidia/deepseek-v4-pro (cold today). qwen3-next-80b kept at fb=10
+    # as fast-fail cushion before slow nvidia/glm-5.1 last-resort.
     #
-    # All primaries empirically verified accept reasoning_effort=medium:
-    #   cerebras/gpt-oss-120b ✓ (60k TPM, FAST)
-    #   cerebras/zai-glm-4.7 ✓
-    #   openrouter/openai/gpt-oss-120b:free ✓ (50 RPD POOLED — low weight)
-    #   openrouter/deepseek/deepseek-v4-flash:free ✓ (50 RPD POOLED)
-    #   gemini/gemini-flash-latest ✓ (250 RPD, 920ms)
-    #   nvidia-nim/meta/llama-3.3-70b-instruct ✓ (40 RPM, mid latency)
-    targets:
-    - provider: cerebras
-      model: gpt-oss-120b
-      weight: 0.40
-    - provider: cerebras
-      model: zai-glm-4.7
-      weight: 0.20
-    - provider: openrouter
-      model: openai/gpt-oss-120b:free
-      weight: 0.12
-    - provider: nvidia-nim
-      model: meta/llama-3.3-70b-instruct
-      weight: 0.10
-    - provider: gemini
-      model: gemini-flash-latest
-      weight: 0.10
-    - provider: openrouter
-      model: deepseek/deepseek-v4-flash:free
-      weight: 0.08
-    fallbacks:
-    # Code-specialty (rejects reasoning_effort=medium but useful for
-    # code review work where omo may retry without RE)
-    - mistral/codestral-latest
-    - cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct
-    - cerebras/qwen-3-235b-a22b-instruct-2507
-    - cloudflare/@cf/moonshotai/kimi-k2.6
-    # 8k-context fallbacks (only useful for short code review chunks)
-    - github-models/openai/gpt-4.1-mini
-    - github-models/openai/gpt-4o-mini
-    - sambanova/DeepSeek-V3.2
-    - sambanova/DeepSeek-V3.1
-    - nvidia-nim/moonshotai/kimi-k2.6
-    - deepseek/deepseek-reasoner
+    # MT-Elo (lmarena.ai/leaderboard/text/multi-turn):
+    #   gemini-3.5-flash 1487 | gemini-3-flash 1484 | glm-5.1 1478 | deepseek-v4-pro 1473
+    #   kimi-k2.6 1467 | glm-4.7 1460 | deepseek-v4-flash 1450 | qwen-3-235b 1437
+    #   mistral-large-3 (=2512) 1421 | mistral-medium-2508 (=3.5) 1412 | qwen3-next-80b 1404
+    #
+    # TIER A — most reliable in cascade today
+    - mistral/mistral-large-2512                          # 1421 MT, 0.6s, 4 RPM, 76% serve test-14
+    - cloudflare/@cf/moonshotai/kimi-k2.6                 # 1467 MT, ~3s, 29% serve test-14
+    # TIER B — works but RPM/quota-limited
+    - gemini/gemini-3.5-flash                             # 1487 MT, 0.94s probe, separate 20 RPM
+    - cerebras/qwen-3-235b-a22b-instruct-2507             # 1437 MT (shim strips reasoning_effort)
+    - zai/glm-4.7-flash                                   # ~1430 est MT, NEW native Z.ai (own quota)
+    - gemini/gemini-3-flash-preview                       # 1484 MT, 20 RPM cap
+    - openrouter/deepseek/deepseek-v4-flash:free          # 1450 MT, 3s probe
+    - mistral/mistral-medium-3.5                          # 1412 MT, 0.33s, 50 RPM, 54% serve test-14
+    # TIER C — frequent errors but high IQ (fast-fail = good for cascade walk)
+    - openrouter/z-ai/glm-5.1                             # 1478 MT, OR (402 credits sometimes)
+    - nvidia-nim/moonshotai/kimi-k2.6                     # 1467 MT, NIM (unhashable bug + 429)
+    - openrouter/qwen/qwen3-next-80b-a3b-instruct:free    # 1404 MT, Venice fast 429 cushion
+    # TIER D — slow last-resort
+    - nvidia-nim/z-ai/glm-5.1                             # 1478 MT, SLOW 66s — LAST RESORT
 
   omo-gemini:
-    # 2026-05-20 EMPIRICALLY tuned. All Gemini variants accept
-    # reasoning_effort=medium AND handle large input (11k+ ctx tested).
-    # gemini-flash-latest is FASTEST (920ms p50). gemini-3-flash-preview
-    # is more capable but slower (10s p50). NO Claude/Kimi per omo doc.
+    # Unchanged — visual/artistry agents (multimodal-looker)
     targets:
-    - provider: gemini
-      model: gemini-flash-latest
-      weight: 0.30
     - provider: gemini
       model: gemini-3-flash-preview
-      weight: 0.25
-    - provider: gemini
-      model: gemini-2.5-flash
-      weight: 0.18
-    - provider: gemini
-      model: gemini-3.1-flash-lite-preview
-      weight: 0.12
-    - provider: mistral
-      model: pixtral-large-latest
-      weight: 0.08
-    - provider: github-models
-      model: openai/gpt-4o-mini
-      weight: 0.04
-    - provider: cohere
-      model: command-a-vision-07-2025
-      weight: 0.03
+      weight: 1.0
     fallbacks:
-    - gemini/gemini-flash-lite-latest
+    # 2026-05-22 12:08 UTC: REMOVED gemini-3.1-pro-preview — paid-only on free
+    # tier (probe: "free_tier_requests limit: 0"). Wasted cascade slot.
+    - gemini/gemini-3.5-flash
+    - gemini/gemini-3.1-flash-lite-preview
+    - gemini/gemini-2.5-flash
+    - mistral/pixtral-large-latest
     - nvidia-nim/meta/llama-3.2-90b-vision-instruct
-    - nvidia-nim/meta/llama-3.2-11b-vision-instruct
-    - mistral/pixtral-12b-latest
-    - openrouter/nvidia/nemotron-nano-12b-v2-vl:free
-    - cohere/c4ai-aya-vision-32b
 
   omo-utility:
-    # 2026-05-20 EMPIRICAL: Explore/Librarian get ~25k ctx handoff from
-    # Sisyphus. omo does NOT send reasoning_effort for these agents
-    # (temperature 0.1 only), so reject-RE doesn't matter here. Just
-    # need big-input + fast.
-    #
-    # Verified handled big_input (11k tested) + fast:
-    #   gemini/gemini-flash-latest ✓ (920ms p50)
-    #   gemini/gemini-3.1-flash-lite-preview ✓
-    #   gemini/gemini-2.5-flash ✓
-    #   nvidia-nim/llama-3.3-70b ✓ (slower but accepts ~12k)
-    #
-    # AVOID: groq (TPM 6k cap fails big_input), github-models small
-    # (8k ctx cap), cloudflare (quota cycling).
+    # Unchanged — librarian/explore small queries
     targets:
     - provider: gemini
-      model: gemini-flash-latest
-      weight: 0.32
-    - provider: gemini
       model: gemini-3.1-flash-lite-preview
-      weight: 0.22
-    - provider: gemini
-      model: gemini-2.5-flash
-      weight: 0.18
-    - provider: gemini
-      model: gemini-2.5-flash-lite
-      weight: 0.12
-    - provider: gemini
-      model: gemini-flash-lite-latest
-      weight: 0.08
-    - provider: nvidia-nim
-      model: meta/llama-3.3-70b-instruct
-      weight: 0.05
-    - provider: cerebras
-      model: llama3.1-8b
-      weight: 0.03
+      weight: 1.0
     fallbacks:
-    - groq/llama-3.1-8b-instant
-    - groq/openai/gpt-oss-20b
-    - github-models/openai/gpt-4.1-mini
-    - github-models/openai/gpt-4o-mini
-    - cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8
-    - mistral/mistral-small-latest
+    - gemini/gemini-flash-latest
+    - gemini/gemini-2.5-flash
+    - gemini/gemini-3.5-flash
+    - gemini/gemini-2.5-flash-lite
+    - gemini/gemini-flash-lite-latest
+    - nvidia-nim/google/gemma-4-31b-it

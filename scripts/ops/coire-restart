@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# coire-restart — restart docker services in safe dependency order.
+#
+# Usage:
+#   ~/coire-tools/coire-restart                 # restart stack (bifrost, shim, dashboard)
+#   ~/coire-tools/coire-restart bifrost         # just one
+#   ~/coire-tools/coire-restart strip-shim
+#   ~/coire-tools/coire-restart --all           # everything in docker-compose.yml
+#   ~/coire-tools/coire-restart --force         # skip confirmation
+
+set -u
+
+COMPOSE_DIR="${COMPOSE_DIR:-$HOME/coire-ansic}"
+FORCE=0
+SVC=""
+ALL=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --force) FORCE=1 ;;
+    --all) ALL=1 ;;
+    -h|--help) grep '^#' "$0" | head -8 | sed 's/^# \?//' ; exit 0 ;;
+    -*) echo "unknown flag: $arg"; exit 1 ;;
+    *) SVC="$arg" ;;
+  esac
+done
+
+echo "# coire-restart v0.1"
+echo
+
+if [ ! -f "$COMPOSE_DIR/docker-compose.yml" ]; then
+  echo "✗ no docker-compose.yml at $COMPOSE_DIR — set COMPOSE_DIR env var"
+  exit 1
+fi
+cd "$COMPOSE_DIR"
+
+if [ -n "$SVC" ]; then
+  TARGETS=("$SVC")
+elif [ "$ALL" -eq 1 ]; then
+  TARGETS=($(docker compose config --services 2>/dev/null))
+else
+  TARGETS=(bifrost strip-shim coire-dashboard)
+fi
+
+echo "will restart: ${TARGETS[*]}"
+echo
+
+if [ "$FORCE" -ne 1 ]; then
+  read -rp "proceed? [y/N] " ans
+  case "$ans" in
+    y|Y|yes) ;;
+    *) echo "aborted"; exit 1 ;;
+  esac
+fi
+
+for svc in "${TARGETS[@]}"; do
+  echo "→ restarting $svc"
+  if docker compose restart "$svc" 2>&1; then
+    echo "  ✓"
+  else
+    echo "  ✗ failed"
+  fi
+done
+
+echo
+echo "## post-restart health"
+sleep 3
+for svc in "${TARGETS[@]}"; do
+  status=$(docker ps --filter "name=$svc" --format "{{.Status}}" 2>/dev/null)
+  if [ -z "$status" ]; then
+    status="not running"
+  fi
+  echo "  $svc: $status"
+done
+
+# Quick health pings
+echo
+echo "## API responsiveness"
+if printf '%s\n' "${TARGETS[@]}" | grep -q bifrost; then
+  bf=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 http://localhost:4001/api/providers 2>/dev/null || echo "000")
+  echo "  bifrost /api/providers: HTTP $bf"
+fi
+if printf '%s\n' "${TARGETS[@]}" | grep -q strip-shim; then
+  sh=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 http://localhost:4002/health 2>/dev/null || echo "000")
+  echo "  shim /health: HTTP $sh"
+fi
