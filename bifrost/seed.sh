@@ -207,6 +207,49 @@ if [ -n "${SAMBANOVA_API_KEY:-}" ]; then
   post_provider sambanova "$body" "$(simple_key sn-1 "$SAMBANOVA_API_KEY")"
 fi
 
+# opencode-zen — opencode's paid-tier preview, OpenAI-compat
+# Demo tier: ~5-10 calls/day pooled. Useful as deep last-resort cushion.
+if [ -n "${OPENCODE_ZEN_API_KEY:-}" ]; then
+  ZEN_BASE="https://opencode.ai/zen/v1"
+  body=$(jq -n --arg k "$OPENCODE_ZEN_API_KEY" --arg b "$ZEN_BASE" '{
+    provider:"opencode-zen",
+    network_config:{
+      base_url:$b,
+      extra_headers:{"Authorization":("Bearer "+$k)},
+      default_request_timeout_in_seconds:90
+    },
+    custom_provider_config:{
+      base_provider_type:"openai",
+      allowed_requests:{chat_completion:true,chat_completion_stream:true},
+      request_path_overrides:{
+        chat_completion:($b+"/chat/completions"),
+        chat_completion_stream:($b+"/chat/completions")
+      }
+    }
+  }')
+  post_provider opencode-zen "$body" "$(simple_key zen-1 "$OPENCODE_ZEN_API_KEY")"
+fi
+
+# zai (Zhipu) — GLM models native source. Path-rewrite via strip-shim because
+# Z.ai uses /api/paas/v4/chat/completions (no /v1/) while bifrost openai-compat
+# hardcodes /v1/chat/completions suffix. Shim catches /zai-proxy/v4/v1/* and
+# rewrites to Z.ai's native path. ZAI_API_KEY env var passed to shim container.
+if [ -n "${ZAI_API_KEY:-}" ]; then
+  ZAI_BASE="http://coire-strip-shim:4002/zai-proxy/v4"
+  body=$(jq -n --arg k "$ZAI_API_KEY" --arg b "$ZAI_BASE" '{
+    provider:"zai",
+    network_config:{
+      base_url:$b,
+      default_request_timeout_in_seconds:90
+    },
+    custom_provider_config:{
+      base_provider_type:"openai",
+      allowed_requests:{chat_completion:true,chat_completion_stream:true}
+    }
+  }')
+  post_provider zai "$body" "$(simple_key zai-1 "$ZAI_API_KEY")"
+fi
+
 # deepseek — DeepSeek's own OpenAI-compat API (api.deepseek.com)
 # Models: deepseek-chat (V4-Pro non-reasoning), deepseek-reasoner (V4-Pro reasoning).
 # Free credit on signup; paid after credit exhausts. Cheaper than NIM-hosted.
@@ -231,46 +274,8 @@ if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
   post_provider deepseek "$body" "$(simple_key deepseek-1 "$DEEPSEEK_API_KEY")"
 fi
 
-echo "→ adding routing rules (4 pools, IQ-first weighting)"
+# Routing rules are NOT created here — apply_snapshot.py + apply_pool_weights.py
+# handle them based on bifrost/snapshot/routing-rules.json + scripts/runtime/pool_weights.yaml.
+# seed.sh's job is just to create providers from .env keys.
 
-# Build set of configured providers — used to filter fallbacks so we don't
-# post rules referencing providers that aren't set up.
-PROVS=$(curl -sf "$HOST/api/providers" | python3 -c "import json,sys; d=json.load(sys.stdin); print(' '.join(p['name'] for p in d.get('providers',[])))")
-
-filter_fbs() {
-  python3 -c "
-import json, sys
-fbs = json.loads(sys.argv[1])
-provs = set(sys.argv[2].split())
-kept = [f for f in fbs if f.split('/')[0] in provs]
-print(json.dumps(kept))
-" "$1" "$PROVS"
-}
-
-# best — frontier general reasoning. CF Kimi K2.6 (AA IQ 53.9, highest free) as final fallback escape valve.
-post_rule best \
-  '[{"provider":"nvidia-nim","model":"deepseek-ai/deepseek-v4-pro","weight":0.40},{"provider":"cerebras","model":"qwen-3-235b-a22b-instruct-2507","weight":0.30},{"provider":"groq","model":"openai/gpt-oss-120b","weight":0.20},{"provider":"gemini","model":"gemini-3-flash-preview","weight":0.10}]' \
-  "$(filter_fbs '["groq/openai/gpt-oss-120b","openrouter/openai/gpt-oss-120b:free","mistral/mistral-medium-2505","gemini/gemini-flash-latest","cloudflare/@cf/moonshotai/kimi-k2.6"]')" 11
-
-# code — code+reasoning. Kimi K2.6 in fallbacks (code score 47.1, beats most peers).
-post_rule code \
-  '[{"provider":"nvidia-nim","model":"qwen/qwen3-coder-480b-a35b-instruct","weight":0.40},{"provider":"cerebras","model":"qwen-3-235b-a22b-instruct-2507","weight":0.25},{"provider":"mistral","model":"magistral-medium-2509","weight":0.20},{"provider":"groq","model":"openai/gpt-oss-120b","weight":0.15}]' \
-  "$(filter_fbs '["groq/openai/gpt-oss-120b","mistral/magistral-small-latest","openrouter/openai/gpt-oss-120b:free","gemini/gemini-3-flash-preview","cloudflare/@cf/moonshotai/kimi-k2.6"]')" 12
-
-# fast — low-latency 8B. CF llama-3.1-8b as 3rd source diversity.
-post_rule fast \
-  '[{"provider":"groq","model":"llama-3.1-8b-instant","weight":0.70},{"provider":"cerebras","model":"llama3.1-8b","weight":0.30}]' \
-  "$(filter_fbs '["mistral/mistral-small-latest","gemini/gemini-3.1-flash-lite-preview","cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8"]')" 13
-
-# vision — multimodal
-post_rule vision \
-  '[{"provider":"gemini","model":"gemini-2.5-flash","weight":0.50},{"provider":"gemini","model":"gemini-flash-latest","weight":0.30},{"provider":"gemini","model":"gemini-3-flash-preview","weight":0.20}]' \
-  "$(filter_fbs '["nvidia-nim/meta/llama-3.2-90b-vision-instruct"]')" 14
-
-# mid — IQ 25-35 cheap-fast workhorse for aux tasks (compression, web_extract, approval).
-# Per Nous docs: aux summarization/judging tasks should use cheap-fast tier, not flagship.
-post_rule mid \
-  '[{"provider":"mistral","model":"mistral-small-latest","weight":0.40},{"provider":"gemini","model":"gemini-3.1-flash-lite-preview","weight":0.25},{"provider":"cloudflare","model":"@cf/google/gemma-4-26b-a4b-it","weight":0.20},{"provider":"groq","model":"openai/gpt-oss-20b","weight":0.15}]' \
-  "$(filter_fbs '["cerebras/qwen-3-235b-a22b-instruct-2507","groq/llama-3.1-8b-instant"]')" 15
-
-echo "✓ seed complete"
+echo "✓ seed complete (providers only — rules applied next via apply_snapshot + apply_pool_weights)"
