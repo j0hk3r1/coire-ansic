@@ -206,7 +206,9 @@
   </section>
 
   <!-- CIRCUIT BREAKER -->
-  <section x-show="activeTab === 'overview'" x-cloak class="panel {% if circuit_breaker.demoted_count and circuit_breaker.demoted_count > 0 %}panel-alert{% endif %} p-5">
+  <!-- Circuit breaker removed 2026-05-27 — bifrost's built-in cascade is
+       the failover mechanism. Section hidden via x-show="false". -->
+  <section x-show="false" x-cloak class="panel p-5">
     <div class="section-header cursor-pointer" @click="toggleCollapse('circuit_breaker')">
       <span :class="{ 'rotate-90': isCollapsed('circuit_breaker') }" class="inline-block transition-transform">▸</span>
       <span>Circuit Breaker</span>

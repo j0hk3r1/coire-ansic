@@ -714,16 +714,44 @@ async def api_circuit_breaker():
     return load_circuit_breaker()
 
 
+def _compute_latency_from_logs(window_hours: int = 1) -> dict:
+    """Per-target P50/P95/max ms from bifrost log latency field.
+    Returns {"<provider>/<model>": {samples, p50_ms, p95_ms, max_ms}, ...}."""
+    from collections import defaultdict
+    samples: dict[str, list[int]] = defaultdict(list)
+    try:
+        cache = _LogsCache()
+        succ = load_recent_successes(window_hours, 1000, cache=cache).get("successes", [])
+        for e in succ:
+            p = e.get("provider"); m = e.get("model"); lat = e.get("latency_s")
+            if not (p and m) or lat is None:
+                continue
+            samples[f"{p}/{m}"].append(int(lat * 1000))
+    except Exception:
+        return {}
+    out: dict[str, dict] = {}
+    for k, lst in samples.items():
+        if not lst:
+            continue
+        lst.sort()
+        n = len(lst)
+        out[k] = {
+            "samples": n,
+            "p50_ms": lst[n // 2],
+            "p95_ms": lst[min(n - 1, int(n * 0.95))],
+            "max_ms": lst[-1],
+            "window_sec": window_hours * 3600,
+        }
+    return out
+
+
 @app.get("/api/latency")
 async def api_latency():
-    """Per-target P50/P95 latency, grouped by pool membership. Pulls planned
-    targets from pool_weights.yaml so the table covers every target — even
-    ones that haven't received traffic in the rolling window get a row with
-    '—' values, making missing data visible (e.g. recently-restored target
-    that hasn't been hit yet).
+    """Per-target P50/P95 latency from bifrost logs (last 1h window).
+    Grouped by pool membership. Targets with no recent traffic get
+    '—' values so missing data is visible.
     """
-    cb = load_circuit_breaker()
-    lat = cb.get("latency", {}) if isinstance(cb, dict) else {}
+    lat = _compute_latency_from_logs(window_hours=1)
     plan = (load_pool_weights_plan().get("plan") or {}).get("pools") or {}
 
     pools = []
@@ -773,7 +801,7 @@ async def api_latency():
 
     return {
         "pools": pools,
-        "updated_at": cb.get("updated_at"),
+        "updated_at": now_utc().isoformat(),
         "window_sec": window_sec,
         "total_targets": sum(len(p["targets"]) for p in pools),
         "with_data": sum(1 for p in pools for t in p["targets"] if t.get("samples")),
