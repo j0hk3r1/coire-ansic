@@ -1,30 +1,18 @@
 #!/usr/bin/env bash
-# Tear down everything install.sh set up. Keeps your .env + bifrost data
-# unless --purge passed.
+# Tear down the coire-ansic stack. Keeps .env + bifrost/data unless --purge.
 set -euo pipefail
+ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
-cd "$ROOT"
+PURGE=0; [ "${1:-}" = "--purge" ] && PURGE=1
 
-PURGE=0
-[ "${1:-}" = "--purge" ] && PURGE=1
-
-echo "▶ docker compose down"
-docker compose down -v 2>/dev/null || true
-
-echo "▶ removing local ops tools (~/coire-tools/)"
-rm -rf "$HOME/coire-tools" 2>/dev/null || true
-
-echo "▶ removing opencode skill/command links"
-for f in coire-monitor coire-probe coire-health coire-diagnose coire-cascade-show coire-check-quotas coire-snapshot-sync; do
-  rm -f "$HOME/.config/opencode/command/$f.md" 2>/dev/null || true
-  rm -rf "$HOME/.config/opencode/skills/$f" 2>/dev/null || true
-done
+echo "▶ docker compose down (core + all profiles)"
+docker compose --profile shim --profile dashboard --profile searxng --profile camofox \
+  down --remove-orphans -v 2>/dev/null || true
 
 if [ "$PURGE" = "1" ]; then
-  echo "▶ purging bifrost data + camofox src"
-  rm -rf bifrost/data/* camofox/src
-  echo "▶ NOT removing .env. Run: rm .env if you want clean slate."
+  echo "▶ purging bifrost/data (rendered config.json + DB) + camofox src/data"
+  rm -rf bifrost/data/* camofox/src camofox/data 2>/dev/null || true
+  echo "▶ keeping .env — run 'rm .env' yourself for a clean slate"
 fi
 
 echo "✓ done"
