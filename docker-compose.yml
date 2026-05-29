@@ -52,7 +52,6 @@ services:
     environment:
       BIFROST_URL: http://bifrost:8080
       MODELS_JSON_PATH: /root/.coire/models.json
-      ZAI_API_KEY: "${ZAI_API_KEY:-}"   # legacy zai-proxy path (unused now zai is direct)
     volumes:
       - ~/.coire:/root/.coire:ro
     depends_on:
