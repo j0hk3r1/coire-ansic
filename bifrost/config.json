@@ -1,0 +1,409 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "config_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": {
+      "path": "./config.db"
+    }
+  },
+  "providers": {
+    "cerebras": {
+      "keys": [
+        {
+          "name": "cerebras-1",
+          "value": "env.CEREBRAS_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      }
+    },
+    "cloudflare": {
+      "keys": [
+        {
+          "name": "cf-1",
+          "value": "env.CLOUDFLARE_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1",
+        "default_request_timeout_in_seconds": 90,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions",
+          "chat_completion_stream": "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions"
+        }
+      }
+    },
+    "cohere": {
+      "keys": [
+        {
+          "name": "cohere-1",
+          "value": "env.COHERE_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      }
+    },
+    "deepseek": {
+      "keys": [
+        {
+          "name": "deepseek-1",
+          "value": "env.DEEPSEEK_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://api.deepseek.com/v1",
+        "default_request_timeout_in_seconds": 300,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.deepseek.com/v1/chat/completions",
+          "chat_completion_stream": "https://api.deepseek.com/v1/chat/completions"
+        }
+      }
+    },
+    "gemini": {
+      "keys": [
+        {
+          "name": "gemini-1",
+          "value": "env.GEMINI_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      }
+    },
+    "github-models": {
+      "keys": [
+        {
+          "name": "gh-1",
+          "value": "env.GITHUB_MODELS_TOKEN",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://models.github.ai/inference",
+        "default_request_timeout_in_seconds": 120,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://models.github.ai/inference/chat/completions",
+          "chat_completion_stream": "https://models.github.ai/inference/chat/completions"
+        }
+      }
+    },
+    "groq": {
+      "keys": [
+        {
+          "name": "groq-1",
+          "value": "env.GROQ_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      }
+    },
+    "mistral": {
+      "keys": [
+        {
+          "name": "mistral-1",
+          "value": "env.MISTRAL_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      }
+    },
+    "nvidia-nim": {
+      "keys": [
+        {
+          "name": "nim-1",
+          "value": "env.NVIDIA_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "default_request_timeout_in_seconds": 90,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://integrate.api.nvidia.com/v1/chat/completions",
+          "chat_completion_stream": "https://integrate.api.nvidia.com/v1/chat/completions"
+        }
+      }
+    },
+    "opencode-zen": {
+      "keys": [
+        {
+          "name": "zen-1",
+          "value": "env.OPENCODE_ZEN_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://opencode.ai/zen/v1",
+        "default_request_timeout_in_seconds": 90,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://opencode.ai/zen/v1/chat/completions",
+          "chat_completion_stream": "https://opencode.ai/zen/v1/chat/completions"
+        }
+      }
+    },
+    "openrouter": {
+      "keys": [
+        {
+          "name": "openrouter-1",
+          "value": "env.OPENROUTER_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      }
+    },
+    "sambanova": {
+      "keys": [
+        {
+          "name": "sn-1",
+          "value": "env.SAMBANOVA_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://api.sambanova.ai/v1",
+        "default_request_timeout_in_seconds": 60,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.sambanova.ai/v1/chat/completions",
+          "chat_completion_stream": "https://api.sambanova.ai/v1/chat/completions"
+        }
+      }
+    },
+    "zai": {
+      "keys": [
+        {
+          "name": "zai-1",
+          "value": "env.ZAI_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://api.z.ai/api/paas/v4",
+        "default_request_timeout_in_seconds": 90,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.z.ai/api/paas/v4/chat/completions",
+          "chat_completion_stream": "https://api.z.ai/api/paas/v4/chat/completions"
+        }
+      }
+    }
+  },
+  "governance": {
+    "routing_rules": [
+      {
+        "id": "coire-vision",
+        "name": "coire-vision",
+        "enabled": true,
+        "cel_expression": "model == \"coire-vision\"",
+        "targets": [
+          {
+            "provider": "gemini",
+            "model": "gemini-3-flash-preview",
+            "weight": 1
+          }
+        ],
+        "fallbacks": [
+          "gemini/gemini-3.5-flash",
+          "gemini/gemini-3.1-flash-lite-preview",
+          "gemini/gemini-2.5-flash",
+          "mistral/pixtral-large-latest",
+          "nvidia-nim/meta/llama-3.2-90b-vision-instruct"
+        ],
+        "scope": "global",
+        "priority": 20
+      },
+      {
+        "id": "coire-fast",
+        "name": "coire-fast",
+        "enabled": true,
+        "cel_expression": "model == \"coire-fast\"",
+        "targets": [
+          {
+            "provider": "gemini",
+            "model": "gemini-3.1-flash-lite-preview",
+            "weight": 1
+          }
+        ],
+        "fallbacks": [
+          "gemini/gemini-flash-latest",
+          "gemini/gemini-2.5-flash",
+          "gemini/gemini-3.5-flash",
+          "gemini/gemini-2.5-flash-lite",
+          "gemini/gemini-flash-lite-latest",
+          "nvidia-nim/google/gemma-4-31b-it"
+        ],
+        "scope": "global",
+        "priority": 21
+      },
+      {
+        "id": "coire-main",
+        "name": "coire-main",
+        "enabled": true,
+        "cel_expression": "model == \"coire-main\"",
+        "targets": [
+          {
+            "provider": "cerebras",
+            "model": "zai-glm-4.7",
+            "weight": 1
+          }
+        ],
+        "fallbacks": [
+          "mistral/mistral-large-2512",
+          "cloudflare/@cf/moonshotai/kimi-k2.6",
+          "gemini/gemini-3.5-flash",
+          "cerebras/qwen-3-235b-a22b-instruct-2507",
+          "zai/glm-4.7-flash",
+          "gemini/gemini-3-flash-preview",
+          "openrouter/deepseek/deepseek-v4-flash:free",
+          "mistral/mistral-medium-3.5",
+          "openrouter/z-ai/glm-5.1",
+          "nvidia-nim/moonshotai/kimi-k2.6",
+          "openrouter/qwen/qwen3-next-80b-a3b-instruct:free",
+          "nvidia-nim/z-ai/glm-5.1"
+        ],
+        "scope": "global",
+        "priority": 22
+      }
+    ]
+  }
+}
