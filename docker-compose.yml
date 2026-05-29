@@ -123,7 +123,8 @@ services:
     volumes:
       - ~/.coire:/root/.coire:ro
       - /var/spool/cron/crontabs/${USER:-jkr}:/host_crontab:ro
-      - ./scripts/runtime/pool_weights.yaml:/app/scripts/runtime/pool_weights.yaml:ro
+      # NOTE: dashboard still needs a Phase-2 rework (it referenced removed
+      # pool_weights.yaml / curator state). It's opt-in (profile) + deferred.
     environment:
       BIFROST_URL: http://172.17.0.1:4001
       BIFROST_USER: admin
