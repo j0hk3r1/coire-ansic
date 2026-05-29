@@ -1,3 +1,5 @@
+> **ARCHIVED (pre-strip omo era).** References removed omo-* pools + deleted tooling. Returns/updates in the omo phase. See `docs/superpowers/specs/2026-05-29-strip-harness-agnostic-design.md`.
+
 # Coire pools tailored for omo — comprehensive design
 
 Source: cloned `code-yeongyu/oh-my-openagent@dev`, read all 11 agent

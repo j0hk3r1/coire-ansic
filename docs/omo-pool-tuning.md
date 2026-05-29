@@ -1,3 +1,5 @@
+> **ARCHIVED (pre-strip omo era).** Describes the old 7-pool omo topology + removed scripts (apply_pool_weights/sync_key_models). Kept for reference; revisit during the omo phase. Current router = `bifrost/config.json` with `coire-main/fast/vision`.
+
 # Pool tuning aligned to omo's per-agent constraints
 
 Source: `https://github.com/code-yeongyu/oh-my-openagent/blob/dev/docs/guide/agent-model-matching.md`

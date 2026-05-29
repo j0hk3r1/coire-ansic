@@ -1,3 +1,5 @@
+> **ARCHIVED.** Historical harness comparison that led to opencode+omo. CoireAnsic is now harness-agnostic — see `docs/connect/`.
+
 # Frontend Eval (in-progress)
 
 Test prompt: **"list docker containers running and tell me jellyfin version"**

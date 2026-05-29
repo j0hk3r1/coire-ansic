@@ -8,23 +8,15 @@ third-party projects. Each is installed at runtime via its own
 distribution channel (docker, npm, pip, curl-installer) and remains
 governed by its upstream license:
 
+(Coding harnesses — opencode, pi, hermes, Claude Code, etc. — are NOT listed
+here: CoireAnsic ships and installs none of them. Users bring their own and
+connect it per docs/connect/. They remain governed by their own licenses.)
+
 ────────────────────────────────────────────────────────────────────
 Bifrost
   https://github.com/maximhq/bifrost
   Apache License 2.0
   Used as: docker image (maximhq/bifrost)
-
-hermes-agent
-  https://github.com/NousResearch/hermes-agent
-  See upstream LICENSE
-  Used as: host install via upstream installer (optional adapter via
-  `--with-hermes`). This project is NOT affiliated with or endorsed by
-  Nous Research.
-
-pi-coding-agent (pi-mono)
-  https://www.npmjs.com/package/@earendil-works/pi-coding-agent
-  See upstream LICENSE
-  Used as: npm install of @earendil-works/pi-coding-agent
 
 SearXNG
   https://github.com/searxng/searxng
@@ -34,11 +26,11 @@ SearXNG
   authored by this project's contributors. No SearXNG source is copied
   or modified.
 
-Camoufox
-  https://github.com/jo-inc/camofox-browser
-  See upstream LICENSE
-  Used as: source cloned at install time by adapter; opt-in
-  This project does not bundle Camoufox source.
+camofox-browser (wraps the Camoufox engine)
+  https://github.com/redf0x1/camofox-browser
+  MIT License
+  Used as: source cloned at install time by `--with-camofox`; opt-in.
+  This project does not bundle its source.
 
 Firecrawl
   https://github.com/mendableai/firecrawl

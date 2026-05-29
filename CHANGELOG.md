@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — harness-agnostic core
+
+Stripped to a reusable, **bring-your-own-harness** free-tier router.
+
+- **Declarative core.** The whole router is now one git-tracked
+  `bifrost/config.json` (providers + keys-via-`env.` + `governance.routing_rules`),
+  reconciled into Bifrost on startup. Replaces and deletes the imperative
+  `seed.sh` + `sync_key_models.py` + `apply_snapshot.py` + `snapshot.py`.
+- **No harness bundled.** `install.sh` deploys only the router; connect your own
+  harness via copy-paste guides in `docs/connect/` (opencode · pi · hermes ·
+  Claude Code). Codex + omo are later phases.
+- **Pools** renamed to neutral capability tiers: `coire-main` / `coire-fast` /
+  `coire-vision`.
+- **Custom providers** drop the `extra_headers` Authorization hack (Bifrost injects
+  auth from the native `env.` key) and use `request_path_overrides`; z.ai now talks
+  direct (no strip-shim proxy). `max_retries` enabled per provider.
+- **Optional everything else.** strip-shim, dashboard, SearXNG, Camoufox are opt-in
+  (`--with-*` / compose profiles); `docker compose up` = bifrost only.
+- **Auth/exposure** documented honestly: inference is unauthenticated by default
+  (trusted-LAN); `BIFROST_API_KEY` is optional (enforce-auth + virtual key only when
+  exposing beyond the LAN).
+- Dropped the `deepseek` direct provider (paid after credit; unrouted).
+
 ## 0.1.0 — initial public release
 
 Self-managing free-tier LLM router. Aggregates 10 free-tier providers
