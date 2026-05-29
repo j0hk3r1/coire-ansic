@@ -27,76 +27,95 @@ use) is the headline experience, not an afterthought.
 ## 2. Goals / non-goals
 
 **Goals**
-- Core = `bifrost` (gateway) + `strip-shim` (OpenAI-compat normalizer). Reusable,
-  harness-neutral, no omo branding in the default surface.
-- Neutral, capability-based pool tiers; harness-specific names are cheap aliases.
-- One copy-paste **connect guide per harness**, with verified config (cited).
+- Core = `bifrost` (gateway) + `strip-shim` (OpenAI-compat normalizer) + a
+  **harness-neutral maintenance CLI**. Reusable, no omo/opencode branding anywhere in core.
+- Neutral, capability-based pool tiers (`coire-main/fast/vision`).
+- One copy-paste **connect guide per harness** in `docs/connect/`. **Guides only —
+  the installer deploys ZERO harness config and installs no harness alongside core.**
 - A clean fresh-install: `cp .env.example .env && ./install.sh` works from a clean
-  clone with only provider keys.
-- The omo/opencode ops layer survives as an **opt-in overlay** (`adapters/omo/`), not core.
+  clone with only provider keys, producing a running router + maintenance CLI.
+- Maintenance is **standalone scripts**, run directly or via system cron — never via an
+  AI harness. Maintaining the router must not require any harness installed.
 
 **Non-goals (for now)**
-- Building translation bridges in-repo (Codex Responses API, Claude Anthropic proxy
-  through the shim). Docs-only adapters this round. Bridges are a later option.
-- openclaw support (deferred; hermes is in scope, openclaw is a future stub).
-- Two-repo split (single repo + `adapters/` overlay chosen).
+- Any harness (or harness glue) installed alongside core. No `~/.config/opencode/` writes,
+  no `oh-my-openagent.json`, no plugin. Harness support is guides only.
+- **Codex** — deferred to a later phase (needs a Responses↔chat bridge; not plug-and-play).
+- **omo** — deferred to a later phase (needs its own additional pools + tuning; revisit
+  once the four base harnesses connect cleanly).
+- **openclaw** — deferred (future stub).
+- In-repo translation bridges (Codex Responses, Claude Anthropic-through-shim).
+- Per-harness pools / load-spread overrides (YAGNI until concurrency is real).
+- Two-repo split (single repo chosen).
 
-## 3. Supported harnesses (this round: CLIs + hermes)
+## 3. Supported harnesses
+
+**NOW (this round):** claude, opencode (vanilla — no omo), pi, hermes.
+**LATER (own specs):** codex → omo → openclaw.
 
 Verified against current official docs during the review (sources in §8):
 
-| harness | wire format | connects how | effort |
-|---|---|---|---|
-| **opencode** | OpenAI chat/completions | `@ai-sdk/openai-compatible`, `baseURL=…:4002/v1` | ✅ snippet |
-| **pi** (`earendil-works/pi`, ex `pi-mono`) | OpenAI chat/completions | `~/.pi/agent/models.json`, `api:"openai-completions"`, `baseUrl=…:4002/v1` | ✅ snippet |
-| **hermes** (user's agent framework) | OpenAI chat/completions | point its base URL at `…:4002/v1` | ✅ snippet |
-| **Claude Code** | Anthropic Messages | `ANTHROPIC_BASE_URL=…:4001/anthropic` (bifrost native Anthropic route); bypasses shim | ⚠ env var + tradeoff note |
-| **Codex CLI** | OpenAI **Responses** only | needs a Responses↔chat bridge (LiteLLM / community); not plug-and-play | ❌ documented gap |
+| harness | phase | wire format | connects how | effort |
+|---|---|---|---|---|
+| **opencode** (vanilla) | NOW | OpenAI chat/completions | `@ai-sdk/openai-compatible`, `baseURL=…:4002/v1`, name models `coire-*` | ✅ snippet |
+| **pi** (`earendil-works/pi`, ex `pi-mono`) | NOW | OpenAI chat/completions | `~/.pi/agent/models.json`, `api:"openai-completions"`, `baseUrl=…:4002/v1` | ✅ snippet |
+| **hermes** (user's agent framework) | NOW | OpenAI chat/completions | point its base URL at `…:4002/v1` | ✅ snippet |
+| **Claude Code** | NOW | Anthropic Messages | `ANTHROPIC_BASE_URL=…:4001/anthropic` + `ANTHROPIC_DEFAULT_*_MODEL="coire-*"`; bypasses shim | ⚠ env vars + tradeoff note |
+| **Codex CLI** | LATER | OpenAI **Responses** only | needs a Responses↔chat bridge (LiteLLM / community) | ❌ later |
+| **omo** (opencode plugin) | LATER | via opencode | needs extra pools + load-bearing `omo-*` names (aliases) | ⏳ later |
+| **openclaw** | LATER | OpenAI chat/completions | (stub) | ⏳ later |
 
 "pi" was confirmed = Mario Zechner's Pi coding agent (`earendil-works/pi`, formerly
 `badlogic/pi-mono`) — corroborated by the shim's existing `Pi-mono / hermes-agent`
 comments, its `developer→system` role coercion matching Pi's `supportsDeveloperRole:false`,
 the `NOTICE` credit, and Pi being the stack behind the user's old OpenClaw.
 
-**openclaw:** future stub only.
-
-## 4. Architecture — core vs adapters (single repo)
+## 4. Architecture — core + guides (single repo)
 
 ```
 CORE (always installed):
   bifrost/            seed + snapshot + apply        (neutral tier names)
   strip-shim/         OpenAI-compat normalizer       (de-omo'd; names config-driven)
   scripts/runtime/    apply_pool_weights + build_models_list + pool_weights.yaml
-  docker-compose.yml  bifrost + strip-shim ONLY by default
-  install.sh          core stops after pools applied — deploys NO harness glue
+  scripts/ops/        MAINTENANCE CLI — harness-neutral, run directly / via cron
+  docker-compose.yml  bifrost + strip-shim by default
+  install.sh          installs core + maintenance CLI only — ZERO harness config
   .env.example
 
-OPTIONAL (compose profiles / install flags):
-  dashboard/                  --profile dashboard (observability; harness-neutral)
-  adapters/opencode/          opencode.json.template
-  adapters/pi/                models.json snippet
-  adapters/hermes/            base-url config snippet
-  adapters/claude-code/       settings.json env snippet (anthropic route + tradeoff)
-  adapters/codex/             config.toml + Responses-bridge note
-  adapters/omo/               THE OPS OVERLAY: oh-my-openagent.json + omo alias map
-                              + .opencode/ skills/commands + scripts/ops/  (moved here)
-  adapters/openclaw/          (future stub)
-  docs/adapters/<harness>.md  one connect guide each
+OPTIONAL:
+  dashboard/          --profile dashboard (observability; harness-neutral)
+
+GUIDES (copy-paste only, nothing deployed):
+  docs/connect/opencode.md     vanilla opencode custom-provider config
+  docs/connect/pi.md           ~/.pi/agent/models.json
+  docs/connect/hermes.md       base-url config
+  docs/connect/claude-code.md  ANTHROPIC_BASE_URL → bifrost /anthropic + model env
+  docs/connect/README.md       index + the install→connect→use story
+  (later: codex.md, omo.md, openclaw.md)
 ```
 
-**Key move:** `.opencode/` (skills + commands) and `scripts/ops/` (the 8 CLI tools +
-deploy.sh) leave the core install path and become the `omo` adapter, installed via
-`--with-omo`. Core install no longer touches `~/.config/opencode/` at all.
+**Maintenance CLI (`scripts/ops/`, deployed to `~/coire-tools/`)** — promoted from
+omo-skill wrappers to the canonical, harness-neutral interface:
+- keep: `coire-health`, `coire-monitor`, `coire-restart`, `coire-check-quotas`,
+  `coire-cascade-show`
+- generalize `coire-diagnose` → detect stuck/error patterns from **bifrost logs only**
+  (no harness log paths / process names)
+- rename `coire-kill-opencode` → `coire-kill-harness` with a **configurable process
+  pattern** (env/arg), so it works for any harness or none
+- **drop from core:** `.opencode/` skills+commands, `oh-my-openagent.json`,
+  `opencode.json.template`, `scripts/ops/deploy.sh` (.68→.93-specific). The omo material
+  is parked (recoverable from git history) and returns in the LATER omo-phase spec.
 
 ### Unit boundaries
 - **bifrost layer** — turns `.env` keys into providers + tier routing rules. Depends on:
   `.env`, the bifrost container, `pool_weights.yaml`. Output: a running router.
 - **strip-shim** — pure OpenAI-compat proxy + normalizer. Depends on: bifrost URL,
   optional `models.json`, a tier-name config. Knows nothing about any harness.
-- **adapters/** — each is data + docs only; consumes the router's `/v1` (or bifrost's
-  `/anthropic`). No adapter is a code dependency of core.
+- **maintenance CLI** — talks to the bifrost API + docker only. No harness dependency.
+- **guides** — pure docs; consume the router's `/v1` (or bifrost's `/anthropic`). Not a
+  code dependency of anything.
 
-## 5. Pool model — capability tiers + alias-in-cel (B-ready)
+## 5. Pool model — capability tiers (NOW cut needs no aliases)
 
 Three neutral tiers, 1:1 with today's cascades (renamed):
 
@@ -106,24 +125,21 @@ Three neutral tiers, 1:1 with today's cascades (renamed):
 | `coire-fast` | omo-utility | small / high-RPM utility (search, explore) |
 | `coire-vision` | omo-gemini | multimodal / vision |
 
-**Aliases are free.** Each bifrost routing rule's `cel_expression` becomes
-`model in ["coire-main", "omo-main", "opus", …]` — one rule serves every name that maps
-to that tier. No cascade duplication, no shim-side rewrite. `pool_weights.yaml` grows an
-`aliases:` list per tier; `apply_pool_weights.py` emits the `in [...]` expression.
+**NOW cut: no aliases needed.** All four supported harnesses can name `coire-*` directly
+— including Claude Code via `ANTHROPIC_DEFAULT_OPUS_MODEL="coire-main"` /
+`..._HAIKU_MODEL="coire-fast"`. So the initial routing-rules ship exactly three rules with
+plain `cel_expression: model == "coire-X"`. Clean.
 
-Per-harness name maps live in each adapter:
-- omo → `omo-main / omo-utility / omo-gemini`
-- Claude Code → `opus→coire-main`, `sonnet→coire-main`, `haiku→coire-fast`
-- pi / codex / opencode / hermes → use `coire-*` directly (or own aliases)
+**Alias mechanism — reserved for the omo phase (LATER).** omo's variant matcher keys on
+load-bearing fixed names (`omo-main`/`omo-gemini`/…). When omo lands, each tier rule's
+`cel_expression` becomes `model in ["coire-main", "omo-main", …]` — one rule serving every
+alias, no cascade duplication. `pool_weights.yaml` will grow an `aliases:` list then;
+`apply_pool_weights.py` emits the `in [...]`. Not built now (YAGNI).
 
 **Why not per-harness pools:** a pool is a *named cascade*, not a quota partition — every
 pool draws from the same provider RPM/TPM. Per-harness pools give zero isolation by
-themselves. Tiers stay shared; only names differ.
-
-**B-ready (deferred, build only when hermes-driven concurrency is real):** load-spread =
-generate per-harness rule variants that reorder just the *first hop* (a `primary:` hint
-per harness) from the same tier target list. One generator flag in `apply_pool_weights.py`.
-Not built now (YAGNI) — but `pool_weights.yaml` schema leaves room for it.
+themselves. Tiers stay shared; only names differ. (Load-spread via per-harness primary
+override is a far-future option, only if hermes-driven concurrency proves it out.)
 
 ## 6. Bug-fix sweep (step 1 — own commit, before any restructure)
 
@@ -152,24 +168,30 @@ removal + the broken test. Full doc *rewrites* happen later in their own steps.
 - **DeepSeek decision** — `install.sh`/`seed.sh`/snapshot wire deepseek but README +
   `.env.example` omit it. Resolve by documenting it in both (keep the provider).
 
-## 7. Sequencing (each step = one local commit; no push until §7.7)
+## 7. Sequencing (each step = one local commit; no push until step 7)
 
 1. **Bug-fix sweep** (§6) — known-good fresh-install baseline.
-2. **Pool genericize** — tiers + `aliases:` in `pool_weights.yaml`; `apply_pool_weights.py`
-   emits alias-in-cel; re-snapshot routing-rules with neutral names.
+2. **Pool genericize** — rename pools to `coire-main/fast/vision`; re-snapshot
+   routing-rules with three plain `model == "coire-X"` rules (no aliases this cut).
 3. **Shim de-omo** — tier names from config (env/JSON), not hardcoded `_FALLBACK_POOLS`;
-   delete the dead `_POOL_DROPS_RE` no-op + redundant `_POOL_OUTPUT_CAP`; pin Dockerfile
-   deps; honor `PORT`.
-4. **Repo reshape** — move `.opencode/` + `scripts/ops/` → `adapters/omo/`; split
-   `install.sh` into core (bifrost+shim+pools) vs `--with-omo` / `--with-<adapter>`;
-   dashboard stays a profile.
-5. **Adapter docs ×5** — `docs/adapters/{opencode,pi,hermes,claude-code,codex}.md`, each
-   with verified copy-paste config + the "install → connect → use" quickstart.
-6. **README rewrite** — core-first, harness-agnostic; lead with the Jimmy/Jon onboarding
-   story; rewrite CONTRIBUTING / CHANGELOG / NOTICE / `docs/omo-*` (omo docs move under
-   `adapters/omo/`).
-7. **Reconcile .93** — wipe + reinstall from `.env` to validate the agnostic core
-   end-to-end; **then** user reviews and pushes.
+   delete the dead `_POOL_DROPS_RE` no-op + redundant `_POOL_OUTPUT_CAP`; strip omo/hermes
+   comments; pin Dockerfile deps; honor `PORT`.
+4. **Repo reshape + maintenance CLI** — `install.sh` = core + maintenance CLI only, ZERO
+   harness config; generalize `coire-diagnose` (bifrost-logs only) + rename
+   `coire-kill-opencode` → `coire-kill-harness` (configurable pattern); remove `.opencode/`,
+   `oh-my-openagent.json`, `opencode.json.template`, `scripts/ops/deploy.sh` (omo material
+   parked for the LATER omo spec); dashboard stays a profile.
+5. **Connect guides ×4** — `docs/connect/{opencode,pi,hermes,claude-code}.md` (+ index),
+   each verified copy-paste config + the "install router → install your harness → connect →
+   use free" quickstart. opencode guide = **vanilla opencode**, no omo.
+6. **README + docs rewrite** — core-first, harness-agnostic; lead with the Jimmy/Jon
+   onboarding story; mark codex/omo/openclaw "coming"; rewrite/retire CONTRIBUTING,
+   CHANGELOG, NOTICE, `docs/omo-*` (the omo docs get parked with the omo material).
+7. **Reconcile .93 + push** — wipe + reinstall from `.env`; validate all four NOW harnesses
+   connect; **then** user reviews and pushes.
+
+**Later phases (separate spec each):** Codex (Responses bridge) → omo (extra pools +
+`omo-*` aliases via the §5 mechanism + the parked ops/skills) → openclaw.
 
 ## 8. Sources (harness connect facts)
 
@@ -181,16 +203,20 @@ removal + the broken test. Full doc *rewrites* happen later in their own steps.
 
 ## 9. Risks / open items
 
-- **Codex friction vs the "just connect and use" vision.** Responses-only means Codex is
-  not truly plug-and-play without a bridge. Documented honestly now; building a
-  `/v1/responses` shim route is the follow-up if seamless Codex matters.
 - **Claude Code bypasses the shim** (goes to bifrost `/anthropic`). Acceptable: most shim
   fixes are OpenAI-format quirks. If Anthropic-path provider bugs appear, revisit
-  proxying `/anthropic` through the shim.
-- **omo pool names are load-bearing** for the omo plugin's variant matcher. The omo
-  adapter MUST keep `omo-main/omo-utility/omo-gemini` as aliases → guaranteed by §5.
+  proxying `/anthropic` through the shim. Must verify bifrost `/anthropic` actually serves
+  the free providers in the NOW reconcile test (step 7).
+- **Codex deferred, not solved** — Responses-only. The "just connect and use" vision is
+  honest only for the 3 OpenAI-compat harnesses + Claude; Codex gets a `/v1/responses`
+  bridge in its own later phase.
+- **omo deferred** — its load-bearing `omo-*` names + extra pools come back in the omo
+  phase via the §5 alias mechanism. Parked omo material is recoverable from git history.
 - **.93 is divergent** (old base + uncommitted hand-edits). Reconcile only via fresh
-  wipe+reinstall (§7.7), never `git pull` over that tree.
+  wipe+reinstall (step 7), never `git pull` over that tree.
+- **Maintenance CLI generalization** — `coire-diagnose` currently reads opencode logs;
+  rewriting it to bifrost-logs-only may lose some signal. Verify it still catches the
+  failure modes it was built for (orphan streams, error loops) against bifrost data alone.
 
 ## Appendix A — full review backlog (every finding, all subsystems)
 
