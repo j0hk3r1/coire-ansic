@@ -240,11 +240,12 @@ removal + the broken test. Full doc *rewrites* happen later in their own phases.
     `model=="coire-X"`, weighted targets summing to 1, ordered fallbacks). Validate against
     `$schema`.
 0b. `docker-compose.yml`: bifrost service only for the core; mount config.json into the
-    app-dir; `env_file: .env`; bind **loopback** (`127.0.0.1:4001:8080`) OR enable
-    `client.enforce_auth_on_inference` — fix the LAN-open-unauthenticated exposure.
-0c. Resolve `BIFROST_API_KEY`: either drop it (loopback, inference open, `BIFROST_PASS`
-    guards only the admin API) or mint a real virtual key (`sk-bf-*`) + enforce. Update
-    `.env.example` + `install.sh` gate to match reality.
+    app-dir; `env_file: .env`. **Keep `0.0.0.0:4001` LAN bind + open inference** (decided:
+    trusted LAN, easier testing). No `enforce_auth_on_inference` for now.
+0c. `BIFROST_API_KEY` → make **optional** (inference is unauthenticated by default; the key
+    is only used if you later flip `enforce_auth_on_inference` + mint a virtual key
+    `sk-bf-*`). Fix the README/install that currently REQUIRE it + claim clients must Bearer
+    it — both are false today. `BIFROST_PASS` stays (guards the admin/dashboard API).
 0d. `install.sh` (core path): validate `.env` → `docker compose up bifrost` → smoke-test
     `/v1/chat/completions` against each pool. Delete `seed.sh`, `sync_key_models.py`,
     `apply_snapshot.py`, `snapshot.py` once config.json reproduces them.
@@ -298,16 +299,20 @@ aliases via §5 + parked ops/skills) → openclaw.
 - **Maintenance CLI generalization** — `coire-diagnose` currently reads opencode logs;
   rewriting it to bifrost-logs-only may lose some signal. Verify it still catches the
   failure modes it was built for (orphan streams, error loops) against bifrost data alone.
-- **No native circuit-breaking (validated, Appendix C).** Bifrost OSS does NOT health-demote
-  dead providers — that is Enterprise "Adaptive LB". A dead primary is re-probed every
-  request (stateless cascade). The deleted CB daemon filled a real gap; the dashboard
-  comment claiming "bifrost's built-in cascade handles it" is wrong and must be corrected.
-  Acceptable for free-tier IF per-provider timeouts are tight (fast-fail through the
-  cascade). Whether to re-add lightweight demotion is a later call.
-- **Inference is open by default (validated).** `BIFROST_API_KEY` is not actually enforced
-  unless `client.enforce_auth_on_inference=true` + a virtual key. `.93` currently binds
-  `0.0.0.0:4001` with open inference = LAN-open unauthenticated gateway. Phase 0 fixes this
-  (loopback or enforce-auth) — must not regress.
+- **Circuit-breaking — DECIDED: not building it for the core.** Bifrost OSS does NOT
+  health-demote dead providers (Enterprise "Adaptive LB" only); a dead primary is re-probed
+  each request (stateless cascade). That is an optimization gap, not a correctness one:
+  with the deep fallback cascade + `max_retries` + tight per-provider timeouts, a dead/
+  saturated primary fails fast and bifrost walks to the next target. CB only saves the
+  wasted first-hop latency. Rely on cascade+retries+timeouts; measure; add *light* demotion
+  later only if a dead primary demonstrably adds seconds per request. (The deleted CB
+  *daemon* was a heavy stateful poller — not worth rebuilding.) **Phase 1 must still correct
+  the dashboard comment** that wrongly claims bifrost natively does the circuit-breaking.
+- **Inference is open by default — DECIDED: keep LAN-open for now.** `BIFROST_API_KEY` is
+  not enforced unless `enforce_auth_on_inference=true` + a virtual key. bifrost stays
+  `0.0.0.0:4001` open on the trusted LAN (easier testing). `BIFROST_API_KEY` becomes
+  optional + docs corrected. Revisit (loopback or enforce-auth + `sk-bf-*`) only before any
+  non-LAN exposure.
 - **No automated broken-tools regression guard (Appendix D).** Text-only models are caught
   only by manual `probe.py`. Provider model sets drift; a benched model may recover or a
   good one may break silently. A periodic probe-sweep is worth considering (later).
