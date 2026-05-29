@@ -511,8 +511,10 @@ _RE_REJECTERS = (
     "qwen-3-235b",
     "mistral-large", "mistral-medium", "mistral-small",
     "codestral",
-    "glm-4.7",   # cerebras/zai-glm-4.7 (coire-main PRIMARY) + zai/glm-4.7-flash:
-                 # accept reasoning_effort only as 'none'; low/medium/minimal → 400
+    # NB: a research pass claimed cerebras/zai-glm-4.7 (coire-main PRIMARY) rejects
+    # reasoning_effort except 'none' — but live testing 2026-05-29 showed it ACCEPTS
+    # 'medium' fine (served the request, no 400/retry). So glm-4.7 is intentionally
+    # NOT listed here. The post-retry path still recovers if any target 400s on it.
 )
 _THINKING_REJECTERS = (
     "command-a-03-2025",
