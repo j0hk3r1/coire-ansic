@@ -1,26 +1,28 @@
-# Hermes Free Cloud — 5 services
-# bifrost     :4001  — AI gateway, free-tier multi-provider routing
-# strip-shim  :4002  — strips reasoning + rewrites tool_call_ids (Mistral compat)
-# searxng     :8891  — self-hosted meta-search (free web)
-# camofox     :9378  — anti-detect Firefox browser (Camoufox + REST wrapper)
-# dashboard   :9118  — pool monitor + circuit breaker UI (profile: dashboard)
+# CoireAnsic — free-tier LLM router
 #
-# Hermes itself runs on the host (not here). It connects to:
-#   strip-shim @ http://localhost:4002/v1
-#   searxng    @ http://localhost:8891
-#   camofox    @ http://localhost:9378
-#   dashboard  @ http://localhost:9118  (start with: docker compose --profile dashboard up -d)
+# CORE (default `docker compose up -d`):
+#   bifrost :4001  — the gateway. Driven entirely by bifrost/data/config.json
+#                    (rendered from the git-tracked bifrost/config.json by install.sh).
+#                    Providers + keys (via .env) + pools all declared there.
 #
-# Companion: circuit-breaker.service (systemd user) — see systemd/circuit-breaker.service
+# OPTIONAL (opt-in profiles — NOT started by the core):
+#   strip-shim :4002  profile "shim"      — OpenAI-compat normalizer (Mistral tool-id,
+#                                            Kimi/Qwen tokens, param-rejection retries)
+#   dashboard  :9118  profile "dashboard" — pool/latency monitor
+#   searxng    :8891  profile "searxng"   — self-hosted meta-search
+#   camofox    :9378  profile "camofox"   — anti-detect Firefox (BYO source)
+#
+#   e.g.  docker compose --profile shim --profile dashboard up -d
 
 services:
   bifrost:
     image: maximhq/bifrost
     container_name: coire-bifrost
     ports:
-      - "0.0.0.0:4001:8080"  # LAN-accessible (admin auth required)
+      - "0.0.0.0:4001:8080"  # LAN-accessible. Inference is unauthenticated by default
+                             # (trusted-LAN deploy). BIFROST_PASS guards the admin API.
     volumes:
-      - ./bifrost/data:/app/data
+      - ./bifrost/data:/app/data          # app-dir: holds the rendered config.json + DB
       - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
       - /etc/localtime:/etc/localtime:ro
     env_file:
@@ -33,7 +35,14 @@ services:
       retries: 3
       start_period: 15s
 
+  # ── Optional Layer-2 services (opt-in via --profile) ──────────────────────
+
+  # OpenAI-compat normalizer. Only needed for clients/providers that hit the
+  # known quirks (Mistral 9-char tool-id, Kimi/Qwen tool-call formats,
+  # reasoning-only retries, param-rejection). zai no longer needs it — config.json
+  # points zai direct at its native endpoint.
   strip-shim:
+    profiles: ["shim"]
     build:
       context: ./strip-shim
     image: coire-strip-shim:latest
@@ -43,12 +52,7 @@ services:
     environment:
       BIFROST_URL: http://bifrost:8080
       MODELS_JSON_PATH: /root/.coire/models.json
-      # Z.ai path-rewrite proxy (bifrost calls /zai-proxy/v4/v1/chat/completions →
-      # shim rewrites to z.ai's /api/paas/v4/chat/completions with auth)
-      ZAI_API_KEY: "${ZAI_API_KEY:-}"
-    # Read-only mount of ~/.coire so /v1/models can serve the live-generated
-    # models.json (built by scripts/runtime/build_models_list.py). Missing
-    # file is fine — the endpoint falls back to a static pool list.
+      ZAI_API_KEY: "${ZAI_API_KEY:-}"   # legacy zai-proxy path (unused now zai is direct)
     volumes:
       - ~/.coire:/root/.coire:ro
     depends_on:
@@ -56,8 +60,6 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  # Optional — opt in via: docker compose --profile searxng up -d
-  # or install.sh --with-searxng
   searxng:
     profiles: ["searxng"]
     image: searxng/searxng:latest
@@ -83,9 +85,8 @@ services:
       retries: 3
       start_period: 20s
 
-  # Optional — opt in via: docker compose --profile camofox up -d
-  # or install.sh --with-camofox. install.sh auto-clones redf0x1/camofox-browser
-  # (MIT — REST API on :9377 wrapping the Camoufox stealth browser engine).
+  # Anti-detect Firefox. install.sh --with-camofox auto-clones redf0x1/camofox-browser
+  # (MIT — REST API on :9377 wrapping the Camoufox engine).
   camofox:
     profiles: ["camofox"]
     build:
@@ -93,14 +94,14 @@ services:
     image: coire-camofox:latest
     container_name: coire-camofox
     ports:
-      - "0.0.0.0:9378:9377"  # host :9378 → container :9377 (REST API)
+      - "0.0.0.0:9378:9377"   # host :9378 → container :9377 (REST API)
       - "127.0.0.1:6080:6080" # noVNC viewer (loopback only)
     environment:
       CAMOFOX_HOST: 0.0.0.0
       CAMOFOX_API_KEY: ${CAMOFOX_API_KEY:-}
       CAMOFOX_AUTH_MODE: ${CAMOFOX_AUTH_MODE:-auto}
     volumes:
-      - ./camofox/data:/home/node/.camofox  # persist profiles + cookies across restarts
+      - ./camofox/data:/home/node/.camofox
     restart: unless-stopped
     shm_size: 2gb
     healthcheck:
@@ -110,9 +111,7 @@ services:
       retries: 3
       start_period: 90s
 
-  # Pool monitor + circuit breaker UI. Optional — start with --profile dashboard.
-  # Reads live data from bifrost (logs, routing rules, providers) and from the
-  # circuit_breaker daemon's cooldown_status.json (mounted via ~/.coire).
+  # Pool / latency monitor. Reads bifrost logs + routing rules (read-only).
   dashboard:
     profiles: ["dashboard"]
     build:
@@ -123,15 +122,8 @@ services:
       - "0.0.0.0:9118:9118"
     volumes:
       - ~/.coire:/root/.coire:ro
-      # Curator-pool subdir is rw so dashboard action endpoints
-      # (force-restore / prune) can update circuit_state.json. The
-      # parent /root/.coire stays ro for everything else.
-      - ~/.coire/curator-pool:/root/.coire/curator-pool:rw
       - /var/spool/cron/crontabs/${USER:-jkr}:/host_crontab:ro
-      - ./bifrost/excluded_models.json:/app/bifrost/excluded_models.json:ro
-      - ./bifrost/candidate_providers.json:/app/bifrost/candidate_providers.json:ro
       - ./scripts/runtime/pool_weights.yaml:/app/scripts/runtime/pool_weights.yaml:ro
-      - ./scripts/runtime/model_capabilities.yaml:/app/model_capabilities.yaml:ro
     environment:
       BIFROST_URL: http://172.17.0.1:4001
       BIFROST_USER: admin
@@ -140,4 +132,3 @@ services:
     depends_on:
       bifrost:
         condition: service_healthy
-

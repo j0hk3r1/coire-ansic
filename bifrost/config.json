@@ -73,37 +73,6 @@
         "retry_backoff_max": 5000
       }
     },
-    "deepseek": {
-      "keys": [
-        {
-          "name": "deepseek-1",
-          "value": "env.DEEPSEEK_API_KEY",
-          "models": [
-            "*"
-          ],
-          "weight": 1
-        }
-      ],
-      "network_config": {
-        "base_url": "https://api.deepseek.com/v1",
-        "default_request_timeout_in_seconds": 300,
-        "max_retries": 2,
-        "retry_backoff_initial": 500,
-        "retry_backoff_max": 5000
-      },
-      "custom_provider_config": {
-        "is_key_less": false,
-        "base_provider_type": "openai",
-        "allowed_requests": {
-          "chat_completion": true,
-          "chat_completion_stream": true
-        },
-        "request_path_overrides": {
-          "chat_completion": "https://api.deepseek.com/v1/chat/completions",
-          "chat_completion_stream": "https://api.deepseek.com/v1/chat/completions"
-        }
-      }
-    },
     "gemini": {
       "keys": [
         {
@@ -338,12 +307,12 @@
         "targets": [
           {
             "provider": "gemini",
-            "model": "gemini-3-flash-preview",
+            "model": "gemini-3.5-flash",
             "weight": 1
           }
         ],
         "fallbacks": [
-          "gemini/gemini-3.5-flash",
+          "gemini/gemini-3-flash-preview",
           "gemini/gemini-3.1-flash-lite-preview",
           "gemini/gemini-2.5-flash",
           "mistral/pixtral-large-latest",
