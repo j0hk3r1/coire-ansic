@@ -380,16 +380,15 @@
         "cel_expression": "model == \"coire-chat\"",
         "targets": [
           {
-            "provider": "gemini",
-            "model": "gemini-3.5-flash",
+            "provider": "mistral",
+            "model": "mistral-medium-latest",
             "weight": 1
           }
         ],
         "fallbacks": [
-          "groq/llama-3.3-70b-versatile",
-          "mistral/mistral-medium-latest",
           "gemini/gemini-2.5-flash-lite",
           "mistral/mistral-small-latest",
+          "groq/llama-3.3-70b-versatile",
           "groq/llama-3.1-8b-instant"
         ],
         "scope": "global",
