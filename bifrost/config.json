@@ -362,7 +362,9 @@
           "groq/openai/gpt-oss-120b",
           "mistral/mistral-medium-latest",
           "openrouter/qwen/qwen3-next-80b-a3b-instruct:free",
-          "cloudflare/@cf/moonshotai/kimi-k2.6"
+          "cloudflare/@cf/moonshotai/kimi-k2.6",
+          "cohere/command-a-03-2025",
+          "github-models/openai/gpt-4.1-mini"
         ],
         "scope": "global",
         "priority": 22
