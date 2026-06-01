@@ -312,10 +312,9 @@
           }
         ],
         "fallbacks": [
-          "gemini/gemini-3-flash-preview",
-          "gemini/gemini-3.1-flash-lite-preview",
           "gemini/gemini-2.5-flash",
-          "mistral/pixtral-large-latest",
+          "gemini/gemini-2.5-flash-lite",
+          "sambanova/Llama-4-Maverick-17B-128E-Instruct",
           "nvidia-nim/meta/llama-3.2-90b-vision-instruct"
         ],
         "scope": "global",
@@ -329,17 +328,15 @@
         "targets": [
           {
             "provider": "gemini",
-            "model": "gemini-3.1-flash-lite-preview",
+            "model": "gemini-2.5-flash-lite",
             "weight": 1
           }
         ],
         "fallbacks": [
-          "gemini/gemini-flash-latest",
-          "gemini/gemini-2.5-flash",
-          "gemini/gemini-3.5-flash",
-          "gemini/gemini-2.5-flash-lite",
-          "gemini/gemini-flash-lite-latest",
-          "nvidia-nim/google/gemma-4-31b-it"
+          "gemini/gemini-3.1-flash-lite-preview",
+          "groq/llama-3.1-8b-instant",
+          "mistral/ministral-8b-latest",
+          "gemini/gemini-2.5-flash"
         ],
         "scope": "global",
         "priority": 21
@@ -357,18 +354,15 @@
           }
         ],
         "fallbacks": [
-          "mistral/mistral-large-2512",
-          "cloudflare/@cf/moonshotai/kimi-k2.6",
           "gemini/gemini-3.5-flash",
-          "cerebras/qwen-3-235b-a22b-instruct-2507",
-          "zai/glm-4.7-flash",
-          "gemini/gemini-3-flash-preview",
-          "openrouter/deepseek/deepseek-v4-flash:free",
-          "mistral/mistral-medium-3.5",
-          "openrouter/z-ai/glm-5.1",
-          "nvidia-nim/moonshotai/kimi-k2.6",
+          "mistral/mistral-large-2512",
+          "sambanova/DeepSeek-V3.1",
+          "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+          "cerebras/gpt-oss-120b",
+          "groq/openai/gpt-oss-120b",
+          "mistral/mistral-medium-latest",
           "openrouter/qwen/qwen3-next-80b-a3b-instruct:free",
-          "nvidia-nim/z-ai/glm-5.1"
+          "cloudflare/@cf/moonshotai/kimi-k2.6"
         ],
         "scope": "global",
         "priority": 22
@@ -380,14 +374,15 @@
         "cel_expression": "model == \"coire-chat\"",
         "targets": [
           {
-            "provider": "mistral",
-            "model": "mistral-medium-latest",
+            "provider": "groq",
+            "model": "openai/gpt-oss-120b",
             "weight": 1
           }
         ],
         "fallbacks": [
+          "mistral/mistral-small-2603",
+          "sambanova/Meta-Llama-3.3-70B-Instruct",
           "gemini/gemini-2.5-flash-lite",
-          "mistral/mistral-small-latest",
           "groq/llama-3.3-70b-versatile",
           "groq/llama-3.1-8b-instant"
         ],
