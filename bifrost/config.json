@@ -377,16 +377,16 @@
         "cel_expression": "model == \"coire-chat\"",
         "targets": [
           {
-            "provider": "groq",
-            "model": "openai/gpt-oss-120b",
+            "provider": "mistral",
+            "model": "mistral-small-2603",
             "weight": 1
           }
         ],
         "fallbacks": [
-          "mistral/mistral-small-2603",
           "sambanova/Meta-Llama-3.3-70B-Instruct",
           "gemini/gemini-2.5-flash-lite",
           "groq/llama-3.3-70b-versatile",
+          "mistral/ministral-8b-latest",
           "groq/llama-3.1-8b-instant"
         ],
         "scope": "global",
