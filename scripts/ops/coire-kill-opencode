@@ -34,7 +34,7 @@ case "$MODE" in
   all) PATTERN='opencode (tui|web)' ;;
 esac
 
-mapfile -t HITS < <(ps -eo pid,etime,cmd --no-headers | grep -E "$PATTERN" | grep -v 'grep\|coire-kill\|oh-my-openagent')
+mapfile -t HITS < <(ps -eo pid,etime,cmd --no-headers | grep -E "$PATTERN" | grep -v 'grep\|coire-kill')
 
 if [ "${#HITS[@]}" -eq 0 ]; then
   echo "no opencode processes match '$PATTERN'"
@@ -75,7 +75,7 @@ done
 sleep 1
 
 # Verify
-alive=$(ps -eo pid,cmd --no-headers | grep -E "$PATTERN" | grep -v 'grep\|coire-kill\|oh-my-openagent' | wc -l)
+alive=$(ps -eo pid,cmd --no-headers | grep -E "$PATTERN" | grep -v 'grep\|coire-kill' | wc -l)
 if [ "$alive" -eq 0 ]; then
   echo "✓ all matched opencode processes killed"
 else

@@ -22,6 +22,7 @@ SOFTWARE.
 
 This repository depends on third-party software with its own licenses:
 - Bifrost (https://github.com/maximhq/bifrost) — Apache 2.0
-- hermes-agent (https://github.com/NousResearch/hermes-agent) — see upstream
-- pi-mono / @earendil-works/pi-coding-agent — see upstream
-- SearXNG, Camoufox, Firecrawl, etc — see respective repos
+- SearXNG, Camoufox — see respective repos (optional, opt-in)
+
+Coding harnesses (opencode, pi, hermes, Claude Code, …) are NOT bundled or
+installed by this project — you bring your own. See NOTICE.

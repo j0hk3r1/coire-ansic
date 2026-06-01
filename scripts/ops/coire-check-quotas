@@ -35,7 +35,7 @@ probe "cloudflare/kimi-k2.6" "https://api.cloudflare.com/client/v4/accounts/$CLO
 probe "gemini/3-flash-preview" "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" "$GEMINI_API_KEY" "gemini-3-flash-preview"
 probe "mistral/large-2512" "https://api.mistral.ai/v1/chat/completions" "$MISTRAL_API_KEY" "mistral-large-2512"
 probe "mistral/medium-3.5" "https://api.mistral.ai/v1/chat/completions" "$MISTRAL_API_KEY" "mistral-medium-3.5"
-probe "nvidia-nim/deepseek-v4-pro" "https://integrate.api.nvidia.com/v1/chat/completions" "$NVIDIA_API_KEY" "deepseek-ai/deepseek-v4-pro"
+probe "nvidia-nim/llama-3.2-90b-vision" "https://integrate.api.nvidia.com/v1/chat/completions" "$NVIDIA_API_KEY" "meta/llama-3.2-90b-vision-instruct"
 probe "openrouter/glm-5.1" "https://openrouter.ai/api/v1/chat/completions" "$OPENROUTER_API_KEY" "z-ai/glm-5.1"
 probe "groq/llama-3.3-70b" "https://api.groq.com/openai/v1/chat/completions" "$GROQ_API_KEY" "llama-3.3-70b-versatile"
 probe "sambanova/DeepSeek-V3.2" "https://api.sambanova.ai/v1/chat/completions" "$SAMBANOVA_API_KEY" "DeepSeek-V3.2"

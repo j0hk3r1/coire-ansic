@@ -1,4 +1,4 @@
-# SearXNG config — minimal, JSON API enabled for Hermes.
+# SearXNG config — minimal, JSON API enabled for agent/MCP search clients.
 use_default_settings: true
 
 general:
@@ -11,7 +11,7 @@ search:
   default_lang: "all"
   formats:
     - html
-    - json                   # required for Hermes/MCP queries
+    - json                   # required for agent/MCP clients/MCP queries
 
 # 2026-05-21: bumped from default 3s — engines (DDG/Google/Bing/Startpage)
 # kept timing out at 3s on shared net. 10s/15s makes searches actually return.

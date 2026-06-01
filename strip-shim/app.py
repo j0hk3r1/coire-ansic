@@ -86,7 +86,7 @@ async def list_pool_models():
     doc = _load_models_doc()
     if doc is not None:
         # Filter to pool aliases — direct targets have a "/" in id (e.g.
-        # cerebras/gpt-oss-120b); pool aliases don't (best, code, mid…).
+        # cerebras/gpt-oss-120b); pool aliases don't (coire-main, coire-fast…).
         pools = [m for m in doc["data"] if "/" not in m.get("id", "")]
         if pools:
             return {**doc, "data": pools}

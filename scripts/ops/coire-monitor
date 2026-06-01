@@ -130,7 +130,7 @@ def main():
     # Totals
     total = sum(b["n"] for b in by_fb.values())
     if not total:
-        print("(no routing activity in window — omo TUI quiet OR bifrost dead)")
+        print("(no routing activity in window — no client traffic OR bifrost dead)")
         return
 
     routes_str = ", ".join(f"{k}:{v}" for k, v in sorted(by_rule.items(), key=lambda x: -x[1]))

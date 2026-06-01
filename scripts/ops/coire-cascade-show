@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""coire-cascade-show — pretty-print current omo-* routing rules with arena scores.
+"""coire-cascade-show — pretty-print current coire-* routing rules with arena scores.
 
 Pulls live bifrost config + annotates each target with MT-arena score (if known)
 + provider quota class. Useful for snapshot before/after pool edits.
@@ -42,7 +42,7 @@ PROVIDER_QUOTA = {
     "mistral": "4 RPM (large) / 50 RPM (medium)",
     "nvidia-nim": "~1000 monthly credits, 300s timeout",
     "openrouter": "50 RPD account pool (:free tier)",
-    "groq": "12k TPM (too small for omo handoffs)",
+    "groq": "12k TPM (too small for large handoffs)",
     "sambanova": "20 RPD per model, 32k ctx",
     "cohere": "20 trial calls/day, 1000/month",
     "github-models": "20k RPM, 8k ctx (too small)",
@@ -67,7 +67,7 @@ def lookup_arena(provider: str, model: str) -> str:
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--pool", help="Filter to one pool (e.g., omo-main)")
+    p.add_argument("--pool", help="Filter to one pool (e.g., coire-main)")
     p.add_argument("--bifrost", default="http://localhost:4001", help="Bifrost URL")
     args = p.parse_args()
 
@@ -87,8 +87,6 @@ def main():
     for rule in rules:
         name = rule.get("name", "?")
         if args.pool and name != args.pool:
-            continue
-        if not name.startswith("omo-"):
             continue
 
         targets = rule.get("targets") or []

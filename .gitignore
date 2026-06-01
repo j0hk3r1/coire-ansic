@@ -17,4 +17,3 @@ __pycache__/
 # Backups
 .env.bak.*
 *.bak.*
-scripts/runtime/pool_weights.yaml.bak

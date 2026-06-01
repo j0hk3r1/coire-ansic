@@ -109,7 +109,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("model", help="provider/model spec (e.g., cerebras/qwen-3-235b-a22b-instruct-2507, zai/glm-4.7-flash)")
     p.add_argument("--via", choices=["shim", "bifrost"], default="shim",
-                   help="Probe via shim (default — full omo path) or raw bifrost")
+                   help="Probe via shim (default — full shim path) or raw bifrost")
     p.add_argument("--no-tools", action="store_true", help="Skip tool-calling test")
     p.add_argument("--big", action="store_true", help="Also test with ~30k token prompt")
     p.add_argument("--ctx", type=int, default=30000, help="Token count for --big test (default 30000)")
@@ -167,9 +167,9 @@ def main():
         flags.append("✅ simple probe ok (model called tool unprompted — strong tool support)")
     if not args.no_tools:
         if tool_verdict == "TOOLCALL":
-            flags.append("✅ tool-calling works — usable in omo pools")
+            flags.append("✅ tool-calling works — usable in coire pools")
         elif tool_verdict == "TEXT-ONLY":
-            flags.append("⚠️ TOOL-CALLING BROKEN — model responds text-only to tool prompt. NOT for omo pools.")
+            flags.append("⚠️ TOOL-CALLING BROKEN — model responds text-only to tool prompt. NOT for coire pools.")
         else:
             flags.append(f"❌ tool probe {tool_verdict}: {tool_detail}")
     if args.big:

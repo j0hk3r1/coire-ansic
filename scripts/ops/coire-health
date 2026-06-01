@@ -61,11 +61,11 @@ echo
 
 # === opencode processes ===
 echo "## opencode processes"
-oc_count=$(pgrep -af 'opencode' | grep -v 'oh-my-openagent\|coire-tools\|coire-health' | wc -l)
+oc_count=$(pgrep -af 'opencode' | grep -v 'coire-tools\|coire-health' | wc -l)
 if [ "$oc_count" -eq 0 ]; then
   echo -e "  $OK no opencode running (clean state)"
 else
-  pgrep -af 'opencode' | grep -v 'oh-my-openagent\|coire-tools\|coire-health' | while IFS= read -r line; do
+  pgrep -af 'opencode' | grep -v 'coire-tools\|coire-health' | while IFS= read -r line; do
     echo "  $line"
   done
 fi

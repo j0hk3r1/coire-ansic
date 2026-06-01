@@ -32,12 +32,6 @@ camofox-browser (wraps the Camoufox engine)
   Used as: source cloned at install time by `--with-camofox`; opt-in.
   This project does not bundle its source.
 
-Firecrawl
-  https://github.com/mendableai/firecrawl
-  GNU Affero General Public License v3.0
-  Used as: docker stack installed via upstream script; opt-in adapter
-  This project does not bundle Firecrawl source.
-
 LLM provider names (Groq, NVIDIA, Mistral, Cerebras, Gemini, Cloudflare,
 OpenRouter, SambaNova, GitHub Models, Cohere, OpenAI, Anthropic, etc.)
 are trademarks of their respective owners. Their appearance in this

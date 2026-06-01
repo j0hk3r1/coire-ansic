@@ -1,21 +1,20 @@
-# camofox/ — anti-detect Firefox adapter
+# camofox/ — anti-detect Firefox adapter (opt-in)
 
-Auto-fetched from [redf0x1/camofox-browser](https://github.com/redf0x1/camofox-browser) (MIT) by `install.sh --with-camofox`. REST API on `:9378` (host) → `:9377` (container) wrapping the Camoufox stealth browser engine.
+A wrapper around [redf0x1/camofox-browser](https://github.com/redf0x1/camofox-browser) (MIT) — REST API on `:9378` (host) → `:9377` (container) wrapping the Camoufox stealth browser engine. **BYO source: it's not bundled.**
 
 ## Why opt-in
 
-Camoufox brings ~500 MB of patched Firefox binary + downloads ~150 MB on first run. Most users don't need stealth browsing — searxng + firecrawl handle 90 % of web-extract needs.
+Camoufox brings ~500 MB of patched Firefox binary + downloads ~150 MB on first run. Most users don't need stealth browsing.
 
 ## Install
 
-```bash
-./install.sh --with-camofox
-```
+The source isn't bundled — clone it + set a key once, then start it:
 
-What happens:
-1. `git clone https://github.com/redf0x1/camofox-browser camofox/src/`
-2. Generates `CAMOFOX_API_KEY` in `.env` if missing
-3. `docker compose --profile camofox up -d --build`
+```bash
+git clone https://github.com/redf0x1/camofox-browser camofox/src
+echo "CAMOFOX_API_KEY=$(head -c24 /dev/urandom | base64 | tr -d '/+=' | head -c32)" >> .env
+./install.sh --with-camofox      # → docker compose --profile camofox up -d --build (builds ./camofox/src)
+```
 
 ## Endpoints
 
@@ -31,13 +30,13 @@ What happens:
 
 See [redf0x1/camofox-browser README](https://github.com/redf0x1/camofox-browser) for full API.
 
-## Hook into omo
+## Use it
 
-omo's librarian agent uses `CAMOFOX_URL` env var to route stealth-fetch tools. Set:
+Any client that reads `CAMOFOX_URL` can route stealth-fetch tools through it. Set:
 ```bash
 CAMOFOX_URL=http://localhost:9378
 ```
-in `.env` (already templated). API key gets passed in `Authorization: Bearer $CAMOFOX_API_KEY`.
+in `.env`. The key is passed as `Authorization: Bearer $CAMOFOX_API_KEY`.
 
 ## Persistent profiles
 

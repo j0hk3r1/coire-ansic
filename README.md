@@ -62,13 +62,14 @@ bifrost, and confirms every pool routes.
 
 ## Pools (models)
 
-The router exposes three capability tiers as model names:
+The router exposes four capability tiers as model names:
 
 | model | for |
 |---|---|
 | `coire-main` | top reasoning + tool-calling (the workhorse) |
 | `coire-fast` | small / high-RPM utility (search, quick calls) |
 | `coire-vision` | multimodal / vision |
+| `coire-chat` | fast conversational (sub-second cascade) |
 
 `model` can also be a direct `provider/model` (e.g. `cerebras/zai-glm-4.7`) to pin one
 target. Each pool is one Bifrost routing rule: a weighted primary set + an ordered fallback

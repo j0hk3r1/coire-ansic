@@ -84,8 +84,8 @@ services:
       retries: 3
       start_period: 20s
 
-  # Anti-detect Firefox. install.sh --with-camofox auto-clones redf0x1/camofox-browser
-  # (MIT — REST API on :9377 wrapping the Camoufox engine).
+  # Anti-detect Firefox (MIT, REST API on :9377 wrapping Camoufox). Opt-in via
+  # --with-camofox AFTER cloning redf0x1/camofox-browser into ./camofox/src (see camofox/README.md).
   camofox:
     profiles: ["camofox"]
     build:
