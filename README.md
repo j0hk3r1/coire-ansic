@@ -1,4 +1,8 @@
-# CoireAnsic
+<p align="center">
+  <img src="assets/logo.png" alt="CoireAnsic — the cauldron that never empties" width="300">
+</p>
+
+<h1 align="center">CoireAnsic</h1>
 
 > *Coire Ansic* — Irish: "the un-dry cauldron." The Dagda's magic cauldron from the Tuatha
 > Dé Danann that never emptied; nobody left hungry, no matter how many came to feast.
