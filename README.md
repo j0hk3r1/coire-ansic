@@ -15,7 +15,7 @@ a working model even when individual providers saturate.
 (opencode, pi, hermes, Claude Code, …) and point it at the router.
 
 ```
-You install the router        →  ./install.sh   (bifrost :4001, from your .env)
+You install the router        →  ./install.sh   (shim :4001 → bifrost, from your .env)
 You install your harness       →  opencode / pi / hermes / Claude Code
 You connect it                 →  copy-paste from docs/connect/
 You use free-tier models free  →  your harness now runs on the cascade
@@ -34,9 +34,13 @@ automatically when one saturates.
 your harness  (opencode / pi / hermes / Claude Code — you bring it)
      │
      ▼
-bifrost :4001            — gateway. OpenAI-compat /v1 + Anthropic /anthropic.
-     │                     Cascade routing over ~12 providers. Driven entirely by
-     ▼                     bifrost/config.json (providers + keys-via-env + pools).
+strip-shim :4001         — always-on front door. Normalizes every request
+     │                     (tool-call formats, param-rejection + reasoning-only
+     │                     retries) on /v1; passes /anthropic + /api through.
+     ▼
+bifrost (:4011)          — gateway behind the shim. OpenAI-compat /v1 + Anthropic
+     │                     /anthropic. Cascade routing over ~12 providers. Driven
+     ▼                     entirely by bifrost/config.json (providers + env-keys + pools).
 free-tier providers      — cerebras, cloudflare, gemini, mistral, nvidia-nim, openrouter,
                            sambanova, groq, cohere, github-models, opencode-zen, z.ai
 ```

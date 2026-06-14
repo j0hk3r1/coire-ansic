@@ -1,10 +1,11 @@
 """OpenAI-compat proxy that strips reasoning_content from assistant messages
 before forwarding to Bifrost. Handles streaming + non-streaming.
 
-Optional Layer-2 normalizer: the core router (bifrost) serves clients directly
-on :4001; point a client at this shim (:4002) only when you want the extra
-robustness it adds for known provider quirks (Mistral tool-id format, Kimi/Qwen
-control-token tool calls, reasoning-only retries, param-rejection recovery).
+Always-on front door: this shim owns the public :4001 and forwards to bifrost
+(internal :8080 / host-debug :4011). Every request is normalized for known
+provider quirks (Mistral tool-id format, Kimi/Qwen control-token tool calls,
+reasoning-only retries, param-rejection recovery) on /v1; /anthropic and /api
+are passed straight through to bifrost unchanged.
 
 Tool-id rewrite: ALL tool_call_ids rewritten to 9-char hex unconditionally.
 Mistral requires ^[a-zA-Z0-9]{9}$ — and since clients use pool names
@@ -933,3 +934,56 @@ async def proxy(path: str, request: Request):
                  if k.lower() not in ("content-length", "transfer-encoding", "content-encoding")},
         media_type=out_ct or None,
     )
+
+
+# ── Transparent passthrough for non-/v1 surfaces ──────────────────────────
+# The shim normalizes only OpenAI /v1 traffic. Anthropic-format clients
+# (Claude Code → :4001/anthropic) and admin/management calls (/api/*) must
+# still reach bifrost UNCHANGED so the shim can be the single :4001 front
+# door. No body inspection or tool-call normalization here — pure relay,
+# streaming-aware. The earlier /api/tags, /api/v1/models, /stub/models GET
+# stubs are registered first and still win for those exact paths.
+async def _passthrough(prefix: str, path: str, request: Request):
+    body = await request.body()
+    headers = {k: v for k, v in request.headers.items()
+               if k.lower() not in ("host", "content-length")}
+    is_stream = False
+    if body:
+        try:
+            d = json.loads(body)
+            if isinstance(d, dict):
+                is_stream = bool(d.get("stream"))
+        except json.JSONDecodeError:
+            pass
+    target = f"{BIFROST_URL}/{prefix}/{path}"
+    client: httpx.AsyncClient = request.app.state.client
+    if is_stream:
+        async def gen():
+            async with client.stream(
+                request.method, target, content=body, headers=headers,
+                params=dict(request.query_params),
+            ) as r:
+                async for chunk in r.aiter_raw():
+                    yield chunk
+        return StreamingResponse(gen(), media_type="text/event-stream")
+    r = await client.request(
+        request.method, target, content=body, headers=headers,
+        params=dict(request.query_params),
+    )
+    return Response(
+        content=r.content,
+        status_code=r.status_code,
+        headers={k: v for k, v in r.headers.items()
+                 if k.lower() not in ("content-length", "transfer-encoding", "content-encoding")},
+        media_type=r.headers.get("content-type") or None,
+    )
+
+
+@app.api_route("/anthropic/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_anthropic(path: str, request: Request):
+    return await _passthrough("anthropic", path, request)
+
+
+@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_api(path: str, request: Request):
+    return await _passthrough("api", path, request)

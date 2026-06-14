@@ -5,11 +5,14 @@
 #   bifrost/config.json  (git-tracked; secrets are env. refs, no keys inside)
 #       │  install renders ${CLOUDFLARE_ACCOUNT_ID} -> bifrost/data/config.json (gitignored)
 #       ▼
-#   bifrost :4001  reads /app/data/config.json on startup → providers + pools live
+#   bifrost (:4011)  reads /app/data/config.json on startup → providers + pools live
+#       ▲
+#   strip-shim :4001  the always-on front door — normalizes every request, then
+#                     forwards to bifrost. Both are core (come up by default).
 #
-# Clients then point at http://<host>:4001/v1 (OpenAI-compat) — see docs/connect/.
+# Clients point at http://<host>:4001/v1 (OpenAI-compat, via the shim) — see docs/connect/.
 #
-# Optional Layer-2 services (opt-in): --with-shim --with-dashboard --with-searxng --with-camofox
+# Optional Layer-2 services (opt-in): --with-dashboard --with-searxng --with-camofox
 # Idempotent — safe to re-run.
 
 set -euo pipefail
@@ -18,7 +21,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
 PROFILES=""
 for arg in "$@"; do
   case "$arg" in
-    --with-shim)      PROFILES="$PROFILES,shim" ;;
+    --with-shim)      ;;  # deprecated no-op: strip-shim is now a core service
     --with-dashboard) PROFILES="$PROFILES,dashboard" ;;
     --with-searxng)   PROFILES="$PROFILES,searxng" ;;
     --with-camofox)   PROFILES="$PROFILES,camofox" ;;
@@ -69,15 +72,22 @@ envsubst '${CLOUDFLARE_ACCOUNT_ID}' < bifrost/config.json > bifrost/data/config.
 python3 -c "import json;json.load(open('bifrost/data/config.json'))" || die "rendered config.json is not valid JSON"
 ok "config rendered ($(python3 -c "import json;c=json.load(open('bifrost/data/config.json'));print(len(c['providers']),'providers,',len(c['governance']['routing_rules']),'pools')"))"
 
-# ── 3. bring up bifrost ──────────────────────────────────────────────────────
-step "docker compose up — bifrost${PROFILES:+ (+profiles: $PROFILES)}"
+# ── 3. bring up bifrost + shim ───────────────────────────────────────────────
+step "docker compose up — bifrost + strip-shim${PROFILES:+ (+profiles: $PROFILES)}"
 COMPOSE_PROFILES="$PROFILES" docker compose up -d --build
 for _ in $(seq 1 60); do
   [ "$(docker inspect coire-bifrost --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] && break
   sleep 2
 done
 [ "$(docker inspect coire-bifrost --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] || die "bifrost did not become healthy — check: docker logs coire-bifrost"
-ok "bifrost healthy ($(curl -sf http://localhost:4001/api/providers | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('providers',[])),'providers loaded')"))"
+ok "bifrost healthy ($(curl -sf http://localhost:4011/api/providers | python3 -c "import json,sys;print(len(json.load(sys.stdin).get('providers',[])),'providers loaded')"))"
+# Shim is the public front door — wait for it before smoke-testing :4001.
+for _ in $(seq 1 30); do
+  [ "$(docker inspect coire-strip-shim --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] && break
+  sleep 2
+done
+[ "$(docker inspect coire-strip-shim --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] || die "strip-shim did not become healthy — check: docker logs coire-strip-shim"
+ok "strip-shim healthy (front door :4001 → bifrost)"
 
 # ── 4. smoke-test each pool ──────────────────────────────────────────────────
 step "smoke-test pools"
@@ -98,8 +108,10 @@ cat <<MSG
 
 ────────────────────────────────────────────────────────────────────
 CoireAnsic core is up.
-  • Bifrost gateway   http://localhost:4001        (admin: admin / \$BIFROST_PASS)
-  • OpenAI-compat     http://localhost:4001/v1     ← point your harness here
+  • Front door (shim) http://localhost:4001        ← point your harness here
+  • OpenAI-compat     http://localhost:4001/v1     (normalized, then → bifrost)
+  • Anthropic-compat  http://localhost:4001/anthropic
+  • Bifrost admin     http://localhost:4011        (admin: admin / \$BIFROST_PASS, loopback)
   • Pools (models)    coire-main · coire-fast · coire-vision
 
 Connect a harness: see docs/connect/  (opencode · pi · hermes · claude-code)
