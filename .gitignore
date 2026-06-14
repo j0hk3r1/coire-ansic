@@ -1,10 +1,6 @@
 .env
 bifrost/data/
 
-# camofox auto-cloned at install — not bundled
-camofox/src/
-camofox/data/
-
 *.log
 __pycache__/
 *.pyc

@@ -50,8 +50,8 @@ Providers, keys (referenced from `.env`, never stored in the file), and the rout
 live there. Edit it, re-run `./install.sh`, done.
 
 The strip-shim normalizer is part of the core now — it's the always-on `:4001` front door that
-fixes provider tool-call quirks before forwarding to bifrost. Optional add-ons (off by default,
-opt-in via install flags / compose profiles): SearXNG, Camoufox.
+fixes provider tool-call quirks before forwarding to bifrost. This stack is just the router —
+auxiliary services (SearXNG, Camofox, Firecrawl) live in their own deploys, not here.
 
 ## Install
 
@@ -122,13 +122,6 @@ and change often):
 | Z.ai (Zhipu) | https://z.ai/manage-apikey/apikey-list |
 
 Cloudflare also needs `CLOUDFLARE_ACCOUNT_ID`. See `.env.example` for the full list.
-
-## Optional services
-
-```bash
-./install.sh --with-searxng    # self-hosted meta-search
-./install.sh --with-camofox    # anti-detect Firefox (auto-clones redf0x1/camofox-browser)
-```
 
 ## Add / change a provider or pool
 

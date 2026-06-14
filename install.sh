@@ -11,8 +11,7 @@
 #                     forwards to bifrost. Both are core (come up by default).
 #
 # Clients point at http://<host>:4001/v1 (OpenAI-compat, via the shim) — see docs/connect/.
-#
-# Optional Layer-2 services (opt-in): --with-searxng --with-camofox
+# Router only — auxiliary services (searxng/camofox/firecrawl) live in their own deploys.
 # Idempotent — safe to re-run.
 
 set -euo pipefail
@@ -21,9 +20,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"; cd "$ROOT"
 PROFILES=""
 for arg in "$@"; do
   case "$arg" in
-    --with-shim)      ;;  # deprecated no-op: strip-shim is now a core service
-    --with-searxng)   PROFILES="$PROFILES,searxng" ;;
-    --with-camofox)   PROFILES="$PROFILES,camofox" ;;
+    --with-shim|--with-searxng|--with-camofox|--with-dashboard) ;;  # deprecated no-ops: router-only now
     -h|--help) grep -E '^# ' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown flag: $arg (try --help)"; exit 64 ;;
   esac
