@@ -4,7 +4,7 @@ CoireAnsic ships **no harness** — you bring your own and point it at the route
 The flow is always the same:
 
 ```
-1. Install the router      ./install.sh        (brings up bifrost :4001 from .env)
+1. Install the router      ./install.sh        (brings up the shim :4001 + bifrost from .env)
 2. Install your harness     (opencode / pi / hermes / Claude Code — your choice)
 3. Connect it               copy-paste from the guide below
 4. Use it free              your harness now runs on the free-tier cascade

@@ -31,9 +31,8 @@ curl http://localhost:4001/v1/chat/completions \
 
 ## Notes
 
-- hermes was the router's original consumer; it previously pointed at the strip-shim on
-  `:4002`. The router now serves directly on `:4001/v1` — repoint there. The shim is an
-  optional Layer-2 service (`./install.sh --with-shim`) only needed for specific provider
-  tool-call quirks, not for normal use.
+- Point hermes' base URL at `:4001/v1` — the strip-shim front door (always on). It normalizes
+  provider tool-call quirks and reasoning-only/param-rejection cases, then forwards to bifrost
+  (which itself sits behind it on `:4011`). Older configs that used `:4002` should move to `:4001`.
 - For heavy concurrent / orchestrated runs, give requests adequate `max_tokens` so
   reasoning-model primaries return content rather than spending the budget on thinking.

@@ -43,7 +43,7 @@ Goal scoring:
 - Hallucinations: 0 — tried multiple binary paths, kept trying until success
 - UX: TUI with shell-style command visibility; great transparency
 - Config: ~/.config/opencode/opencode.json defines `coire` provider
-  pointing at strip-shim :4002 with pool aliases best/code/mid/fast as
+  pointing at the shim front door :4001 with pool aliases best/code/mid/fast as
   selectable models
 - Notes: visible "$ docker exec ..." trace gives nice operator insight
   but means longer TTFT. Honest failure path (tries alternatives).
@@ -62,7 +62,7 @@ Goal scoring:
 - Hallucinations: 0
 - UX: TUI + `-p` print mode + `--model` selector
 - Config: `~/.omp/agent/models.yml` defines `coire-bifrost` provider
-  pointing at strip-shim :4002 with all 7 pool aliases as selectable
+  pointing at the shim front door :4001 with all 7 pool aliases as selectable
   models. `--model coire-bifrost/best` works. Subagent roles
   (`--smol`, `--slow`, `--plan`) can be wired to specific pool aliases
   via the same config (see adapters/omp/models.yml in repo).

@@ -49,8 +49,9 @@ free-tier providers      — cerebras, cloudflare, gemini, mistral, nvidia-nim, 
 Providers, keys (referenced from `.env`, never stored in the file), and the routing pools all
 live there. Edit it, re-run `./install.sh`, done.
 
-Optional add-ons (off by default, opt-in via install flags / compose profiles): a strip-shim
-normalizer, a monitoring dashboard, SearXNG, Camoufox.
+The strip-shim normalizer is part of the core now — it's the always-on `:4001` front door that
+fixes provider tool-call quirks before forwarding to bifrost. Optional add-ons (off by default,
+opt-in via install flags / compose profiles): a monitoring dashboard, SearXNG, Camoufox.
 
 ## Install
 
@@ -125,7 +126,6 @@ Cloudflare also needs `CLOUDFLARE_ACCOUNT_ID`. See `.env.example` for the full l
 ## Optional services
 
 ```bash
-./install.sh --with-shim       # strip-shim normalizer (provider tool-call quirks)
 ./install.sh --with-dashboard  # pool/latency monitor :9118
 ./install.sh --with-searxng    # self-hosted meta-search
 ./install.sh --with-camofox    # anti-detect Firefox (auto-clones redf0x1/camofox-browser)

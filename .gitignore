@@ -13,6 +13,7 @@ __pycache__/
 .idea/
 .vscode/
 .claude/
+.playwright-mcp/
 
 # Backups
 .env.bak.*
