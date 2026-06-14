@@ -358,11 +358,9 @@
           "cerebras/gpt-oss-120b",
           "gemini/gemini-3.5-flash",
           "mistral/mistral-large-2512",
-          "sambanova/DeepSeek-V3.2",
           "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
           "mistral/mistral-medium-2604",
           "cohere/command-a-03-2025",
-          "github-models/openai/gpt-4.1-mini",
           "opencode-zen/deepseek-v4-flash-free"
         ],
         "scope": "global",
