@@ -73,7 +73,13 @@ python3 -c "import json;json.load(open('bifrost/data/config.json'))" || die "ren
 ok "config rendered ($(python3 -c "import json;c=json.load(open('bifrost/data/config.json'));print(len(c['providers']),'providers,',len(c['governance']['routing_rules']),'pools')"))"
 
 # ── 3. bring up bifrost + shim ───────────────────────────────────────────────
+# config.json is the source of truth, but bifrost's sqlite config_store caches it on first
+# boot and will NOT re-read an edited config.json afterwards. So drop the cache here to force
+# a clean re-import every install — otherwise "edit config.json → re-run install.sh" silently
+# no-ops. Safe: the whole config is declarative (no runtime-only state worth keeping).
 step "docker compose up — bifrost + strip-shim${PROFILES:+ (+profiles: $PROFILES)}"
+docker compose stop bifrost 2>/dev/null || true
+rm -f bifrost/data/config.db bifrost/data/config.db-wal bifrost/data/config.db-shm
 COMPOSE_PROFILES="$PROFILES" docker compose up -d --build
 for _ in $(seq 1 60); do
   [ "$(docker inspect coire-bifrost --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] && break
