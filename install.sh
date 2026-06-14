@@ -12,7 +12,7 @@
 #
 # Clients point at http://<host>:4001/v1 (OpenAI-compat, via the shim) — see docs/connect/.
 #
-# Optional Layer-2 services (opt-in): --with-dashboard --with-searxng --with-camofox
+# Optional Layer-2 services (opt-in): --with-searxng --with-camofox
 # Idempotent — safe to re-run.
 
 set -euo pipefail
@@ -22,7 +22,6 @@ PROFILES=""
 for arg in "$@"; do
   case "$arg" in
     --with-shim)      ;;  # deprecated no-op: strip-shim is now a core service
-    --with-dashboard) PROFILES="$PROFILES,dashboard" ;;
     --with-searxng)   PROFILES="$PROFILES,searxng" ;;
     --with-camofox)   PROFILES="$PROFILES,camofox" ;;
     -h|--help) grep -E '^# ' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -49,7 +48,7 @@ for v in GROQ_API_KEY GEMINI_API_KEY MISTRAL_API_KEY CEREBRAS_API_KEY NVIDIA_API
 done
 [ "$PROVIDER_COUNT" -ge 1 ] || die "no provider keys in .env — set at least one (GROQ/GEMINI/MISTRAL/CEREBRAS/...)"
 
-# BIFROST_PASS guards the admin API (dashboard + management). Auto-generate if absent.
+# BIFROST_PASS guards the admin/management API. Auto-generate if absent.
 if [ -z "${BIFROST_PASS:-}" ]; then
   GEN=$(head -c 18 /dev/urandom | base64 | tr -d '/+=' | head -c 24)
   if grep -q '^BIFROST_PASS=' .env; then sed -i "s|^BIFROST_PASS=.*|BIFROST_PASS=$GEN|" .env

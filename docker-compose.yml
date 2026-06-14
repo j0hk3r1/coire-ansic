@@ -12,11 +12,10 @@
 #                      admin/smoke-tests; the shim reaches it over the internal net.
 #
 # OPTIONAL (opt-in profiles — NOT started by the core):
-#   dashboard  :9118  profile "dashboard" — pool/latency monitor
 #   searxng    :8891  profile "searxng"   — self-hosted meta-search
 #   camofox    :9378  profile "camofox"   — anti-detect Firefox (BYO source)
 #
-#   e.g.  docker compose --profile dashboard up -d
+#   e.g.  docker compose --profile searxng up -d
 
 services:
   bifrost:
@@ -26,8 +25,8 @@ services:
       # Admin/debug only, loopback. The PUBLIC :4001 front door is now strip-shim
       # (always-on, normalizes every request before it reaches bifrost). Bifrost
       # itself is reachable by the shim over the internal docker net (bifrost:8080);
-      # this mapping is just for install.sh smoke-tests, the dashboard, and direct
-      # debugging. BIFROST_PASS guards the admin API.
+      # this mapping is just for install.sh smoke-tests and direct debugging.
+      # BIFROST_PASS guards the admin API.
       - "127.0.0.1:4011:8080"
     volumes:
       - ./bifrost/data:/app/data          # app-dir: holds the rendered config.json + DB
@@ -125,26 +124,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 90s
-
-  # Pool / latency monitor. Reads bifrost logs + routing rules (read-only).
-  dashboard:
-    profiles: ["dashboard"]
-    build:
-      context: ./dashboard
-    image: coire-dashboard:latest
-    container_name: coire-dashboard
-    ports:
-      - "0.0.0.0:9118:9118"
-    volumes:
-      - ~/.coire:/root/.coire:ro
-      - /var/spool/cron/crontabs/${USER:-jkr}:/host_crontab:ro
-      # NOTE: dashboard still needs a Phase-2 rework (it referenced removed
-      # pool_weights.yaml / curator state). It's opt-in (profile) + deferred.
-    environment:
-      BIFROST_URL: http://172.17.0.1:4011
-      BIFROST_USER: admin
-      BIFROST_PASS: ${BIFROST_PASS}
-    restart: unless-stopped
-    depends_on:
-      bifrost:
-        condition: service_healthy

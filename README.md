@@ -51,7 +51,7 @@ live there. Edit it, re-run `./install.sh`, done.
 
 The strip-shim normalizer is part of the core now — it's the always-on `:4001` front door that
 fixes provider tool-call quirks before forwarding to bifrost. Optional add-ons (off by default,
-opt-in via install flags / compose profiles): a monitoring dashboard, SearXNG, Camoufox.
+opt-in via install flags / compose profiles): SearXNG, Camoufox.
 
 ## Install
 
@@ -126,7 +126,6 @@ Cloudflare also needs `CLOUDFLARE_ACCOUNT_ID`. See `.env.example` for the full l
 ## Optional services
 
 ```bash
-./install.sh --with-dashboard  # pool/latency monitor :9118
 ./install.sh --with-searxng    # self-hosted meta-search
 ./install.sh --with-camofox    # anti-detect Firefox (auto-clones redf0x1/camofox-browser)
 ```
