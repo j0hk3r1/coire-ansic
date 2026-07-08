@@ -62,6 +62,11 @@ def render_provider(name, prov):
     prov = copy.deepcopy(prov)
     if keys:
         prov["keys"] = keys
+        if keyless:
+            # optional-key provider (e.g. kilo): a key is present, so flip to
+            # authenticated mode — bifrost only injects Authorization when
+            # is_key_less is false.
+            prov["custom_provider_config"]["is_key_less"] = False
     else:
         prov.pop("keys", None)  # keyless provider (e.g. kilo) — no keys block
 

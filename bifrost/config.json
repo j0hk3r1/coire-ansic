@@ -153,6 +153,16 @@
       }
     },
     "kilo": {
+      "keys": [
+        {
+          "name": "kilo-1",
+          "value": "env.KILO_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
       "network_config": {
         "base_url": "https://api.kilo.ai/api/gateway",
         "default_request_timeout_in_seconds": 90,
@@ -382,9 +392,9 @@
           }
         ],
         "fallbacks": [
+          "cerebras/gemma-4-31b",
           "gemini/gemini-2.5-flash",
           "gemini/gemini-2.5-flash-lite",
-          "cerebras/gemma-4-31b",
           "kilo/stepfun/step-3.7-flash:free",
           "cohere/command-a-vision-07-2025",
           "nvidia-nim/meta/llama-3.2-90b-vision-instruct",
@@ -435,16 +445,17 @@
         ],
         "fallbacks": [
           "ionet/zai-org/GLM-5.2",
+          "ionet/zai-org/GLM-5.1",
+          "ionet/deepseek-ai/DeepSeek-V4-Flash",
           "ionet/deepseek-ai/DeepSeek-V4-Pro",
           "cerebras/gpt-oss-120b",
           "gemini/gemini-3.5-flash",
           "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
           "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
-          "ionet/deepseek-ai/DeepSeek-V4-Flash",
           "mistral/mistral-large-2512",
           "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-          "mistral/mistral-medium-2604",
           "cohere/command-a-03-2025",
+          "mistral/mistral-medium-2604",
           "opencode-zen/deepseek-v4-flash-free",
           "groq/openai/gpt-oss-120b",
           "cloudflare/@cf/openai/gpt-oss-120b",
