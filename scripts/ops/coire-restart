@@ -2,7 +2,7 @@
 # coire-restart — restart docker services in safe dependency order.
 #
 # Usage:
-#   ~/coire-tools/coire-restart                 # restart stack (bifrost, shim, dashboard)
+#   ~/coire-tools/coire-restart                 # restart stack (bifrost, strip-shim)
 #   ~/coire-tools/coire-restart bifrost         # just one
 #   ~/coire-tools/coire-restart strip-shim
 #   ~/coire-tools/coire-restart --all           # everything in docker-compose.yml
@@ -39,7 +39,7 @@ if [ -n "$SVC" ]; then
 elif [ "$ALL" -eq 1 ]; then
   TARGETS=($(docker compose config --services 2>/dev/null))
 else
-  TARGETS=(bifrost strip-shim coire-dashboard)
+  TARGETS=(bifrost strip-shim)
 fi
 
 echo "will restart: ${TARGETS[*]}"
@@ -81,6 +81,6 @@ if printf '%s\n' "${TARGETS[@]}" | grep -q bifrost; then
   echo "  bifrost /api/providers: HTTP $bf"
 fi
 if printf '%s\n' "${TARGETS[@]}" | grep -q strip-shim; then
-  sh=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 http://localhost:4002/health 2>/dev/null || echo "000")
+  sh=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 http://localhost:4001/health 2>/dev/null || echo "000")
   echo "  shim /health: HTTP $sh"
 fi

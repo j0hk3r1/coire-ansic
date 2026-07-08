@@ -17,7 +17,7 @@ echo
 
 # === Containers ===
 echo "## Containers"
-for svc in coire-bifrost coire-strip-shim coire-dashboard coire-searxng coire-camofox; do
+for svc in coire-bifrost coire-strip-shim; do
   status=$(docker ps --filter "name=$svc" --format "{{.Status}}" 2>/dev/null)
   if [ -z "$status" ]; then
     echo -e "  $BAD $svc — not running"
@@ -46,16 +46,16 @@ echo
 
 # === Shim ===
 echo "## Strip-shim"
-sh_code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 http://localhost:4002/health 2>/dev/null)
+sh_code=$(curl -sS -o /dev/null -w "%{http_code}" -m 5 http://localhost:4001/health 2>/dev/null)
 if [ "$sh_code" = "200" ] || [ "$sh_code" = "503" ]; then
-  body=$(curl -sS -m 5 http://localhost:4002/health 2>/dev/null | head -c 200)
+  body=$(curl -sS -m 5 http://localhost:4001/health 2>/dev/null | head -c 200)
   if echo "$body" | grep -q '"ok"'; then
-    echo -e "  $OK http://localhost:4002 healthy · $body"
+    echo -e "  $OK http://localhost:4001 healthy · $body"
   else
-    echo -e "  $WARN http://localhost:4002 responds but: $body"
+    echo -e "  $WARN http://localhost:4001 responds but: $body"
   fi
 else
-  echo -e "  $BAD http://localhost:4002 — HTTP $sh_code (shim unreachable)"
+  echo -e "  $BAD http://localhost:4001 — HTTP $sh_code (shim unreachable)"
 fi
 echo
 
