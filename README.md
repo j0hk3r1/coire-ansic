@@ -57,9 +57,15 @@ auxiliary services (SearXNG, Camofox, Firecrawl) live in their own deploys, not 
 
 ```bash
 git clone https://github.com/j0hk3r1/coire-ansic && cd coire-ansic
-cp .env.example .env
-$EDITOR .env            # paste at least one free provider key
-./install.sh            # brings up bifrost, smoke-tests the pools
+./install.sh            # works immediately — keyless free tier via kilo.ai
+```
+
+That's it — the router is up on `:4001` with zero configuration (the keyless kilo.ai
+provider gives every install a free per-IP quota). To unlock real cascade depth:
+
+```bash
+$EDITOR .env            # paste any free provider keys you have (see table below)
+./install.sh            # re-run — pools deepen automatically
 ```
 
 Idempotent — re-run any time. The installer validates `.env`, renders config, starts
@@ -84,6 +90,27 @@ The router exposes four capability tiers as model names:
 `model` can also be a direct `provider/model` (e.g. `cerebras/zai-glm-4.7`) to pin one
 target. Each pool is one Bifrost routing rule: a weighted primary set + an ordered fallback
 cascade. Tune them in `bifrost/config.json`.
+
+### Pools are continuation-safe sets
+
+The cascade can switch models *between requests of the same conversation* — model B
+regularly has to continue a history model A started. So a pool is a **contract**, not
+just a list: every member must be able to pick up any conversation any other member
+started. Concretely:
+
+| pool | capability floor every member must meet |
+|---|---|
+| `coire-main` | native `tool_calls` + ≥128k context (long agentic histories replay whole) |
+| `coire-fast` | native `tool_calls`, small/fast, high request quota |
+| `coire-vision` | image input + `tool_calls` (an image anywhere in history binds the whole conversation) |
+| `coire-chat` | fast plain-text chat; no reasoning models (latency contract) |
+
+The shim makes histories portable across members (tool-call ids rewritten to a
+universally-accepted format, reasoning fields stripped from requests, orphan tool
+results dropped, `developer` roles normalized), and it enforces the modality rule:
+a request carrying images on a text pool is automatically rerouted to `coire-vision`.
+When adding a model to a pool, verify it meets that pool's floor first (probe
+tool-calling with a real request — don't trust provider docs).
 
 ## Connect a harness
 
@@ -125,6 +152,8 @@ and change often):
 | Cohere | https://dashboard.cohere.com |
 | OpenCode Zen | https://opencode.ai |
 | Z.ai (Zhipu) | https://z.ai/manage-apikey/apikey-list |
+| io.net Intelligence | https://io.net (recurring daily per-model quota) |
+| Reka | https://platform.reka.ai ($10 free credits monthly) |
 | Kilo Gateway | *no key needed* — anonymous per-IP free tier, wired in automatically |
 
 Cloudflare also needs `CLOUDFLARE_ACCOUNT_ID`. See `.env.example` for the full list.

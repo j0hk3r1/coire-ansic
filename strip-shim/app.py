@@ -505,6 +505,33 @@ def _pool_members(pool: str) -> list:
     return _pool_members_cache["pools"].get(pool, [])
 
 
+def _has_image_content(messages: list) -> bool:
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        content = m.get("content")
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get("type") in ("image_url", "image", "input_image"):
+                    return True
+    return False
+
+
+def reroute_images_to_vision(data: dict) -> None:
+    """Continuation safety: a conversation carrying images must stay on
+    vision-capable models — text-pool members 400 on image parts. If a pool
+    alias other than coire-vision receives image content and coire-vision is
+    enabled in this install, rewrite the model in place."""
+    model = data.get("model") or ""
+    if "/" in model or model == "coire-vision":
+        return  # direct pin (user's explicit choice) or already vision
+    if not _has_image_content(data.get("messages") or []):
+        return
+    if _pool_members("coire-vision"):
+        log.info("image content on pool %s — rerouted to coire-vision", model)
+        data["model"] = "coire-vision"
+
+
 def _needs_buffering(model: str) -> bool:
     """Should a streaming tools-request to `model` be buffered for inspection?
 
@@ -742,6 +769,7 @@ async def proxy(path: str, request: Request):
             log.warning("malformed JSON body: %s", e)
             data = None
         if isinstance(data, dict) and "messages" in data:
+            reroute_images_to_vision(data)
             clamp_max_tokens(data)
             data["messages"] = normalize_roles(data["messages"])
             data["messages"] = strip_reasoning(data["messages"])

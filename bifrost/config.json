@@ -121,6 +121,37 @@
         }
       }
     },
+    "ionet": {
+      "keys": [
+        {
+          "name": "ionet-1",
+          "value": "env.IONET_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://api.intelligence.io.solutions/api/v1",
+        "default_request_timeout_in_seconds": 90,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.intelligence.io.solutions/api/v1/chat/completions",
+          "chat_completion_stream": "https://api.intelligence.io.solutions/api/v1/chat/completions"
+        }
+      }
+    },
     "kilo": {
       "network_config": {
         "base_url": "https://api.kilo.ai/api/gateway",
@@ -240,6 +271,37 @@
         "max_retries": 2,
         "retry_backoff_initial": 500,
         "retry_backoff_max": 5000
+      }
+    },
+    "reka": {
+      "keys": [
+        {
+          "name": "reka-1",
+          "value": "env.REKA_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1
+        }
+      ],
+      "network_config": {
+        "base_url": "https://api.reka.ai/v1",
+        "default_request_timeout_in_seconds": 60,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": false,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.reka.ai/v1/chat/completions",
+          "chat_completion_stream": "https://api.reka.ai/v1/chat/completions"
+        }
       }
     },
     "sambanova": {

@@ -34,7 +34,9 @@ die()  { printf '  \033[1;31m✗\033[0m %s\n' "$*"; exit 1; }
 
 # ── 1. .env ────────────────────────────────────────────────────────────────
 step ".env"
-[ -f .env ] || { cp .env.example .env; warn "created .env from template — add your provider keys, then re-run"; exit 1; }
+# No .env? Create one and keep going — the keyless kilo provider means a
+# zero-config install still routes; keys just deepen the cascade.
+[ -f .env ] || { cp .env.example .env; warn "created .env from template — running keyless for now; add free provider keys to .env and re-run for real cascade depth"; }
 set -a; source .env; set +a
 
 PROVIDER_COUNT=0
