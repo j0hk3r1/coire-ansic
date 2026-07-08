@@ -59,7 +59,7 @@ async def health(request: Request):
     return {"shim": "ok", "bifrost": "ok" if upstream_ok else f"http {r.status_code}"}
 
 
-_FALLBACK_POOLS = ["coire-main", "coire-fast", "coire-vision"]
+_FALLBACK_POOLS = ["coire-main", "coire-fast", "coire-vision", "coire-chat"]
 
 
 def _load_models_doc():
@@ -134,32 +134,25 @@ def strip_reasoning(messages: list) -> list:
     return cleaned
 
 
-# Pool-aware output caps. Some agentic clients ask for very large maxTokens
-# (extended planning/reasoning). 65536 is the highest output any of our free
-# providers supports. Pass that through on the pools — the cascade naturally
-# walks on if a provider rejects a too-big request. Direct provider/model calls
-# fall back to DEFAULT_OUTPUT_CAP.
-_POOL_OUTPUT_CAP = {
-    "coire-main": 65536,
-    "coire-fast": 65536,
-    "coire-vision": 65536,
-}
-# Fallback when model is a direct provider/model (not a pool alias)
+# Output caps. Some agentic clients ask for very large maxTokens (extended
+# planning/reasoning). 65536 is the highest output any of our free providers
+# supports — pass that through on pool aliases (no "/" in the model name); the
+# cascade naturally walks on if a provider rejects a too-big request. Direct
+# provider/model calls get the conservative DEFAULT_OUTPUT_CAP.
+POOL_OUTPUT_CAP = int(os.environ.get("STRIP_SHIM_POOL_OUTPUT_CAP", "65536"))
 DEFAULT_OUTPUT_CAP = int(os.environ.get("STRIP_SHIM_MAX_OUTPUT_CAP", "16384"))
 
 
 def clamp_max_tokens(data: dict) -> None:
-    """Cap max_tokens in-place based on the pool name in `model` field."""
-    mt = data.get("max_tokens")
-    if not isinstance(mt, int):
-        return
+    """Cap max_tokens / max_completion_tokens in-place. Pool aliases (no "/")
+    get POOL_OUTPUT_CAP; direct provider/model calls get DEFAULT_OUTPUT_CAP."""
     model = data.get("model") or ""
-    # Pool alias OR provider/model? Pool aliases have no "/"
-    pool_or_alias = model.split("/", 1)[0]
-    cap = _POOL_OUTPUT_CAP.get(pool_or_alias, DEFAULT_OUTPUT_CAP)
-    if mt > cap:
-        log.info("clamped max_tokens %d -> %d for pool=%s", mt, cap, model)
-        data["max_tokens"] = cap
+    cap = DEFAULT_OUTPUT_CAP if "/" in model else POOL_OUTPUT_CAP
+    for field in ("max_tokens", "max_completion_tokens"):
+        mt = data.get(field)
+        if isinstance(mt, int) and mt > cap:
+            log.info("clamped %s %d -> %d for model=%s", field, mt, cap, model)
+            data[field] = cap
 
 
 def normalize_roles(messages: list) -> list:
@@ -478,6 +471,54 @@ def rewrite_tool_ids(messages: list) -> list:
 
 
 RETRY_REASONING_ONLY = os.environ.get("STRIP_SHIM_RETRY_REASONING_ONLY", "1") == "1"
+# Model-name substrings whose responses need buffering (content-embedded
+# tool-call formats and/or the reasoning-only freeze): the shim must see the
+# full body to normalize/retry, so streaming requests to them are forced
+# non-streaming upstream and converted back to SSE. Everything else streams
+# through untouched — pool members are curated for native tool_calls, so real
+# streaming is the norm and buffering the exception.
+RISKY_MODELS = tuple(
+    s.strip().lower()
+    for s in os.environ.get("STRIP_SHIM_RISKY_MODELS", "kimi,qwen").split(",")
+    if s.strip()
+)
+
+_pool_members_cache = {"mtime": None, "pools": {}}
+
+
+def _pool_members(pool: str) -> list:
+    """Direct provider/model members of a pool, from the rendered models.json
+    (coire_pools tags). Cached on file mtime. Unknown pool → []."""
+    try:
+        mtime = os.stat(MODELS_JSON_PATH).st_mtime
+    except OSError:
+        return []
+    if _pool_members_cache["mtime"] != mtime:
+        pools: dict = {}
+        doc = _load_models_doc()
+        for m in (doc or {}).get("data", []):
+            if "/" not in m.get("id", ""):
+                continue
+            for p in (m.get("coire_pools") or []):
+                pools.setdefault(p, []).append(m["id"].lower())
+        _pool_members_cache.update(mtime=mtime, pools=pools)
+    return _pool_members_cache["pools"].get(pool, [])
+
+
+def _needs_buffering(model: str) -> bool:
+    """Should a streaming tools-request to `model` be buffered for inspection?
+
+    Direct provider/model pins: buffer only if the model matches RISKY_MODELS.
+    Pool aliases: buffer if any member matches — or if membership is unknown
+    (no models.json), the conservative pre-risk-awareness behavior.
+    """
+    low = (model or "").lower()
+    if "/" in low:
+        return any(r in low for r in RISKY_MODELS)
+    members = _pool_members(low)
+    if not members:
+        return True  # unknown pool/no models.json — stay conservative
+    return any(r in m for m in members for r in RISKY_MODELS)
 RETRY_PARAM_REJECTION = os.environ.get("STRIP_SHIM_RETRY_PARAM_REJECTION", "1") == "1"
 RETRY_NUDGE_MESSAGE = (
     "The previous response described what to do but did not emit a "
@@ -752,19 +793,25 @@ async def proxy(path: str, request: Request):
     target = f"{BIFROST_URL}/v1/{path}"
     client: httpx.AsyncClient = request.app.state.client
 
-    # Reasoning-only-no-action retry: when client supplied tools, force
-    # non-streaming upstream so we can inspect the response. If model
-    # narrated intent without emitting tool_call, append a nudge user
-    # message and retry once. Convert final result back to SSE for the
-    # client. See project_kimi_reasoning_only_freeze memory.
-    retry_eligible = (
+    # Reasoning-only-no-action retry: on a tools request whose model may
+    # narrate without emitting a tool_call (Kimi-style freeze) or embed tool
+    # calls in content (Qwen control tokens), we must see the full response —
+    # so streaming requests to RISKY models are forced non-streaming upstream,
+    # inspected/normalized/nudge-retried, then converted back to SSE. Requests
+    # to curated pools with no risky member stream straight through — real
+    # streaming is the norm. See project_kimi_reasoning_only_freeze memory.
+    tools_request = (
         RETRY_REASONING_ONLY
         and path.endswith("chat/completions")
         and isinstance(data, dict)
         and bool(data.get("tools"))
     )
+    force_buffer = tools_request and is_stream and _needs_buffering(data.get("model") or "")
+    # The nudge-retry can run whenever we hold the full response: any
+    # non-streaming tools request, plus the force-buffered streaming ones.
+    retry_eligible = tools_request and (not is_stream or force_buffer)
 
-    if is_stream and not retry_eligible:
+    if is_stream and not force_buffer:
         async def gen():
             async with client.stream(
                 request.method, target, content=body, headers=headers,
@@ -778,7 +825,7 @@ async def proxy(path: str, request: Request):
     # non-streaming so we can inspect for the retry pattern.
     upstream_data = data
     upstream_body = body
-    if retry_eligible and is_stream:
+    if force_buffer:
         upstream_data = {**data, "stream": False}
         # nvidia-nim (and others) 400 with "Stream options can only be
         # defined when stream is True" if stream_options stays in body
@@ -918,7 +965,7 @@ async def proxy(path: str, request: Request):
     if payload is not None:
         out_content = json.dumps(payload).encode()
 
-    if is_stream and retry_eligible and payload is not None:
+    if force_buffer and payload is not None:
         # Client wanted streaming. Convert buffered payload to SSE.
         sse_body = _payload_to_sse_chunks(payload)
         return Response(
