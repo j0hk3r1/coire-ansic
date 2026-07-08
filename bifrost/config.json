@@ -121,6 +121,27 @@
         }
       }
     },
+    "kilo": {
+      "network_config": {
+        "base_url": "https://api.kilo.ai/api/gateway",
+        "default_request_timeout_in_seconds": 90,
+        "max_retries": 2,
+        "retry_backoff_initial": 500,
+        "retry_backoff_max": 5000
+      },
+      "custom_provider_config": {
+        "is_key_less": true,
+        "base_provider_type": "openai",
+        "allowed_requests": {
+          "chat_completion": true,
+          "chat_completion_stream": true
+        },
+        "request_path_overrides": {
+          "chat_completion": "https://api.kilo.ai/api/gateway/chat/completions",
+          "chat_completion_stream": "https://api.kilo.ai/api/gateway/chat/completions"
+        }
+      }
+    },
     "groq": {
       "keys": [
         {
@@ -198,23 +219,10 @@
         }
       ],
       "network_config": {
-        "base_url": "https://opencode.ai/zen/v1",
         "default_request_timeout_in_seconds": 20,
         "max_retries": 2,
         "retry_backoff_initial": 500,
         "retry_backoff_max": 5000
-      },
-      "custom_provider_config": {
-        "is_key_less": false,
-        "base_provider_type": "openai",
-        "allowed_requests": {
-          "chat_completion": true,
-          "chat_completion_stream": true
-        },
-        "request_path_overrides": {
-          "chat_completion": "https://opencode.ai/zen/v1/chat/completions",
-          "chat_completion_stream": "https://opencode.ai/zen/v1/chat/completions"
-        }
       }
     },
     "openrouter": {
@@ -314,9 +322,12 @@
         "fallbacks": [
           "gemini/gemini-2.5-flash",
           "gemini/gemini-2.5-flash-lite",
+          "cerebras/gemma-4-31b",
+          "kilo/stepfun/step-3.7-flash:free",
           "cohere/command-a-vision-07-2025",
           "nvidia-nim/meta/llama-3.2-90b-vision-instruct",
-          "openrouter/nvidia/nemotron-nano-12b-v2-vl:free"
+          "openrouter/nvidia/nemotron-nano-12b-v2-vl:free",
+          "zai/glm-4.6v-flash"
         ],
         "scope": "global",
         "priority": 20
@@ -337,7 +348,9 @@
           "groq/openai/gpt-oss-20b",
           "groq/llama-3.1-8b-instant",
           "mistral/ministral-8b-latest",
-          "gemini/gemini-2.5-flash"
+          "gemini/gemini-2.5-flash",
+          "zai/glm-4.7-flash",
+          "kilo/stepfun/step-3.7-flash:free"
         ],
         "scope": "global",
         "priority": 21
@@ -357,11 +370,16 @@
         "fallbacks": [
           "cerebras/gpt-oss-120b",
           "gemini/gemini-3.5-flash",
+          "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
+          "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
           "mistral/mistral-large-2512",
           "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
           "mistral/mistral-medium-2604",
           "cohere/command-a-03-2025",
-          "opencode-zen/deepseek-v4-flash-free"
+          "opencode-zen/deepseek-v4-flash-free",
+          "groq/openai/gpt-oss-120b",
+          "cloudflare/@cf/openai/gpt-oss-120b",
+          "zai/glm-4.7-flash"
         ],
         "scope": "global",
         "priority": 22
@@ -381,9 +399,9 @@
         "fallbacks": [
           "groq/llama-3.1-8b-instant",
           "mistral/mistral-small-2603",
-          "sambanova/Meta-Llama-3.3-70B-Instruct",
           "gemini/gemini-2.5-flash-lite",
-          "mistral/ministral-8b-latest"
+          "mistral/ministral-8b-latest",
+          "sambanova/Meta-Llama-3.3-70B-Instruct"
         ],
         "scope": "global",
         "priority": 23

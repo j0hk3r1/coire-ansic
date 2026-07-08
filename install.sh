@@ -43,7 +43,9 @@ for v in GROQ_API_KEY GEMINI_API_KEY MISTRAL_API_KEY CEREBRAS_API_KEY NVIDIA_API
          COHERE_API_KEY OPENCODE_ZEN_API_KEY ZAI_API_KEY; do
   [ -n "${!v:-}" ] && PROVIDER_COUNT=$((PROVIDER_COUNT+1))
 done
-[ "$PROVIDER_COUNT" -ge 1 ] || die "no provider keys in .env — set at least one (GROQ/GEMINI/MISTRAL/CEREBRAS/...)"
+# Zero keys is survivable: kilo is keyless (per-IP free quota), so the router
+# still routes — but with far less depth. Warn loudly rather than die.
+[ "$PROVIDER_COUNT" -ge 1 ] || warn "no provider keys in .env — running on keyless providers only (kilo). Add free keys for real cascade depth."
 
 # BIFROST_PASS guards the admin/management API. Auto-generate if absent.
 if [ -z "${BIFROST_PASS:-}" ]; then
@@ -56,17 +58,14 @@ ok ".env validated ($PROVIDER_COUNT provider key(s))"
 # NOTE: inference is unauthenticated by default (trusted-LAN deploy). BIFROST_API_KEY is
 # optional — only used if you enable client.enforce_auth_on_inference + a virtual key.
 
-# ── 2. render config.json ────────────────────────────────────────────────────
-step "render bifrost/config.json → bifrost/data/config.json"
-command -v envsubst >/dev/null || { warn "installing gettext-base (envsubst)"; sudo apt-get install -y gettext-base >/dev/null; }
-mkdir -p bifrost/data
-if [ -n "${CLOUDFLARE_API_KEY:-}" ] && [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
-  warn "CLOUDFLARE_API_KEY set but CLOUDFLARE_ACCOUNT_ID missing — cloudflare provider will not work"
-fi
-# Only ${CLOUDFLARE_ACCOUNT_ID} is a shell-style token; bifrost's own env.KEY refs are left intact.
-envsubst '${CLOUDFLARE_ACCOUNT_ID}' < bifrost/config.json > bifrost/data/config.json
+# ── 2. render config.json (key-aware) ────────────────────────────────────────
+# scripts/render_config.py substitutes ${VAR} tokens, prunes providers whose
+# keys are missing from .env, adapts pools (promote fallback→primary, disable
+# empty pools), and emits bifrost/data/models.json for the shim's /v1/models.
+step "render bifrost/config.json → bifrost/data/config.json (key-aware)"
+ENABLED_POOLS=$(python3 scripts/render_config.py) || die "config render failed — see messages above"
 python3 -c "import json;json.load(open('bifrost/data/config.json'))" || die "rendered config.json is not valid JSON"
-ok "config rendered ($(python3 -c "import json;c=json.load(open('bifrost/data/config.json'));print(len(c['providers']),'providers,',len(c['governance']['routing_rules']),'pools')"))"
+ok "config rendered ($(python3 -c "import json;c=json.load(open('bifrost/data/config.json'));print(len(c['providers']),'providers')") · pools: $ENABLED_POOLS)"
 
 # ── 3. bring up bifrost + shim ───────────────────────────────────────────────
 # config.json is the source of truth, but bifrost's sqlite config_store caches it on first
@@ -94,7 +93,7 @@ ok "strip-shim healthy (front door :4001 → bifrost)"
 # ── 4. smoke-test each pool ──────────────────────────────────────────────────
 step "smoke-test pools"
 SMOKE_FAIL=0
-for pool in coire-main coire-fast coire-vision; do
+for pool in $ENABLED_POOLS; do
   # max_tokens generous: reasoning-model primaries spend tokens thinking before content
   body=$(printf '{"model":"%s","messages":[{"role":"user","content":"Reply with exactly: OK"}],"max_tokens":256}' "$pool")
   resp=$(curl -s -m 60 http://localhost:4001/v1/chat/completions -H "Content-Type: application/json" -d "$body")
@@ -114,7 +113,7 @@ CoireAnsic core is up.
   • OpenAI-compat     http://localhost:4001/v1     (normalized, then → bifrost)
   • Anthropic-compat  http://localhost:4001/anthropic
   • Bifrost admin     http://localhost:4011        (admin: admin / \$BIFROST_PASS, loopback)
-  • Pools (models)    coire-main · coire-fast · coire-vision
+  • Pools (models)    $ENABLED_POOLS
 
 Connect a harness: see docs/connect/  (opencode · pi · hermes · claude-code)
 Edit providers/pools: bifrost/config.json → re-run ./install.sh

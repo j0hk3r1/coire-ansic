@@ -56,7 +56,7 @@ auxiliary services (SearXNG, Camofox, Firecrawl) live in their own deploys, not 
 ## Install
 
 ```bash
-git clone https://github.com/<owner>/coire-ansic && cd coire-ansic
+git clone https://github.com/j0hk3r1/coire-ansic && cd coire-ansic
 cp .env.example .env
 $EDITOR .env            # paste at least one free provider key
 ./install.sh            # brings up bifrost, smoke-tests the pools
@@ -64,6 +64,11 @@ $EDITOR .env            # paste at least one free provider key
 
 Idempotent — re-run any time. The installer validates `.env`, renders config, starts
 bifrost, and confirms every pool routes.
+
+**One key is enough to start.** The render step prunes providers you have no key for
+and adapts the pools to what's left (promoting fallbacks, disabling pools that end up
+empty) — so a single free key gives you a working router, and every extra key deepens
+the cascade.
 
 ## Pools (models)
 
@@ -120,6 +125,7 @@ and change often):
 | Cohere | https://dashboard.cohere.com |
 | OpenCode Zen | https://opencode.ai |
 | Z.ai (Zhipu) | https://z.ai/manage-apikey/apikey-list |
+| Kilo Gateway | *no key needed* — anonymous per-IP free tier, wired in automatically |
 
 Cloudflare also needs `CLOUDFLARE_ACCOUNT_ID`. See `.env.example` for the full list.
 
@@ -144,7 +150,7 @@ virtual key (`sk-bf-*`) and enable `client.enforce_auth_on_inference` in `config
 
 ```bash
 ./uninstall.sh           # stop services, keep .env + data
-./uninstall.sh --purge   # also wipe bifrost/data + camofox
+./uninstall.sh --purge   # also wipe bifrost/data (rendered config + DB)
 ```
 
 ## Privacy
