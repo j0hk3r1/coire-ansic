@@ -482,6 +482,21 @@ RISKY_MODELS = tuple(
     for s in os.environ.get("STRIP_SHIM_RISKY_MODELS", "kimi,qwen").split(",")
     if s.strip()
 )
+# Providers verified (by live probe) to parse their models' tool calls
+# server-side and return proper OpenAI tool_calls — their kimi/qwen-family
+# hosts don't need buffering. ionet + groq confirmed 2026-07-08.
+NATIVE_TC_PROVIDERS = frozenset(
+    s.strip().lower()
+    for s in os.environ.get("STRIP_SHIM_NATIVE_TOOLCALL_PROVIDERS", "ionet,groq").split(",")
+    if s.strip()
+)
+
+
+def _model_is_risky(model_id: str) -> bool:
+    low = model_id.lower()
+    if "/" in low and low.split("/", 1)[0] in NATIVE_TC_PROVIDERS:
+        return False
+    return any(r in low for r in RISKY_MODELS)
 
 _pool_members_cache = {"mtime": None, "pools": {}}
 
@@ -541,11 +556,11 @@ def _needs_buffering(model: str) -> bool:
     """
     low = (model or "").lower()
     if "/" in low:
-        return any(r in low for r in RISKY_MODELS)
+        return _model_is_risky(low)
     members = _pool_members(low)
     if not members:
         return True  # unknown pool/no models.json — stay conservative
-    return any(r in m for m in members for r in RISKY_MODELS)
+    return any(_model_is_risky(m) for m in members)
 RETRY_PARAM_REJECTION = os.environ.get("STRIP_SHIM_RETRY_PARAM_REJECTION", "1") == "1"
 RETRY_NUDGE_MESSAGE = (
     "The previous response described what to do but did not emit a "

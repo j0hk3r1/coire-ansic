@@ -388,8 +388,10 @@
           "kilo/stepfun/step-3.7-flash:free",
           "cohere/command-a-vision-07-2025",
           "nvidia-nim/meta/llama-3.2-90b-vision-instruct",
+          "ionet/meta-llama/Llama-3.2-90B-Vision-Instruct",
           "openrouter/nvidia/nemotron-nano-12b-v2-vl:free",
-          "zai/glm-4.6v-flash"
+          "zai/glm-4.6v-flash",
+          "reka/reka-edge-2603"
         ],
         "scope": "global",
         "priority": 20
@@ -409,9 +411,11 @@
         "fallbacks": [
           "groq/openai/gpt-oss-20b",
           "groq/llama-3.1-8b-instant",
+          "groq/qwen/qwen3.6-27b",
           "mistral/ministral-8b-latest",
           "gemini/gemini-2.5-flash",
           "zai/glm-4.7-flash",
+          "ionet/zai-org/GLM-4.7-Flash",
           "kilo/stepfun/step-3.7-flash:free"
         ],
         "scope": "global",
@@ -430,10 +434,13 @@
           }
         ],
         "fallbacks": [
+          "ionet/zai-org/GLM-5.2",
+          "ionet/deepseek-ai/DeepSeek-V4-Pro",
           "cerebras/gpt-oss-120b",
           "gemini/gemini-3.5-flash",
           "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
           "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+          "ionet/deepseek-ai/DeepSeek-V4-Flash",
           "mistral/mistral-large-2512",
           "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
           "mistral/mistral-medium-2604",
@@ -463,6 +470,7 @@
           "mistral/mistral-small-2603",
           "gemini/gemini-2.5-flash-lite",
           "mistral/ministral-8b-latest",
+          "ionet/meta-llama/Llama-3.3-70B-Instruct",
           "sambanova/Meta-Llama-3.3-70B-Instruct"
         ],
         "scope": "global",
